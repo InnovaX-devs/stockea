@@ -111,7 +111,7 @@ export default function DashboardPage() {
       {/* Saldo total + Hoy */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Saldo total */}
-        <div className="cta-glow relative overflow-hidden rounded-2xl bg-ink p-6 text-ivory">
+        <div className="cta-glow relative overflow-hidden rounded-2xl bg-[#132A1F] p-6 text-ivory">
           {/* Parte de arriba: label + ojito + monto -> va a /finanzas */}
           <Link
             href="/finanzas"

@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
-import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
-import { SidebarProvider } from "@/components/layout/sidebar-context";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { DevCredit } from "@/components/shared/dev-credit";
 
@@ -9,30 +7,21 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const configuracion = await obtenerConfiguracion();
 
   return (
-    <SidebarProvider>
-      {/* Antes: bg-ivory. Como --ivory ahora es el blanco que usa el texto del
-          sidebar oscuro, el fondo de la app pasa a bg-bg, que sí cambia con el
-          modo oscuro. */}
-      <div className="flex h-dvh overflow-hidden bg-bg">
-        <Sidebar
-          logoUrl={configuracion.logoUrl ?? null}
-          nombreNegocio={configuracion.nombreNegocio}
-          eslogan={configuracion.eslogan}
-          premium={configuracion.licencia === "PREMIUM"}
-        />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <Topbar
-            cotizacionUSD={configuracion.cotizacionUSD}
-            usaCotizacionUSD={configuracion.usaCotizacionUSD}
-          />
-          <main className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-8">
-            {children}
-          </main>
-          <footer className="border-t border-border px-4 py-3 sm:px-6">
-            <DevCredit />
-          </footer>
-        </div>
-      </div>
-    </SidebarProvider>
+    <div className="flex min-h-dvh flex-col bg-bg">
+      <Topbar
+        logoUrl={configuracion.logoUrl ?? null}
+        nombreNegocio={configuracion.nombreNegocio}
+        eslogan={configuracion.eslogan}
+        premium={configuracion.licencia === "PREMIUM"}
+        cotizacionUSD={configuracion.cotizacionUSD}
+        usaCotizacionUSD={configuracion.usaCotizacionUSD}
+      />
+      <main className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-8">
+        {children}
+      </main>
+      <footer className="border-t border-border px-4 py-3 sm:px-6">
+        <DevCredit />
+      </footer>
+    </div>
   );
 }

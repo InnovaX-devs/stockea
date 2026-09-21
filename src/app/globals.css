@@ -164,37 +164,29 @@ html {
       0 0 0 1px rgba(34, 197, 94, 0.05);
   }
 
-  /* Halos de color dentro de una card oscura (como el .cta de la landing) */
-  .cta-glow::before,
-  .cta-glow::after {
+  /* Halo único y sutil detrás del número, no dos blobs en las esquinas
+     (esos armaban un degradé verde-claro a verde-oscuro que no convencía). */
+  .cta-glow::before {
     content: "";
     position: absolute;
+    width: 280px;
+    height: 160px;
     border-radius: 9999px;
-    filter: blur(120px);
+    background: var(--primary-soft);
+    opacity: 0.1;
+    filter: blur(110px);
+    left: 40px;
+    top: 30px;
     pointer-events: none;
   }
-  .cta-glow::before {
-    width: 320px;
-    height: 320px;
-    background: var(--accent);
-    opacity: 0.35;
-    right: -110px;
-    top: -150px;
-  }
   .cta-glow::after {
-    width: 260px;
-    height: 260px;
-    background: var(--primary-soft);
-    opacity: 0.22;
-    left: -90px;
-    bottom: -150px;
+    content: none;
   }
 
-  /* Fondo del sidebar: ahora completamente verde (degradado entre
-     --primary y --accent), en vez del --ink oscuro con halos sutiles
-     que tenía antes. */
-  .bg-sidebar {
-    background: linear-gradient(160deg, var(--primary) 0%, var(--primary) 45%, var(--accent) 100%);
+  /* Fondo de la topbar (antes sidebar vertical): negro con tinte verde,
+     no negro puro ni el verde sólido que tenía la versión original. */
+  .bg-topbar {
+    background: #132A1F;
   }
 }
 
