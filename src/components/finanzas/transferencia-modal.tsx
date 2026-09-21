@@ -82,14 +82,14 @@ export function TransferenciaModal({ isOpen, onClose, cuentas, onSuccess }: Prop
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-[#191c1e]">Transferir entre cuentas</h2>
+        <h2 className="text-lg font-semibold text-text">Transferir entre cuentas</h2>
 
         <div className="mt-4">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">Cuenta origen</label>
+          <label className="text-[11px] font-bold uppercase tracking-wider text-text-dim">Cuenta origen</label>
           <select
             value={origenId}
             onChange={(e) => setOrigenId(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm focus:border-[#021541] focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
           >
             <option value="">Seleccionar...</option>
             {cuentasActivas.map((c) => (
@@ -101,11 +101,11 @@ export function TransferenciaModal({ isOpen, onClose, cuentas, onSuccess }: Prop
         </div>
 
         <div className="mt-4">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">Cuenta destino</label>
+          <label className="text-[11px] font-bold uppercase tracking-wider text-text-dim">Cuenta destino</label>
           <select
             value={destinoId}
             onChange={(e) => setDestinoId(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm focus:border-[#021541] focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
           >
             <option value="">Seleccionar...</option>
             {cuentasActivas
@@ -117,12 +117,12 @@ export function TransferenciaModal({ isOpen, onClose, cuentas, onSuccess }: Prop
               ))}
           </select>
           {monedasIncompatibles && (
-            <p className="mt-1 text-xs text-[#ba1a1a]">Las cuentas deben ser de la misma moneda.</p>
+            <p className="mt-1 text-xs text-danger">Las cuentas deben ser de la misma moneda.</p>
           )}
         </div>
 
         <div className="mt-4">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+          <label className="text-[11px] font-bold uppercase tracking-wider text-text-dim">
             Monto {monedaOrigen ? `(${monedaOrigen})` : ""}
           </label>
           <input
@@ -131,18 +131,18 @@ export function TransferenciaModal({ isOpen, onClose, cuentas, onSuccess }: Prop
             value={monto}
             onChange={(e) => setMonto(e.target.value)}
             placeholder="0"
-            className="mt-1 w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm focus:border-[#021541] focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
         </div>
 
         <div className="mt-4">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">Concepto</label>
+          <label className="text-[11px] font-bold uppercase tracking-wider text-text-dim">Concepto</label>
           <input
             type="text"
             value={concepto}
             onChange={(e) => setConcepto(e.target.value)}
             placeholder="Ej: Refuerzo de caja..."
-            className="mt-1 w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm focus:border-[#021541] focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
         </div>
 
@@ -150,14 +150,14 @@ export function TransferenciaModal({ isOpen, onClose, cuentas, onSuccess }: Prop
           <button
             onClick={confirmar}
             disabled={guardando}
-            className="flex-1 rounded-lg bg-[#021541] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+            className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
           >
             {guardando ? "Transfiriendo..." : "Confirmar transferencia"}
           </button>
           <button
             onClick={onClose}
             disabled={guardando}
-            className="rounded-lg bg-[#eceef0] px-4 py-2 text-sm font-medium text-[#45464f] hover:bg-[#e0e3e5]"
+            className="rounded-lg bg-surface-hover px-4 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover"
           >
             Cancelar
           </button>

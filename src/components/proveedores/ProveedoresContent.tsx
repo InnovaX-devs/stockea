@@ -49,10 +49,10 @@ export default function ProveedoresContent({
   return (
     <div className="p-4 space-y-5 sm:space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl sm:text-2xl font-semibold text-[#191c1e]">Proveedores</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold text-text">Proveedores</h1>
         <button
           onClick={() => setIsCrearOpen(true)}
-          className="px-4 py-2 text-sm rounded-lg bg-[#021541] text-white hover:opacity-90 self-start sm:self-auto cursor-pointer"
+          className="px-4 py-2 text-sm rounded-lg bg-primary text-white hover:opacity-90 self-start sm:self-auto cursor-pointer"
         >
           + Nuevo proveedor
         </button>
@@ -63,7 +63,7 @@ export default function ProveedoresContent({
       <ProveedoresTable proveedores={proveedores} onVerDetalle={abrirDetalle} />
 
       {totalItems > 0 && (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-[#45464f]">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-text-dim">
           <span>
             Mostrando {(pagina - 1) * paginacion.pageSize + 1}–
             {Math.min(pagina * paginacion.pageSize, totalItems)} de {totalItems}
@@ -72,7 +72,7 @@ export default function ProveedoresContent({
             <button
               onClick={() => irAPagina(pagina - 1)}
               disabled={pagina <= 1}
-              className="px-3 py-1.5 rounded-lg border border-[#c5c6d0] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#eceef0]"
+              className="px-3 py-1.5 rounded-lg border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-hover"
             >
               Anterior
             </button>
@@ -82,7 +82,7 @@ export default function ProveedoresContent({
             <button
               onClick={() => irAPagina(pagina + 1)}
               disabled={pagina >= totalPaginas}
-              className="px-3 py-1.5 rounded-lg border border-[#c5c6d0] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#eceef0]"
+              className="px-3 py-1.5 rounded-lg border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-hover"
             >
               Siguiente
             </button>

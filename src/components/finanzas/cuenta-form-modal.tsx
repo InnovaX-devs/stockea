@@ -309,7 +309,7 @@ export function CuentaFormModal({ isOpen, onClose, cuentaEditar, onSuccess, usaC
             <button
               type="submit"
               disabled={loading}
-              className="rounded-lg bg-[#021541] px-4 py-2 cursor-pointer text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="rounded-lg bg-primary px-4 py-2 cursor-pointer text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {loading ? "Guardando..." : cuentaEditar ? "Guardar cambios" : "Crear cuenta"}
             </button>

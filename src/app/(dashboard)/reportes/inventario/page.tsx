@@ -14,25 +14,25 @@ export default async function InventarioReportePage({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-[#45464f]">Stock a costo</p>
-          <p className="mt-1 text-xl font-semibold text-[#191c1e]">
+        <div className="rounded-2xl border border-border bg-white p-4">
+          <p className="text-xs uppercase tracking-wide text-text-dim">Stock a costo</p>
+          <p className="mt-1 text-xl font-semibold text-text">
             {formatCurrency(data.valorStockCostoARS, "ARS")}
           </p>
         </div>
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-[#45464f]">Stock a precio de venta</p>
-          <p className="mt-1 text-xl font-semibold text-[#191c1e]">
+        <div className="rounded-2xl border border-border bg-white p-4">
+          <p className="text-xs uppercase tracking-wide text-text-dim">Stock a precio de venta</p>
+          <p className="mt-1 text-xl font-semibold text-text">
             {formatCurrency(data.valorStockVentaARS, "ARS")}
           </p>
         </div>
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-[#45464f]">Sin stock</p>
-          <p className="mt-1 text-xl font-semibold text-[#ba1a1a]">{data.cantidadSinStock}</p>
+        <div className="rounded-2xl border border-border bg-white p-4">
+          <p className="text-xs uppercase tracking-wide text-text-dim">Sin stock</p>
+          <p className="mt-1 text-xl font-semibold text-danger">{data.cantidadSinStock}</p>
         </div>
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-[#45464f]">Stock bajo</p>
-          <p className="mt-1 text-xl font-semibold text-[#a15c00]">{data.cantidadStockBajo}</p>
+        <div className="rounded-2xl border border-border bg-white p-4">
+          <p className="text-xs uppercase tracking-wide text-text-dim">Stock bajo</p>
+          <p className="mt-1 text-xl font-semibold text-warning">{data.cantidadStockBajo}</p>
         </div>
       </div>
 

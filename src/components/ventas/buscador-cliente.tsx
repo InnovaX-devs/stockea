@@ -132,7 +132,7 @@ export function BuscadorCliente() {
         <button
           type="button"
           onClick={() => setMostrarAlta(true)}
-          className="flex shrink-0 items-center cursor-pointer gap-1 whitespace-nowrap rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-[#021541] hover:bg-surface-hover"
+          className="flex shrink-0 items-center cursor-pointer gap-1 whitespace-nowrap rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-primary hover:bg-surface-hover"
         >
           <Plus size={14} /> Nuevo
         </button>

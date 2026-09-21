@@ -80,11 +80,11 @@ export function ProductoDetalleModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="relative shrink-0 bg-[#021541] p-5 text-white">
+        <div className="relative shrink-0 bg-primary p-5 text-white">
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-4 top-4 text-white/70 hover:text-white"
+            className="absolute right-4 top-4 text-white hover:text-white"
             aria-label="Cerrar"
           >
             <X className="h-5 w-5" />
@@ -98,7 +98,7 @@ export function ProductoDetalleModal({
                   className="h-full w-full object-contain"
                 />
               ) : (
-                <span className="text-[10px] text-[#021541]/40">Sin foto</span>
+                <span className="text-[10px] text-primary/40">Sin foto</span>
               )}
             </div>
             <div className="min-w-0">
@@ -115,7 +115,7 @@ export function ProductoDetalleModal({
                   </span>
                 )}
                 {configProducto.usaCotizacionUSD && (
-                  <span className="rounded-full bg-[#1e7d38] px-2 py-0.5 text-[11px] font-semibold">
+                  <span className="rounded-full bg-success px-2 py-0.5 text-[11px] font-semibold">
                     {producto.monedaPrecio}
                   </span>
                 )}
@@ -127,78 +127,78 @@ export function ProductoDetalleModal({
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5">
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl bg-[#F0FDF4] p-3 text-center">
-              <p className="text-[10px] uppercase tracking-wide text-[#45464f]">
+            <div className="rounded-xl bg-success/10 p-3 text-center">
+              <p className="text-[10px] uppercase tracking-wide text-text-dim">
                 Stock actual
               </p>
-              <p className="mt-1 text-lg font-bold text-[#1e7d38]">
+              <p className="mt-1 text-lg font-bold text-success">
                 {producto.stockActual}
               </p>
             </div>
-            <div className="rounded-xl bg-[#F8FAFC] p-3 text-center">
-              <p className="text-[10px] uppercase tracking-wide text-[#45464f]">
+            <div className="rounded-xl bg-surface p-3 text-center">
+              <p className="text-[10px] uppercase tracking-wide text-text-dim">
                 Stock mín.
               </p>
-              <p className="mt-1 text-lg font-bold text-[#191c1e]">
+              <p className="mt-1 text-lg font-bold text-text">
                 {producto.stockMinimo ?? 0}
               </p>
             </div>
-            <div className="rounded-xl bg-[#F8FAFC] p-3 text-center">
-              <p className="text-[10px] uppercase tracking-wide text-[#45464f]">
+            <div className="rounded-xl bg-surface p-3 text-center">
+              <p className="text-[10px] uppercase tracking-wide text-text-dim">
                 Volumen
               </p>
-              <p className="mt-1 text-lg font-bold text-[#191c1e]">
+              <p className="mt-1 text-lg font-bold text-text">
                 {producto.contenidoMl ? `${producto.contenidoMl}ml` : "-"}
               </p>
             </div>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-xl border border-[#E2E8F0]">
-            <div className="bg-[#021541] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white">
+          <div className="mt-4 overflow-hidden rounded-xl border border-border">
+            <div className="bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white">
               {configProducto.usaCotizacionUSD ? `Precios · ${producto.monedaPrecio}` : "Precios"}
             </div>
 
-            <div className="flex items-center justify-between border-t border-[#E2E8F0] px-4 py-3">
-              <span className="text-sm text-[#45464f]">Costo</span>
+            <div className="flex items-center justify-between border-t border-border px-4 py-3">
+              <span className="text-sm text-text-dim">Costo</span>
               <div className="text-right">
-                <p className="font-semibold text-[#191c1e]">
+                <p className="font-semibold text-text">
                   {formatCurrency(configProducto.usaCotizacionUSD ? costo.usd : costo.ars, configProducto.usaCotizacionUSD ? "USD" : "ARS")}
                 </p>
                 {configProducto.usaCotizacionUSD && (
-                  <p className="text-xs text-[#a3aab5]">{formatCurrency(costo.ars, "ARS")}</p>
+                  <p className="text-xs text-text-dim">{formatCurrency(costo.ars, "ARS")}</p>
                 )}
               </div>
             </div>
 
-            <div className="flex items-center justify-between border-t border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
-              <span className="text-sm font-medium text-[#021541]">Venta</span>
+            <div className="flex items-center justify-between border-t border-border bg-surface px-4 py-3">
+              <span className="text-sm font-medium text-primary">Venta</span>
               <div className="text-right">
-                <p className="font-bold text-[#021541]">
+                <p className="font-bold text-primary">
                   {formatCurrency(configProducto.usaCotizacionUSD ? venta.usd : venta.ars, configProducto.usaCotizacionUSD ? "USD" : "ARS")}
                 </p>
                 {configProducto.usaCotizacionUSD && (
-                  <p className="text-xs text-[#5b6472]">{formatCurrency(venta.ars, "ARS")}</p>
+                  <p className="text-xs text-text-dim">{formatCurrency(venta.ars, "ARS")}</p>
                 )}
               </div>
             </div>
 
             {mayorista && (
-              <div className="flex items-center justify-between border-t border-[#E2E8F0] px-4 py-3">
+              <div className="flex items-center justify-between border-t border-border px-4 py-3">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-sm text-[#191c1e]">Mayorista</span>
-                  <span className="rounded bg-[#FEF3C7] px-1.5 py-0.5 text-[10px] font-bold text-[#a15c00]">
+                  <span className="text-sm text-text">Mayorista</span>
+                  <span className="rounded bg-[#FEF3C7] px-1.5 py-0.5 text-[10px] font-bold text-warning">
                     MAY
                   </span>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-[#1D4ED8]">
+                  <p className="font-bold text-primary">
                     {formatCurrency(configProducto.usaCotizacionUSD ? mayorista.usd : mayorista.ars, configProducto.usaCotizacionUSD ? "USD" : "ARS")}
                   </p>
                   {configProducto.usaCotizacionUSD && (
-                    <p className="text-xs text-[#93B4F5]">{formatCurrency(mayorista.ars, "ARS")}</p>
+                    <p className="text-xs text-primary">{formatCurrency(mayorista.ars, "ARS")}</p>
                   )}
                   {margenMayorista !== null && (
-                    <p className="text-[11px] font-medium text-[#a15c00]">
+                    <p className="text-[11px] font-medium text-warning">
                       Margen {margenMayorista.toFixed(2)}%
                     </p>
                   )}
@@ -206,9 +206,9 @@ export function ProductoDetalleModal({
               </div>
             )}
 
-            <div className="flex items-center justify-between border-t border-[#E2E8F0] bg-[#F0FDF4] px-4 py-3">
-              <span className="text-sm font-medium text-[#1e7d38]">Margen venta</span>
-              <span className="text-base font-bold text-[#1e7d38]">
+            <div className="flex items-center justify-between border-t border-border bg-success/10 px-4 py-3">
+              <span className="text-sm font-medium text-success">Margen venta</span>
+              <span className="text-base font-bold text-success">
                 {margenVenta.toFixed(2)}%
               </span>
             </div>
@@ -216,11 +216,11 @@ export function ProductoDetalleModal({
         </div>
 
         {/* Footer */}
-        <div className="flex shrink-0 gap-2 border-t border-[#E2E8F0] p-4">
+        <div className="flex shrink-0 gap-2 border-t border-border p-4">
           <button
             type="button"
             onClick={onEditar}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#021541] px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
           >
             <Pencil className="h-4 w-4" />
             Editar producto
@@ -230,8 +230,8 @@ export function ProductoDetalleModal({
             onClick={onDesactivar}
             className={
               producto.activo
-                ? "flex items-center justify-center gap-2 rounded-lg border border-[#f5c2c2] bg-[#fdecec] px-4 py-2.5 text-sm font-medium text-[#ba1a1a] hover:bg-[#f8d7d7]"
-                : "flex items-center justify-center gap-2 rounded-lg border border-[#b7dfc0] bg-[#e7f8ec] px-4 py-2.5 text-sm font-medium text-[#1e7d38] hover:bg-[#d9f2df]"
+                ? "flex items-center justify-center gap-2 rounded-lg border border-[#f5c2c2] bg-danger/10 px-4 py-2.5 text-sm font-medium text-danger hover:bg-[#f8d7d7]"
+                : "flex items-center justify-center gap-2 rounded-lg border border-[#b7dfc0] bg-[#e7f8ec] px-4 py-2.5 text-sm font-medium text-success hover:bg-[#d9f2df]"
             }
           >
             {producto.activo ? (

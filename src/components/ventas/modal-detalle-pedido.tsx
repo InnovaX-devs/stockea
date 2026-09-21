@@ -11,10 +11,10 @@ import type { PedidoDetalle } from "@/types/venta";
 import { ModalCobrarPedido } from "./modal-cobrar-pedido";
 
 const ESTADO_STYLE: Record<EstadoPago, string> = {
-  PAGADA: "bg-[#e1f2e6] text-[#1e7d38]",
-  A_CUENTA: "bg-[#fdecc8] text-[#8a5a00]",
-  ANULADA: "bg-[#e0e3e5] text-[#45464f]",
-  CANCELADA: "bg-[#fbe4e4] text-[#ba1a1a]",
+  PAGADA: "bg-success/10 text-success",
+  A_CUENTA: "bg-warning/10 text-warning",
+  ANULADA: "bg-surface-hover text-text-dim",
+  CANCELADA: "bg-danger/10 text-danger",
 };
 
 const ESTADO_LABEL: Record<EstadoPago, string> = {
@@ -140,10 +140,10 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-[#E2E8F0] p-5">
+        <div className="flex items-start justify-between border-b border-border p-5">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-[#191c1e]">Pedido #{pedidoId}</h2>
+              <h2 className="text-lg font-semibold text-text">Pedido #{pedidoId}</h2>
               {pedido && (
                 <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", ESTADO_STYLE[pedido.estadoPago])}>
                   {ESTADO_LABEL[pedido.estadoPago]}
@@ -152,26 +152,26 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
             </div>
             {pedido && (
               <>
-                <p className="mt-1 text-sm text-[#45464f]">
+                <p className="mt-1 text-sm text-text-dim">
                   Registrado: {formatoFechaHora.format(new Date(pedido.fecha))}
                 </p>
-                <p className="mt-0.5 flex items-center gap-1.5 text-sm font-medium text-[#191c1e]">
-                  <User size={14} className="text-[#45464f]" />
+                <p className="mt-0.5 flex items-center gap-1.5 text-sm font-medium text-text">
+                  <User size={14} className="text-text-dim" />
                   {pedido.clienteNombre ?? "Sin cliente"}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {pedido.armado && (
-                    <span className="flex items-center gap-1 rounded-full bg-[#e3e6f5] px-2.5 py-1 text-xs font-medium text-[#021541]">
+                    <span className="flex items-center gap-1 rounded-full bg-surface-hover px-2.5 py-1 text-xs font-medium text-primary">
                       <Package size={11} /> Armado
                     </span>
                   )}
                   {pedido.enviado && (
-                    <span className="flex items-center gap-1 rounded-full bg-[#e3e6f5] px-2.5 py-1 text-xs font-medium text-[#021541]">
+                    <span className="flex items-center gap-1 rounded-full bg-surface-hover px-2.5 py-1 text-xs font-medium text-primary">
                       <Truck size={11} /> Enviado
                     </span>
                   )}
                   {pedido.retirado && (
-                    <span className="flex items-center gap-1 rounded-full bg-[#e1f2e6] px-2.5 py-1 text-xs font-medium text-[#1e7d38]">
+                    <span className="flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
                       <CheckCircle2 size={11} /> Retirado
                     </span>
                   )}
@@ -182,7 +182,7 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#45464f] hover:bg-[#eceef0]"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-dim hover:bg-surface-hover"
             aria-label="Cerrar"
           >
             <X className="h-5 w-5" />
@@ -192,16 +192,16 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5">
           {cargando ? (
-            <p className="py-10 text-center text-sm text-[#45464f]">Cargando...</p>
+            <p className="py-10 text-center text-sm text-text-dim">Cargando...</p>
           ) : error ? (
-            <p className="py-10 text-center text-sm text-[#ba1a1a]">{error}</p>
+            <p className="py-10 text-center text-sm text-danger">{error}</p>
           ) : pedido ? (
             <>
-              <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[#45464f]">Productos</h3>
-              <div className="overflow-hidden rounded-xl border border-[#E2E8F0]">
+              <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-text-dim">Productos</h3>
+              <div className="overflow-hidden rounded-xl border border-border">
                 <table className="w-full text-sm">
-                  <thead className="bg-[#F1F5F9]">
-                    <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+                  <thead className="bg-topbar">
+                    <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-white">
                       <th className="px-3 py-2">Producto</th>
                       <th className="px-3 py-2 text-right">Cant.</th>
                       <th className="px-3 py-2 text-right">P. Unit.</th>
@@ -210,18 +210,18 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
                   </thead>
                   <tbody>
                     {pedido.items.map((item) => (
-                      <tr key={item.id} className="border-t border-[#E2E8F0]">
+                      <tr key={item.id} className="border-t border-border">
                         <td className="px-3 py-2.5">
-                          <p className="font-medium text-[#191c1e]">{item.productoNombre}</p>
+                          <p className="font-medium text-text">{item.productoNombre}</p>
                         </td>
-                        <td className="px-3 py-2.5 text-right text-[#191c1e]">{item.cantidad}</td>
+                        <td className="px-3 py-2.5 text-right text-text">{item.cantidad}</td>
                         <td className="px-3 py-2.5 text-right">
                           {usaCotizacionUSD && (
-                            <p className="text-xs text-[#45464f]">US${item.precioUnitarioUSD.toFixed(2)}</p>
+                            <p className="text-xs text-text-dim">US${item.precioUnitarioUSD.toFixed(2)}</p>
                           )}
-                          <p className="text-[#191c1e]">{formatCurrency(item.precioUnitarioARS, "ARS")}</p>
+                          <p className="text-text">{formatCurrency(item.precioUnitarioARS, "ARS")}</p>
                         </td>
-                        <td className="px-3 py-2.5 text-right font-semibold text-[#191c1e]">
+                        <td className="px-3 py-2.5 text-right font-semibold text-text">
                           {formatCurrency(item.subtotalARS, "ARS")}
                         </td>
                       </tr>
@@ -232,41 +232,41 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
 
               {/* Resumen + Pago */}
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-[#E2E8F0] p-4">
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#45464f]">Resumen</p>
+                <div className="rounded-xl border border-border p-4">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-dim">Resumen</p>
                   <div className="flex items-baseline justify-between">
-                    <span className="text-sm text-[#45464f]">Total</span>
-                    <span className="text-xl font-bold text-[#191c1e]">
+                    <span className="text-sm text-text-dim">Total</span>
+                    <span className="text-xl font-bold text-text">
                       {formatCurrency(pedido.totalARS, "ARS")}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center justify-between text-sm">
-                    <span className="text-[#45464f]">Ganancia</span>
-                    <span className="font-medium text-[#1e7d38]">
+                    <span className="text-text-dim">Ganancia</span>
+                    <span className="font-medium text-success">
                       {formatCurrency(pedido.gananciaARS, "ARS")} · {pedido.gananciaPorcentaje.toFixed(2)}%
                     </span>
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-[#E2E8F0] p-4">
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-[#45464f]">Pago</p>
+                <div className="rounded-xl border border-border p-4">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-dim">Pago</p>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-1 text-[#45464f]">
+                    <span className="flex items-center gap-1 text-text-dim">
                       <Wallet size={13} /> Método
                     </span>
-                    <span className="font-medium text-[#191c1e]">{metodoPago}</span>
+                    <span className="font-medium text-text">{metodoPago}</span>
                   </div>
                   {pedido.estadoPago === "A_CUENTA" ? (
                     <div className="mt-1 flex items-center justify-between text-sm">
-                      <span className="font-medium text-[#ba1a1a]">Saldo pendiente</span>
-                      <span className="font-semibold text-[#ba1a1a]">
+                      <span className="font-medium text-danger">Saldo pendiente</span>
+                      <span className="font-semibold text-danger">
                         {formatCurrency(saldoPendiente, "ARS")}
                       </span>
                     </div>
                   ) : (
                     <div className="mt-1 flex items-center justify-between text-sm">
-                      <span className="text-[#45464f]">Estado</span>
-                      <span className="font-medium text-[#1e7d38]">Pagado en su totalidad</span>
+                      <span className="text-text-dim">Estado</span>
+                      <span className="font-medium text-success">Pagado en su totalidad</span>
                     </div>
                   )}
                 </div>
@@ -277,12 +277,12 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
 
         {/* Footer */}
         {pedido && (
-          <div className="flex flex-col gap-2 border-t border-[#E2E8F0] p-4">
+          <div className="flex flex-col gap-2 border-t border-border p-4">
             {pedido.estadoPago !== "PAGADA" && (
               <button
                 type="button"
                 onClick={() => setModalCobroAbierto(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1e7d38] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-success px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
               >
                 <DollarSign className="h-4 w-4" />
                 Cobrar pedido
@@ -292,12 +292,12 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
             <div className="flex items-center justify-between gap-2 rounded-lg border border-[#fbe4e4] bg-[#fef7f7] px-3 py-2">
               {confirmandoCancelar ? (
                 <>
-                  <span className="text-sm text-[#ba1a1a]">¿Seguro que querés cancelar este pedido?</span>
+                  <span className="text-sm text-danger">¿Seguro que querés cancelar este pedido?</span>
                   <div className="flex shrink-0 gap-2">
                     <button
                       type="button"
                       onClick={() => setConfirmandoCancelar(false)}
-                      className="rounded-lg px-3 py-1.5 text-sm font-medium text-[#45464f] hover:bg-[#eceef0]"
+                      className="rounded-lg px-3 py-1.5 text-sm font-medium text-text-dim hover:bg-surface-hover"
                     >
                       No
                     </button>
@@ -305,7 +305,7 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
                       type="button"
                       onClick={handleCancelar}
                       disabled={cancelando}
-                      className="flex items-center gap-1.5 rounded-lg bg-[#ba1a1a] px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                      className="flex items-center gap-1.5 rounded-lg bg-danger px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                     >
                       {cancelando ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                       Sí, cancelar
@@ -316,7 +316,7 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
                 <button
                   type="button"
                   onClick={() => setConfirmandoCancelar(true)}
-                  className="flex items-center gap-1.5 text-sm font-medium text-[#ba1a1a] hover:underline"
+                  className="flex items-center gap-1.5 text-sm font-medium text-danger hover:underline"
                 >
                   <XCircle className="h-4 w-4" />
                   Cancelar pedido
@@ -329,7 +329,7 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
                 type="button"
                 onClick={descargarComprobante}
                 disabled={descargando}
-                className="flex items-center gap-2 rounded-lg border border-[#c5c6d0] px-4 py-2 text-sm font-medium text-[#45464f] hover:bg-[#eceef0] disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover disabled:opacity-50"
               >
                 {descargando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 Comprobante
@@ -337,7 +337,7 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg bg-[#021541] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90"
               >
                 Cerrar
               </button>

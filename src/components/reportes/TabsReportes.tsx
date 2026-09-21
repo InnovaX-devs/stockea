@@ -46,7 +46,7 @@ export function TabsReportes({
 
   return (
     <div className="flex flex-col gap-3 print:hidden">
-      <div className="flex flex-wrap gap-1 rounded-2xl border border-[#E2E8F0] bg-white p-1">
+      <div className="flex flex-wrap gap-1 rounded-2xl border border-border bg-white p-1">
         {TABS.map((t) => (
           <button
             key={t.value}
@@ -54,8 +54,8 @@ export function TabsReportes({
             onClick={() => cambiarTab(t.value)}
             className={`rounded-lg px-3 py-1.5 text-sm cursor-pointer font-medium transition-colors ${
               tabActual === t.value
-                ? "bg-[#021541] text-white"
-                : "text-[#45464f] hover:bg-[#eceef0] hover:text-[#191c1e]"
+                ? "bg-primary text-white"
+                : "text-text-dim hover:bg-surface-hover hover:text-text"
             }`}
           >
             {t.label}
@@ -64,21 +64,21 @@ export function TabsReportes({
       </div>
 
       {tabActual === "periodo" && (
-        <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
-          <label className="flex flex-col gap-1 text-sm text-[#45464f]">
+        <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-white p-3">
+          <label className="flex flex-col gap-1 text-sm text-text-dim">
             Desde
             <DateInput
               defaultValue={desde ?? ""}
               onChange={(valor) => actualizarFecha("desde", valor)}
-              className="rounded-md border border-[#c5c6d0] bg-white px-3 py-2 text-sm text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+              className="rounded-md border border-border bg-white px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm text-[#45464f]">
+          <label className="flex flex-col gap-1 text-sm text-text-dim">
             Hasta
             <DateInput
               defaultValue={hasta ?? ""}
               onChange={(valor) => actualizarFecha("hasta", valor)}
-              className="rounded-md border border-[#c5c6d0] bg-white px-3 py-2 text-sm text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+              className="rounded-md border border-border bg-white px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </label>
         </div>

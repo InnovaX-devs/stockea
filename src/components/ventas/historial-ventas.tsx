@@ -25,10 +25,10 @@ const OPCIONES_ORDEN = [
 ];
 
 const ESTADO_STYLE: Record<EstadoPago, string> = {
-  PAGADA: "bg-[#e1f2e6] text-[#1e7d38]",
-  A_CUENTA: "bg-[#fdecc8] text-[#8a5a00]",
-  ANULADA: "bg-[#e0e3e5] text-[#45464f]",
-  CANCELADA: "bg-[#fbe4e4] text-[#ba1a1a]",
+  PAGADA: "bg-success/10 text-success",
+  A_CUENTA: "bg-warning/10 text-warning",
+  ANULADA: "bg-surface-hover text-text-dim",
+  CANCELADA: "bg-danger/10 text-danger",
 };
 
 const ESTADO_LABEL: Record<EstadoPago, string> = {
@@ -152,24 +152,24 @@ export function HistorialVentas() {
     <div className="space-y-5 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-semibold text-[#191c1e] sm:text-2xl">Ventas</h1>
+        <h1 className="text-xl font-semibold text-text sm:text-2xl">Ventas</h1>
         <Link
           href="/ventas"
-          className="flex items-center justify-center gap-1.5 self-start rounded-lg bg-[#021541] px-4 py-2 text-sm text-white hover:opacity-90 sm:self-auto"
+          className="flex items-center justify-center gap-1.5 self-start rounded-lg bg-primary px-4 py-2 text-sm text-white hover:opacity-90 sm:self-auto"
         >
           <Plus className="h-4 w-4" /> Nueva Venta
         </Link>
       </div>
 
       {/* Filtros */}
-      <div className="space-y-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
+      <div className="space-y-3 rounded-2xl border border-border bg-white p-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#45464f]" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" />
           <input
             value={clienteInput}
             onChange={(e) => setClienteInput(e.target.value)}
             placeholder='Cliente, "Sin cliente" o Nº de venta...'
-            className="w-full rounded-lg border border-[#c5c6d0] bg-white py-2 pl-9 pr-3 text-sm text-[#191c1e] placeholder:text-[#45464f] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+            className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
 
@@ -186,8 +186,8 @@ export function HistorialVentas() {
                 className={cn(
                   "shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer",
                   estado === f.value
-                    ? "bg-[#021541] text-white"
-                    : "border border-[#c5c6d0] bg-white text-[#45464f] hover:bg-[#eceef0]"
+                    ? "bg-primary text-white"
+                    : "border border-border bg-white text-text-dim hover:bg-surface-hover"
                 )}
               >
                 {f.label}
@@ -209,7 +209,7 @@ export function HistorialVentas() {
               <button
                 type="button"
                 onClick={limpiarFiltros}
-                className="flex items-center gap-1 whitespace-nowrap rounded-lg px-2 py-2 text-xs font-medium text-[#021541] hover:underline"
+                className="flex items-center gap-1 whitespace-nowrap rounded-lg px-2 py-2 text-xs font-medium text-primary hover:underline"
               >
                 <X className="h-3.5 w-3.5" />
                 Limpiar
@@ -219,7 +219,7 @@ export function HistorialVentas() {
             <button
               type="button"
               onClick={() => cargar(true)}
-              className="flex h-9 w-9 shrink-0 items-center cursor-pointer justify-center rounded-lg border border-[#c5c6d0] text-[#45464f] hover:bg-[#eceef0]"
+              className="flex h-9 w-9 shrink-0 items-center cursor-pointer justify-center rounded-lg border border-border text-text-dim hover:bg-surface-hover"
               aria-label="Actualizar"
             >
               <RefreshCw className={cn("h-4 w-4", recargando && "animate-spin")} />
@@ -228,13 +228,13 @@ export function HistorialVentas() {
         </div>
       </div>
 
-      {error && <p className="text-sm text-[#ba1a1a]">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
-      <div className="overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white">
+      <div className="overflow-hidden rounded-2xl border border-border bg-white">
         {cargando ? (
-          <p className="p-8 text-center text-sm text-[#45464f]">Cargando...</p>
+          <p className="p-8 text-center text-sm text-text-dim">Cargando...</p>
         ) : ventas.length === 0 ? (
-          <p className="p-8 text-center text-sm text-[#45464f]">
+          <p className="p-8 text-center text-sm text-text-dim">
             No se encontraron ventas con estos filtros.
           </p>
         ) : (
@@ -243,12 +243,12 @@ export function HistorialVentas() {
             <div className="relative hidden overflow-x-auto md:block">
               {recargando && (
                 <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/60 pt-16 backdrop-blur-[1px]">
-                  <Loader2 className="h-5 w-5 animate-spin text-[#021541]" />
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 </div>
               )}
               <table className="w-full min-w-[720px] text-sm">
-                <thead className="bg-[#F1F5F9]">
-                  <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+                <thead className="bg-topbar">
+                  <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-white">
                     <th className="px-4 py-3">#</th>
                     <th className="px-4 py-3">Cliente</th>
                     <th className="px-4 py-3">Total</th>
@@ -260,27 +260,27 @@ export function HistorialVentas() {
                 </thead>
                 <tbody>
                   {ventas.map((venta) => (
-                    <tr key={venta.id} className="border-t border-[#E2E8F0]">
-                      <td className="px-4 py-3 font-mono text-xs text-[#45464f]">#{venta.id}</td>
+                    <tr key={venta.id} className="border-t border-border">
+                      <td className="px-4 py-3 font-mono text-xs text-text-dim">#{venta.id}</td>
                       <td className="px-4 py-3">
                         {venta.clienteNombre ? (
-                          <span className="font-medium text-[#191c1e]">{venta.clienteNombre}</span>
+                          <span className="font-medium text-text">{venta.clienteNombre}</span>
                         ) : (
-                          <span className="italic text-[#45464f]">Sin cliente</span>
+                          <span className="italic text-text-dim">Sin cliente</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 font-mono font-medium text-[#191c1e]">
+                      <td className="px-4 py-3 font-mono font-medium text-text">
                         {formatoMoneda.format(venta.totalARS)}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="font-mono font-medium text-[#1e7d38]">
+                        <span className="font-mono font-medium text-success">
                           {formatoMoneda.format(venta.gananciaARS)}
                         </span>
-                        <span className="ml-1 text-xs text-[#45464f]">
+                        <span className="ml-1 text-xs text-text-dim">
                           ({venta.gananciaPorcentaje.toFixed(1)}%)
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-[#45464f]">
+                      <td className="px-4 py-3 text-text-dim">
                         {formatoFecha.format(new Date(venta.fecha))}
                       </td>
                       <td className="px-4 py-3">
@@ -298,7 +298,7 @@ export function HistorialVentas() {
                           type="button"
                           onClick={() => descargarComprobante(venta.id)}
                           disabled={descargando === venta.id}
-                          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-[#c5c6d0] text-[#45464f] hover:bg-[#eceef0] disabled:opacity-50"
+                          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-border text-text-dim hover:bg-surface-hover disabled:opacity-50"
                           aria-label={`Descargar comprobante de la venta #${venta.id}`}
                         >
                           {descargando === venta.id ? (
@@ -315,21 +315,21 @@ export function HistorialVentas() {
             </div>
 
             {/* Mobile: tarjetas */}
-            <div className="relative divide-y divide-[#E2E8F0] md:hidden">
+            <div className="relative divide-y divide-border md:hidden">
               {recargando && (
                 <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/60 pt-10 backdrop-blur-[1px]">
-                  <Loader2 className="h-5 w-5 animate-spin text-[#021541]" />
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 </div>
               )}
               {ventas.map((venta) => (
                 <div key={venta.id} className="p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-mono text-xs text-[#45464f]">#{venta.id}</p>
+                      <p className="font-mono text-xs text-text-dim">#{venta.id}</p>
                       {venta.clienteNombre ? (
-                        <p className="truncate font-medium text-[#191c1e]">{venta.clienteNombre}</p>
+                        <p className="truncate font-medium text-text">{venta.clienteNombre}</p>
                       ) : (
-                        <p className="italic text-[#45464f]">Sin cliente</p>
+                        <p className="italic text-text-dim">Sin cliente</p>
                       )}
                     </div>
                     <span
@@ -344,21 +344,21 @@ export function HistorialVentas() {
 
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm">
-                      <span className="font-mono font-semibold text-[#191c1e]">
+                      <span className="font-mono font-semibold text-text">
                         {formatoMoneda.format(venta.totalARS)}
                       </span>{" "}
-                      <span className="font-mono text-xs text-[#1e7d38]">
+                      <span className="font-mono text-xs text-success">
                         +{formatoMoneda.format(venta.gananciaARS)} ({venta.gananciaPorcentaje.toFixed(1)}%)
                       </span>
                     </p>
-                    <p className="text-xs text-[#45464f]">{formatoFecha.format(new Date(venta.fecha))}</p>
+                    <p className="text-xs text-text-dim">{formatoFecha.format(new Date(venta.fecha))}</p>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => descargarComprobante(venta.id)}
                     disabled={descargando === venta.id}
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-[#c5c6d0] py-2 text-sm font-medium text-[#45464f] hover:bg-[#eceef0] disabled:opacity-50"
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-border py-2 text-sm font-medium text-text-dim hover:bg-surface-hover disabled:opacity-50"
                   >
                     {descargando === venta.id ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -376,7 +376,7 @@ export function HistorialVentas() {
 
       {/* Paginación */}
       {totalRegistros > 0 && (
-        <div className="flex flex-col gap-2 text-sm text-[#45464f] sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 text-sm text-text-dim sm:flex-row sm:items-center sm:justify-between">
           <span>
             {totalRegistros} venta{totalRegistros !== 1 ? "s" : ""}
           </span>
@@ -384,7 +384,7 @@ export function HistorialVentas() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="px-3 py-1.5 rounded-lg border border-[#c5c6d0] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#eceef0]"
+              className="px-3 py-1.5 rounded-lg border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-hover"
             >
               Anterior
             </button>
@@ -394,7 +394,7 @@ export function HistorialVentas() {
             <button
               onClick={() => setPage((p) => Math.min(totalPaginas, p + 1))}
               disabled={page >= totalPaginas}
-              className="px-3 py-1.5 rounded-lg border border-[#c5c6d0] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#eceef0]"
+              className="px-3 py-1.5 rounded-lg border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-hover"
             >
               Siguiente
             </button>

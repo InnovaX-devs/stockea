@@ -309,28 +309,28 @@ export default function NuevaCompraPage() {
   if (compraCreada) {
     return (
       <div className="mx-auto max-w-md space-y-4 p-4 text-center">
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-8">
-          <p className="text-lg font-semibold text-[#191c1e]">Compra #{compraCreada.id} guardada</p>
-          <p className="mt-2 text-sm text-[#45464f]">
+        <div className="rounded-2xl border border-border bg-white p-8">
+          <p className="text-lg font-semibold text-text">Compra #{compraCreada.id} guardada</p>
+          <p className="mt-2 text-sm text-text-dim">
             Todavía no impactó en stock, costo ni caja. Confirmala para actualizar el
             inventario y descontar el saldo de la cuenta, o hacelo más tarde desde el listado.
           </p>
 
-          {errorConfirmar && <p className="mt-3 text-sm text-[#ba1a1a]">{errorConfirmar}</p>}
+          {errorConfirmar && <p className="mt-3 text-sm text-danger">{errorConfirmar}</p>}
 
           <div className="mt-6 flex flex-col gap-2">
             <button
               type="button"
               disabled={confirmando}
               onClick={confirmarCompra}
-              className="rounded-lg bg-[#021541] px-4 py-2.5 text-sm font-medium cursor-pointer text-white hover:opacity-90 disabled:opacity-50"
+              className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium cursor-pointer text-white hover:opacity-90 disabled:opacity-50"
             >
               {confirmando ? "Confirmando..." : "Confirmar compra ahora"}
             </button>
             <button
               type="button"
               onClick={() => router.push("/compras")}
-              className="rounded-lg border border-[#c5c6d0] bg-white cursor-pointer px-4 py-2.5 text-sm text-[#45464f] hover:bg-[#eceef0]"
+              className="rounded-lg border border-border bg-white cursor-pointer px-4 py-2.5 text-sm text-text-dim hover:bg-surface-hover"
             >
               Confirmar más tarde
             </button>
@@ -343,13 +343,13 @@ export default function NuevaCompraPage() {
   return (
     <div className="space-y-4 p-4">
       <div>
-        <h1 className="text-xl font-semibold text-[#191c1e] sm:text-2xl">Nueva Compra</h1>
-        <p className="text-sm text-[#45464f]">Cargá los productos y revisá el total</p>
+        <h1 className="text-xl font-semibold text-text sm:text-2xl">Nueva Compra</h1>
+        <p className="text-sm text-text-dim">Cargá los productos y revisá el total</p>
       </div>
 
       {/* Proveedor */}
-      <div className="space-y-3 rounded-2xl border border-[#E2E8F0] bg-white p-4">
-        <p className="text-xs uppercase tracking-wide text-[#45464f]">Proveedor (opcional)</p>
+      <div className="space-y-3 rounded-2xl border border-border bg-white p-4">
+        <p className="text-xs uppercase tracking-wide text-text-dim">Proveedor (opcional)</p>
         {!altaRapidaAbierta ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Select
@@ -364,7 +364,7 @@ export default function NuevaCompraPage() {
             <button
               type="button"
               onClick={() => setAltaRapidaAbierta(true)}
-              className="whitespace-nowrap rounded-lg border border-[#c5c6d0] bg-white px-3 py-2 text-sm text-[#45464f] hover:bg-[#eceef0]"
+              className="whitespace-nowrap rounded-lg border border-border bg-white px-3 py-2 text-sm text-text-dim hover:bg-surface-hover"
             >
               + Nuevo
             </button>
@@ -377,21 +377,21 @@ export default function NuevaCompraPage() {
               placeholder="Nombre del proveedor"
               value={nombreProveedorNuevo}
               onChange={(e) => setNombreProveedorNuevo(e.target.value)}
-              className="w-full min-w-0 rounded-lg border border-[#c5c6d0] bg-white px-3 py-2 text-sm text-[#191c1e] placeholder:text-[#45464f] focus:outline-none focus:ring-1 focus:ring-[#021541] sm:flex-1"
+              className="w-full min-w-0 rounded-lg border border-border bg-white px-3 py-2 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-primary sm:flex-1"
             />
             <div className="flex gap-2">
               <button
                 type="button"
                 disabled={creandoProveedor || !nombreProveedorNuevo.trim()}
                 onClick={crearProveedorRapido}
-                className="flex-1 rounded-lg bg-[#021541] px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:flex-none"
+                className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:flex-none"
               >
                 Guardar
               </button>
               <button
                 type="button"
                 onClick={() => setAltaRapidaAbierta(false)}
-                className="flex-1 rounded-lg border border-[#c5c6d0] bg-white px-3 py-2 text-sm text-[#45464f] hover:bg-[#eceef0] sm:flex-none"
+                className="flex-1 rounded-lg border border-border bg-white px-3 py-2 text-sm text-text-dim hover:bg-surface-hover sm:flex-none"
               >
                 Cancelar
               </button>
@@ -401,8 +401,8 @@ export default function NuevaCompraPage() {
       </div>
 
       {/* Cuenta de pago */}
-      <div className="space-y-3 rounded-2xl border border-[#E2E8F0] bg-white p-4">
-        <p className="text-xs uppercase tracking-wide text-[#45464f]">
+      <div className="space-y-3 rounded-2xl border border-border bg-white p-4">
+        <p className="text-xs uppercase tracking-wide text-text-dim">
           Cuenta desde la que se paga
         </p>
         <Select
@@ -418,15 +418,15 @@ export default function NuevaCompraPage() {
           className="w-full"
         />
         {cuentas.length === 0 && (
-          <p className="text-xs text-[#45464f]">
+          <p className="text-xs text-text-dim">
             No hay cuentas activas registradas. Creá una desde Caja/Cuentas antes de comprar.
           </p>
         )}
       </div>
 
       {/* Buscador de producto */}
-      <div className="space-y-3 rounded-2xl border border-[#E2E8F0] bg-white p-4">
-        <p className="text-xs uppercase tracking-wide text-[#45464f]">
+      <div className="space-y-3 rounded-2xl border border-border bg-white p-4">
+        <p className="text-xs uppercase tracking-wide text-text-dim">
           Buscar producto / código de barras
         </p>
         <div className="relative">
@@ -438,25 +438,25 @@ export default function NuevaCompraPage() {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             onKeyDown={handleKeyDownBusqueda}
-            className="w-full rounded-lg border border-[#c5c6d0] bg-white px-3 py-2 text-sm text-[#191c1e] placeholder:text-[#45464f] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-primary"
           />
           {(resultados.length > 0 || buscando) && (
-            <div className="absolute z-10 mt-1 w-full rounded-lg border border-[#E2E8F0] bg-white shadow-lg">
+            <div className="absolute z-10 mt-1 w-full rounded-lg border border-border bg-white shadow-lg">
               {buscando ? (
-                <p className="px-3 py-2 text-sm text-[#45464f]">Buscando...</p>
+                <p className="px-3 py-2 text-sm text-text-dim">Buscando...</p>
               ) : (
                 resultados.map((p) => (
                   <button
                     key={p.id}
                     type="button"
                     onClick={() => agregarAlCarrito(p)}
-                    className="flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm hover:bg-[#eceef0] sm:flex-row sm:items-center sm:justify-between sm:gap-2"
+                    className="flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm hover:bg-surface-hover sm:flex-row sm:items-center sm:justify-between sm:gap-2"
                   >
-                    <span className="truncate text-[#191c1e]">
+                    <span className="truncate text-text">
                       {p.nombre}
                       {p.marca?.nombre ? ` — ${p.marca.nombre}` : ""}
                     </span>
-                    <span className="shrink-0 text-xs text-[#45464f]">
+                    <span className="shrink-0 text-xs text-text-dim">
                       Stock: {p.stockActual} · Costo: {p.precioCosto} {p.monedaPrecio}
                     </span>
                   </button>
@@ -468,17 +468,17 @@ export default function NuevaCompraPage() {
       </div>
 
       {/* Carrito */}
-      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
-        <p className="mb-3 text-xs uppercase tracking-wide text-[#45464f]">Ítems de la compra</p>
+      <div className="rounded-2xl border border-border bg-white p-4">
+        <p className="mb-3 text-xs uppercase tracking-wide text-text-dim">Ítems de la compra</p>
         {carrito.length === 0 ? (
-          <p className="py-6 text-center text-sm text-[#45464f]">Todavía no agregaste productos.</p>
+          <p className="py-6 text-center text-sm text-text-dim">Todavía no agregaste productos.</p>
         ) : (
           <>
             {/* Desktop / tablet: tabla */}
-            <div className="hidden overflow-x-auto rounded-xl border border-[#E2E8F0] md:block">
+            <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
               <table className="w-full text-sm">
-                <thead className="bg-[#F1F5F9]">
-                  <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+                <thead className="bg-topbar">
+                  <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-white">
                     <th className="px-4 py-3">Producto</th>
                     <th className="px-4 py-3">Cantidad</th>
                     <th className="px-4 py-3">{usaCotizacionUSD ? "Costo unit. (USD)" : "Costo unitario"}</th>
@@ -488,8 +488,8 @@ export default function NuevaCompraPage() {
                 </thead>
                 <tbody>
                   {carrito.map((it) => (
-                    <tr key={it.productoId} className="border-t border-[#E2E8F0]">
-                      <td className="px-4 py-3 text-[#191c1e]">{it.nombre}</td>
+                    <tr key={it.productoId} className="border-t border-border">
+                      <td className="px-4 py-3 text-text">{it.nombre}</td>
                       <td className="px-4 py-3">
                         <input
                           type="number"
@@ -507,7 +507,7 @@ export default function NuevaCompraPage() {
                           onBlur={(e) =>
                             normalizarItem(it.productoId, "cantidad", Number(e.target.value))
                           }
-                          className="w-20 rounded-md border border-[#c5c6d0] bg-white px-2 py-1 text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+                          className="w-20 rounded-md border border-border bg-white px-2 py-1 text-text focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </td>
                       <td className="px-4 py-3">
@@ -528,17 +528,17 @@ export default function NuevaCompraPage() {
                           onBlur={(e) =>
                             normalizarItem(it.productoId, "costoUnitarioUSD", Number(e.target.value))
                           }
-                          className="w-24 rounded-md border border-[#c5c6d0] bg-white px-2 py-1 text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+                          className="w-24 rounded-md border border-border bg-white px-2 py-1 text-text focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </td>
-                      <td className="px-4 py-3 font-mono font-medium text-[#191c1e]">
+                      <td className="px-4 py-3 font-mono font-medium text-text">
                         {usaCotizacionUSD ? "" : "$"}{(it.cantidad * it.costoUnitarioUSD).toFixed(2)}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
                           type="button"
                           onClick={() => quitarItem(it.productoId)}
-                          className="text-[#45464f] hover:text-[#ba1a1a]"
+                          className="text-text-dim hover:text-danger"
                         >
                           ✕
                         </button>
@@ -552,13 +552,13 @@ export default function NuevaCompraPage() {
             {/* Mobile: tarjetas */}
             <div className="space-y-2 md:hidden">
               {carrito.map((it) => (
-                <div key={it.productoId} className="rounded-xl border border-[#E2E8F0] p-3">
+                <div key={it.productoId} className="rounded-xl border border-border p-3">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="min-w-0 flex-1 truncate font-medium text-[#191c1e]">{it.nombre}</span>
+                    <span className="min-w-0 flex-1 truncate font-medium text-text">{it.nombre}</span>
                     <button
                       type="button"
                       onClick={() => quitarItem(it.productoId)}
-                      className="shrink-0 text-[#45464f] hover:text-[#ba1a1a]"
+                      className="shrink-0 text-text-dim hover:text-danger"
                       aria-label="Quitar producto"
                     >
                       ✕
@@ -567,7 +567,7 @@ export default function NuevaCompraPage() {
 
                   <div className="mt-2 grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] text-[#45464f]">Cantidad</label>
+                      <label className="block text-[11px] text-text-dim">Cantidad</label>
                       <input
                         type="number"
                         min={CANTIDAD_MIN}
@@ -584,11 +584,11 @@ export default function NuevaCompraPage() {
                         onBlur={(e) =>
                           normalizarItem(it.productoId, "cantidad", Number(e.target.value))
                         }
-                        className="mt-0.5 w-full rounded-md border border-[#c5c6d0] bg-white px-2 py-1.5 text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+                        className="mt-0.5 w-full rounded-md border border-border bg-white px-2 py-1.5 text-text focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] text-[#45464f]">
+                      <label className="block text-[11px] text-text-dim">
                         {usaCotizacionUSD ? "Costo unit. (USD)" : "Costo unitario"}
                       </label>
                       <input
@@ -608,14 +608,14 @@ export default function NuevaCompraPage() {
                         onBlur={(e) =>
                           normalizarItem(it.productoId, "costoUnitarioUSD", Number(e.target.value))
                         }
-                        className="mt-0.5 w-full rounded-md border border-[#c5c6d0] bg-white px-2 py-1.5 text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+                        className="mt-0.5 w-full rounded-md border border-border bg-white px-2 py-1.5 text-text focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                     </div>
                   </div>
 
                   <p className="mt-2 text-right text-sm">
-                    <span className="text-[#45464f]">Subtotal: </span>
-                    <span className="font-medium text-[#191c1e]">
+                    <span className="text-text-dim">Subtotal: </span>
+                    <span className="font-medium text-text">
                       {usaCotizacionUSD ? `USD ${(it.cantidad * it.costoUnitarioUSD).toFixed(2)}` : `$${(it.cantidad * it.costoUnitarioUSD).toFixed(2)}`}
                     </span>
                   </p>
@@ -627,14 +627,14 @@ export default function NuevaCompraPage() {
       </div>
 
       {/* Total + guardar */}
-      <div className="space-y-4 rounded-2xl border border-[#E2E8F0] bg-white p-4">
+      <div className="space-y-4 rounded-2xl border border-border bg-white p-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wide text-[#45464f]">Total</p>
+            <p className="text-xs uppercase tracking-wide text-text-dim">Total</p>
             {usaCotizacionUSD ? (
               <>
-                <p className="text-2xl font-semibold text-[#191c1e]">USD {totalUSD.toFixed(2)}</p>
-                <p className="text-sm text-[#45464f]">
+                <p className="text-2xl font-semibold text-text">USD {totalUSD.toFixed(2)}</p>
+                <p className="text-sm text-text-dim">
                   ≈ ARS {totalARS.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
                   {cuentaSeleccionada && (
                     <span> · se debitará en {TIPO_CUENTA_LABEL[cuentaSeleccionada.tipo]} al confirmar</span>
@@ -643,11 +643,11 @@ export default function NuevaCompraPage() {
               </>
             ) : (
               <>
-                <p className="text-2xl font-semibold text-[#191c1e]">
+                <p className="text-2xl font-semibold text-text">
                   {totalUSD.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 2 })}
                 </p>
                 {cuentaSeleccionada && (
-                  <p className="text-sm text-[#45464f]">
+                  <p className="text-sm text-text-dim">
                     Se debitará en {TIPO_CUENTA_LABEL[cuentaSeleccionada.tipo]} al confirmar
                   </p>
                 )}
@@ -658,13 +658,13 @@ export default function NuevaCompraPage() {
             type="button"
             disabled={enviando || carrito.length === 0}
             onClick={guardarCompra}
-            className="w-full rounded-lg bg-[#021541] px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 cursor-pointer sm:w-auto"
+            className="w-full rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 cursor-pointer sm:w-auto"
           >
             {enviando ? "Guardando..." : "Guardar Compra"}
           </button>
         </div>
 
-        {error && <p className="text-sm text-[#ba1a1a]">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
       </div>
     </div>
   );

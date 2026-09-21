@@ -68,8 +68,8 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
   return (
     <div className="space-y-4 p-4">
       <div>
-        <h1 className="text-xl font-semibold text-[#191c1e] sm:text-2xl">Configuración</h1>
-        <p className="text-sm text-[#45464f]">Datos generales del negocio</p>
+        <h1 className="text-xl font-semibold text-text sm:text-2xl">Configuración</h1>
+        <p className="text-sm text-text-dim">Datos generales del negocio</p>
       </div>
 
       <form
@@ -80,13 +80,13 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
         className="mx-auto max-w-2xl space-y-6"
       >
       {/* Identidad del negocio */}
-      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6">
-        <h2 className="mb-4 text-base font-semibold text-[#191c1e]">
+      <div className="rounded-2xl border border-border bg-white p-6">
+        <h2 className="mb-4 text-base font-semibold text-text">
           Identidad del negocio
         </h2>
 
         <div className="mb-5">
-          <label className="mb-1 block text-sm text-[#45464f]" htmlFor="nombreNegocio">
+          <label className="mb-1 block text-sm text-text-dim" htmlFor="nombreNegocio">
             Nombre del negocio
           </label>
           <input
@@ -95,12 +95,12 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
             name="nombreNegocio"
             defaultValue={configuracion.nombreNegocio}
             required
-            className="w-full rounded-md border border-[#c5c6d0] bg-white px-3 py-2 text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+            className="w-full rounded-md border border-border bg-white px-3 py-2 text-text focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
 
         <div className="mb-5">
-          <label className="mb-1 block text-sm text-[#45464f]" htmlFor="eslogan">
+          <label className="mb-1 block text-sm text-text-dim" htmlFor="eslogan">
             Eslogan / subtítulo (opcional)
           </label>
           <input
@@ -109,18 +109,18 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
             name="eslogan"
             placeholder="Ej: Perfumería de Lujo"
             defaultValue={configuracion.eslogan ?? ""}
-            className="w-full rounded-md border border-[#c5c6d0] bg-white px-3 py-2 text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+            className="w-full rounded-md border border-border bg-white px-3 py-2 text-text focus:outline-none focus:ring-1 focus:ring-primary"
           />
-          <p className="mt-1 text-xs text-[#45464f]">
+          <p className="mt-1 text-xs text-text-dim">
             Se muestra debajo del nombre del negocio en el menú lateral. Si lo dejás vacío, no se
             muestra nada.
           </p>
         </div>
 
         <div>
-          <label className="mb-2 block text-sm text-[#45464f]">Logo</label>
+          <label className="mb-2 block text-sm text-text-dim">Logo</label>
           <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#E2E8F0] bg-[#F1F5F9]">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-hover">
               {previewUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -129,7 +129,7 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
                   className="h-full w-full object-contain"
                 />
               ) : (
-                <span className="text-xs text-[#45464f]">Sin logo</span>
+                <span className="text-xs text-text-dim">Sin logo</span>
               )}
             </div>
 
@@ -137,7 +137,7 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="rounded-lg border border-[#c5c6d0] px-3 py-1.5 text-sm font-medium text-[#191c1e] hover:bg-[#eceef0]"
+                className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-text hover:bg-surface-hover"
               >
                 {previewUrl ? "Cambiar imagen" : "Subir imagen"}
               </button>
@@ -145,7 +145,7 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
                 <button
                   type="button"
                   onClick={handleQuitarLogo}
-                  className="rounded-lg border border-[#c5c6d0] px-3 py-1.5 text-sm font-medium text-[#ba1a1a] hover:bg-[#eceef0]"
+                  className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-danger hover:bg-surface-hover"
                 >
                   Quitar logo
                 </button>
@@ -162,16 +162,16 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
             className="hidden"
           />
           <input type="hidden" name="removerLogo" value={logoRemovido ? "true" : "false"} />
-          <p className="mt-2 text-xs text-[#45464f]">PNG o JPG.</p>
+          <p className="mt-2 text-xs text-text-dim">PNG o JPG.</p>
         </div>
       </div>
 
       {/* Contacto */}
-      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6">
-        <h2 className="mb-4 text-base font-semibold text-[#191c1e]">Contacto</h2>
+      <div className="rounded-2xl border border-border bg-white p-6">
+        <h2 className="mb-4 text-base font-semibold text-text">Contacto</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm text-[#45464f]" htmlFor="telefono">
+            <label className="mb-1 block text-sm text-text-dim" htmlFor="telefono">
               Teléfono / WhatsApp
             </label>
             <input
@@ -179,11 +179,11 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
               type="text"
               name="telefono"
               defaultValue={configuracion.telefono ?? ""}
-              className="w-full rounded-md border border-[#c5c6d0] bg-white px-3 py-2 text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+              className="w-full rounded-md border border-border bg-white px-3 py-2 text-text focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm text-[#45464f]" htmlFor="email">
+            <label className="mb-1 block text-sm text-text-dim" htmlFor="email">
               Email
             </label>
             <input
@@ -191,11 +191,11 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
               type="email"
               name="email"
               defaultValue={configuracion.email ?? ""}
-              className="w-full rounded-md border border-[#c5c6d0] bg-white px-3 py-2 text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+              className="w-full rounded-md border border-border bg-white px-3 py-2 text-text focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-sm text-[#45464f]" htmlFor="direccion">
+            <label className="mb-1 block text-sm text-text-dim" htmlFor="direccion">
               Dirección
             </label>
             <input
@@ -203,11 +203,11 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
               type="text"
               name="direccion"
               defaultValue={configuracion.direccion ?? ""}
-              className="w-full rounded-md border border-[#c5c6d0] bg-white px-3 py-2 text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+              className="w-full rounded-md border border-border bg-white px-3 py-2 text-text focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-sm text-[#45464f]" htmlFor="instagram">
+            <label className="mb-1 block text-sm text-text-dim" htmlFor="instagram">
               Instagram (opcional)
             </label>
             <input
@@ -216,9 +216,9 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
               name="instagram"
               placeholder="@tunegocio"
               defaultValue={configuracion.instagram ?? ""}
-              className="w-full rounded-md border border-[#c5c6d0] bg-white px-3 py-2 text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+              className="w-full rounded-md border border-border bg-white px-3 py-2 text-text focus:outline-none focus:ring-1 focus:ring-primary"
             />
-            <p className="mt-1 text-xs text-[#45464f]">
+            <p className="mt-1 text-xs text-text-dim">
               Se muestra en comprobantes y catálogos en PDF, junto al teléfono.
             </p>
           </div>
@@ -226,11 +226,11 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
       </div>
 
       {/* Marca en PDFs */}
-      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6">
-        <h2 className="mb-4 text-base font-semibold text-[#191c1e]">Marca en PDFs</h2>
+      <div className="rounded-2xl border border-border bg-white p-6">
+        <h2 className="mb-4 text-base font-semibold text-text">Marca en PDFs</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm text-[#45464f]" htmlFor="colorPrimario">
+            <label className="mb-1 block text-sm text-text-dim" htmlFor="colorPrimario">
               Color primario
             </label>
             <div className="flex items-center gap-2">
@@ -239,13 +239,13 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
                 type="color"
                 name="colorPrimario"
                 defaultValue={configuracion.colorPrimario ?? "#2952CC"}
-                className="h-10 w-14 cursor-pointer rounded-md border border-[#c5c6d0] bg-white p-1"
+                className="h-10 w-14 cursor-pointer rounded-md border border-border bg-white p-1"
               />
-              <span className="text-xs text-[#45464f]">Títulos y totales destacados</span>
+              <span className="text-xs text-text-dim">Títulos y totales destacados</span>
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm text-[#45464f]" htmlFor="colorSecundario">
+            <label className="mb-1 block text-sm text-text-dim" htmlFor="colorSecundario">
               Color secundario
             </label>
             <div className="flex items-center gap-2">
@@ -254,13 +254,13 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
                 type="color"
                 name="colorSecundario"
                 defaultValue={configuracion.colorSecundario ?? "#0891B2"}
-                className="h-10 w-14 cursor-pointer rounded-md border border-[#c5c6d0] bg-white p-1"
+                className="h-10 w-14 cursor-pointer rounded-md border border-border bg-white p-1"
               />
-              <span className="text-xs text-[#45464f]">Usado como color de acento</span>
+              <span className="text-xs text-text-dim">Usado como color de acento</span>
             </div>
           </div>
         </div>
-        <p className="mt-3 text-xs text-[#45464f]">
+        <p className="mt-3 text-xs text-text-dim">
           Se usan en catálogos, listas de precios, comprobantes y reportes generados en PDF.
         </p>
       </div>
@@ -270,8 +270,8 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
           sección ni se muestra (ver lib/configuracion.ts, el piso duro
           fuerza usaCotizacionUSD a false sin importar lo que haya acá). */}
       {esPremium && (
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6">
-          <h2 className="mb-4 text-base font-semibold text-[#191c1e]">Precios en dólares</h2>
+        <div className="rounded-2xl border border-border bg-white p-6">
+          <h2 className="mb-4 text-base font-semibold text-text">Precios en dólares</h2>
           <label className="flex items-start gap-2">
             <input
               type="checkbox"
@@ -281,10 +281,10 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
               className="mt-0.5 h-4 w-4"
             />
             <span>
-              <span className="text-sm font-medium text-[#191c1e]">
+              <span className="text-sm font-medium text-text">
                 Trabajo con precios en dólares
               </span>
-              <p className="text-xs text-[#45464f]">
+              <p className="text-xs text-text-dim">
                 Activá esto si el negocio necesita cargar productos en USD y convertirlos a ARS
                 con una cotización.
               </p>
@@ -293,11 +293,11 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
 
           {usaCotizacionUSD && (
             <div className="mt-4">
-              <label className="mb-1 block text-sm text-[#45464f]" htmlFor="cotizacionUSD">
+              <label className="mb-1 block text-sm text-text-dim" htmlFor="cotizacionUSD">
                 Cotización USD
               </label>
               <div className="relative max-w-xs">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#45464f]">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim">$</span>
                 <input
                   id="cotizacionUSD"
                   type="number"
@@ -306,10 +306,10 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
                   step="0.01"
                   min="0"
                   required
-                  className="w-full rounded-md border border-[#c5c6d0] bg-white px-3 py-2 pl-7 text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+                  className="w-full rounded-md border border-border bg-white px-3 py-2 pl-7 text-text focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
-              <p className="mt-1 text-xs text-[#45464f]">
+              <p className="mt-1 text-xs text-text-dim">
                 Usada para convertir precios en USD a ARS en todo el sistema.
               </p>
             </div>
@@ -318,13 +318,13 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
       )}
 
       {/* Datos del remitente */}
-      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6">
-        <h2 className="mb-4 text-base font-semibold text-[#191c1e]">
+      <div className="rounded-2xl border border-border bg-white p-6">
+        <h2 className="mb-4 text-base font-semibold text-text">
           Datos del remitente
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm text-[#45464f]" htmlFor="remitenteNombre">
+            <label className="mb-1 block text-sm text-text-dim" htmlFor="remitenteNombre">
               Nombre y apellido
             </label>
             <input
@@ -332,11 +332,11 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
               type="text"
               name="remitenteNombre"
               defaultValue={configuracion.remitenteNombre ?? ""}
-              className="w-full rounded-md border border-[#c5c6d0] bg-white px-3 py-2 text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+              className="w-full rounded-md border border-border bg-white px-3 py-2 text-text focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm text-[#45464f]" htmlFor="remitenteDni">
+            <label className="mb-1 block text-sm text-text-dim" htmlFor="remitenteDni">
               DNI
             </label>
             <input
@@ -344,15 +344,15 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
               type="text"
               name="remitenteDni"
               defaultValue={configuracion.remitenteDni ?? ""}
-              className="w-full rounded-md border border-[#c5c6d0] bg-white px-3 py-2 text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+              className="w-full rounded-md border border-border bg-white px-3 py-2 text-text focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
         </div>
       </div>
 
       {/* Preferencias */}
-      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6">
-        <h2 className="mb-4 text-base font-semibold text-[#191c1e]">Preferencias</h2>
+      <div className="rounded-2xl border border-border bg-white p-6">
+        <h2 className="mb-4 text-base font-semibold text-text">Preferencias</h2>
         <label className="flex items-start gap-2">
           <input
             type="checkbox"
@@ -361,8 +361,8 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
             className="mt-0.5 h-4 w-4"
           />
           <span>
-            <span className="text-sm font-medium text-[#191c1e]">Costo promedio ponderado</span>
-            <p className="text-xs text-[#45464f]">
+            <span className="text-sm font-medium text-text">Costo promedio ponderado</span>
+            <p className="text-xs text-text-dim">
               Al confirmar una compra, el costo del producto se recalcula mezclando el stock
               anterior con el nuevo. Ejemplo: 10 unidades a $1000 + 5 nuevas a $1200 → el costo
               pasa a $1066.
@@ -371,27 +371,27 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
         </label>
       </div>
 
-      {error && <p className="text-sm text-[#ba1a1a]">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
       {guardadoOk && (
-        <p className="text-sm text-[#021541]">Configuración guardada correctamente.</p>
+        <p className="text-sm text-primary">Configuración guardada correctamente.</p>
       )}
 
       <button
         type="submit"
         disabled={guardando}
-        className="rounded-lg bg-[#021541] px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
       >
         {guardando ? "Guardando..." : "Guardar cambios"}
       </button>
       </form>
 
       {/* Seguridad (fuera del <form>: no queremos que dispare el submit de configuración) */}
-      <div className="mx-auto max-w-2xl rounded-2xl border border-[#E2E8F0] bg-white p-6">
-        <h2 className="mb-4 text-base font-semibold text-[#191c1e]">Seguridad</h2>
+      <div className="mx-auto max-w-2xl rounded-2xl border border-border bg-white p-6">
+        <h2 className="mb-4 text-base font-semibold text-text">Seguridad</h2>
         <button
           type="button"
           onClick={() => setPasswordModalOpen(true)}
-          className="rounded-lg border cursor-pointer border-[#c5c6d0] px-3 py-1.5 text-sm font-medium text-[#191c1e] hover:bg-[#eceef0]"
+          className="rounded-lg border cursor-pointer border-border px-3 py-1.5 text-sm font-medium text-text hover:bg-surface-hover"
         >
           Cambiar contraseña
         </button>

@@ -17,7 +17,7 @@ export default function ProveedoresTable({
 }) {
   if (proveedores.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] px-4 py-8 text-center text-[#45464f] text-sm">
+      <div className="bg-white rounded-2xl border border-border px-4 py-8 text-center text-text-dim text-sm">
         No se encontraron proveedores que coincidan con la búsqueda.
       </div>
     );
@@ -26,10 +26,10 @@ export default function ProveedoresTable({
   return (
     <>
       {/* Desktop: tabla */}
-      <div className="hidden md:block bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden">
+      <div className="hidden md:block bg-white rounded-2xl border border-border overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-[#F1F5F9]">
-            <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+          <thead className="bg-topbar">
+            <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-white">
               <th className="px-4 py-3">Proveedor</th>
               <th className="px-4 py-3">Contacto</th>
               <th className="px-4 py-3">Compras</th>
@@ -42,19 +42,19 @@ export default function ProveedoresTable({
               <tr
                 key={p.id}
                 onClick={() => onVerDetalle(p)}
-                className={`border-t border-[#E2E8F0] ${
-                  p.esVirtual ? "italic text-[#45464f]" : "cursor-pointer hover:bg-[#F1F5F9]/60"
+                className={`border-t border-border ${
+                  p.esVirtual ? "italic text-text-dim" : "cursor-pointer hover:bg-surface-hover/60"
                 }`}
               >
-                <td className="px-4 py-4 font-medium text-[#191c1e]">{p.nombre}</td>
-                <td className="px-4 py-4 text-[#45464f]">
+                <td className="px-4 py-4 font-medium text-text">{p.nombre}</td>
+                <td className="px-4 py-4 text-text-dim">
                   {p.personaContacto || p.telefono || p.email || "—"}
                 </td>
-                <td className="px-4 py-4 text-[#45464f]">{p.cantidadCompras}</td>
-                <td className="px-4 py-4 text-[#45464f]">{formatMoney(p.totalComprado)}</td>
+                <td className="px-4 py-4 text-text-dim">{p.cantidadCompras}</td>
+                <td className="px-4 py-4 text-text-dim">{formatMoney(p.totalComprado)}</td>
                 <td className="px-4 py-4 text-right">
                   {!p.esVirtual && (
-                    <span className="text-[#021541] hover:underline text-sm">Ver</span>
+                    <span className="text-primary hover:underline text-sm">Ver</span>
                   )}
                 </td>
               </tr>
@@ -69,25 +69,25 @@ export default function ProveedoresTable({
           <div
             key={p.id}
             onClick={() => onVerDetalle(p)}
-            className={`bg-white rounded-2xl border border-[#E2E8F0] p-4 shadow-[0_4px_20px_rgba(26,43,86,0.04)] ${
-              p.esVirtual ? "italic text-[#45464f]" : "cursor-pointer"
+            className={`bg-white rounded-2xl border border-border p-4 shadow-[0_4px_20px_rgba(26,43,86,0.04)] ${
+              p.esVirtual ? "italic text-text-dim" : "cursor-pointer"
             }`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-medium text-[#191c1e] truncate">{p.nombre}</p>
-                <p className="text-sm text-[#45464f] truncate">
+                <p className="font-medium text-text truncate">{p.nombre}</p>
+                <p className="text-sm text-text-dim truncate">
                   {p.personaContacto || p.telefono || p.email || "—"}
                 </p>
               </div>
               {!p.esVirtual && (
-                <span className="shrink-0 text-[#021541] text-sm font-medium">Ver →</span>
+                <span className="shrink-0 text-primary text-sm font-medium">Ver →</span>
               )}
             </div>
 
-            <div className="mt-3 flex items-center justify-between border-t border-[#E2E8F0] pt-3 text-sm">
-              <span className="text-[#45464f]">{p.cantidadCompras} compras</span>
-              <span className="font-medium text-[#191c1e]">{formatMoney(p.totalComprado)}</span>
+            <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-sm">
+              <span className="text-text-dim">{p.cantidadCompras} compras</span>
+              <span className="font-medium text-text">{formatMoney(p.totalComprado)}</span>
             </div>
           </div>
         ))}

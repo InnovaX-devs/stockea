@@ -231,7 +231,7 @@ export default function ActualizarPreciosPage() {
         <div className="flex items-center gap-2 text-sm font-medium">
           <span
             className={`px-3 py-1 rounded-full ${
-              paso === 1 ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-700"
+              paso === 1 ? "bg-primary text-white" : "bg-slate-200 text-slate-700"
             }`}
           >
             1. Selección ({selectedIds.length})
@@ -239,7 +239,7 @@ export default function ActualizarPreciosPage() {
           <span className="text-slate-400">→</span>
           <span
             className={`px-3 py-1 rounded-full ${
-              paso === 2 ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-700"
+              paso === 2 ? "bg-primary text-white" : "bg-slate-200 text-slate-700"
             }`}
           >
             2. Configurar Ajuste
@@ -375,7 +375,7 @@ export default function ActualizarPreciosPage() {
             <button
               disabled={selectedIds.length === 0}
               onClick={() => setPaso(2)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg font-medium text-sm transition-colors shadow-sm disabled:opacity-50"
+              className="bg-primary hover:opacity-90 text-white px-5 py-2 rounded-lg font-medium text-sm transition-colors shadow-sm disabled:opacity-50"
             >
               Siguiente (Paso 2) →
             </button>
@@ -481,7 +481,7 @@ export default function ActualizarPreciosPage() {
               type="button"
               onClick={handleConfirmarAjuste}
               disabled={isSubmitting}
-              className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-sm transition-colors shadow-sm disabled:opacity-50"
+              className="px-6 py-2 bg-primary hover:opacity-90 text-white rounded-lg font-medium text-sm transition-colors shadow-sm disabled:opacity-50"
             >
               {isSubmitting
                 ? "Actualizando..."

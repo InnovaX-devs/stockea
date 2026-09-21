@@ -18,14 +18,14 @@ export default function ResumenCards({
       {cards.map((c) => (
         <div
           key={c.label}
-          className="bg-white rounded-2xl p-5 border border-[#E2E8F0] shadow-[0_4px_20px_rgba(26,43,86,0.04)]"
+          className="bg-white rounded-2xl p-5 border border-border shadow-[0_4px_20px_rgba(26,43,86,0.04)]"
         >
-          <p className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-text-dim">
             {c.label}
           </p>
           <p
             className={`mt-2 text-2xl font-semibold ${
-              c.destacado ? "text-[#ba1a1a]" : "text-[#191c1e]"
+              c.destacado ? "text-danger" : "text-text"
             }`}
           >
             {c.value}

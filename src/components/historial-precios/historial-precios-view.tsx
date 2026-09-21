@@ -71,7 +71,7 @@ export function HistorialPreciosView() {
       <HistorialFiltros filtros={filtros} onChange={setFiltros} />
 
       {error && (
-        <div role="alert" className="rounded-lg border border-[#f3b4b4] bg-[#fbe4e4] px-4 py-3 text-sm text-[#ba1a1a]">
+        <div role="alert" className="rounded-lg border border-[#f3b4b4] bg-danger/10 px-4 py-3 text-sm text-danger">
           {error}
         </div>
       )}
@@ -79,7 +79,7 @@ export function HistorialPreciosView() {
       <HistorialTabla items={data?.items ?? []} isLoading={isLoading && !data} />
 
       {(data?.total ?? 0) > 0 && (
-        <div className="flex flex-col gap-2 text-sm text-[#45464f] sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 text-sm text-text-dim sm:flex-row sm:items-center sm:justify-between">
           <span>
             {data?.total} registro{data?.total === 1 ? "" : "s"}
           </span>
@@ -87,7 +87,7 @@ export function HistorialPreciosView() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="px-3 py-1.5 rounded-lg border border-[#c5c6d0] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#eceef0]"
+              className="px-3 py-1.5 rounded-lg border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-hover"
             >
               Anterior
             </button>
@@ -97,7 +97,7 @@ export function HistorialPreciosView() {
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="px-3 py-1.5 rounded-lg border border-[#c5c6d0] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#eceef0]"
+              className="px-3 py-1.5 rounded-lg border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-hover"
             >
               Siguiente
             </button>

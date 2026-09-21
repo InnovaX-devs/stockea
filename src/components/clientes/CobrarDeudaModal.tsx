@@ -146,7 +146,7 @@ export default function CobrarDeudaModal({
                 <select
                   value={fila.cuentaId}
                   onChange={(e) => actualizarFila(i, { cuentaId: Number(e.target.value) })}
-                  className="w-full sm:flex-1 appearance-none rounded-lg bg-[#1A2B56] px-4 py-3 text-sm font-medium text-white"
+                  className="w-full sm:flex-1 appearance-none rounded-lg bg-primary px-4 py-3 text-sm font-medium text-white"
                 >
                   {cuentas.map((c) => (
                     <option key={c.id} value={c.id} className="text-slate-900">
@@ -182,7 +182,7 @@ export default function CobrarDeudaModal({
               <button
                 onClick={agregarFila}
                 disabled={filas.length >= cuentas.length}
-                className="text-sm text-[#1A2B56] hover:underline disabled:opacity-40"
+                className="text-sm text-primary hover:underline disabled:opacity-40"
               >
                 + Agregar cuenta
               </button>
@@ -201,7 +201,7 @@ export default function CobrarDeudaModal({
               />
               <button
                 onClick={ponerTodo}
-                className="shrink-0 rounded-lg bg-[#1A2B56] px-4 py-3 text-sm font-semibold text-white"
+                className="shrink-0 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white"
               >
                 Todo
               </button>
@@ -214,7 +214,7 @@ export default function CobrarDeudaModal({
                 Total cargado: <span className="font-medium text-slate-900">${fmt(total)}</span>{" "}
                 / ${fmt(deudaTotal)}
               </span>
-              <button onClick={ponerTodo} className="text-left font-medium text-[#1A2B56] hover:underline">
+              <button onClick={ponerTodo} className="text-left font-medium text-primary hover:underline">
                 Completar con la última cuenta
               </button>
             </div>
@@ -233,7 +233,7 @@ export default function CobrarDeudaModal({
             <button
               onClick={handleSubmit}
               disabled={total <= 0 || isPending}
-              className="flex-1 rounded-lg bg-[#1A2B56] px-4 py-3 text-sm font-semibold text-white disabled:bg-[#1A2B56]/40"
+              className="flex-1 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white disabled:bg-primary/40"
             >
               {isPending ? "Cobrando..." : `Cobrar $${fmt(total)}`}
             </button>

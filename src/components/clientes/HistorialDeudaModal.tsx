@@ -41,25 +41,25 @@ export default function HistorialDeudaModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl max-h-[85vh] flex flex-col">
-        <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-[#E2E8F0]">
+        <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-border">
           <div>
-            <h2 className="text-lg font-bold text-[#191c1e]">Historial de deuda</h2>
-            <p className="text-sm text-[#8a8c94]">{cliente.nombre}</p>
+            <h2 className="text-lg font-bold text-text">Historial de deuda</h2>
+            <p className="text-sm text-text-dim">{cliente.nombre}</p>
           </div>
-          <button onClick={onClose} className="text-[#45464f] hover:text-[#191c1e]">
+          <button onClick={onClose} className="text-text-dim hover:text-text">
             <X size={20} />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-          {error && <p className="text-sm text-[#ba1a1a]">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
 
           {!error && eventos === null && (
-            <p className="text-sm text-[#45464f] text-center py-6">Cargando...</p>
+            <p className="text-sm text-text-dim text-center py-6">Cargando...</p>
           )}
 
           {eventos !== null && eventos.length === 0 && (
-            <p className="text-sm text-[#45464f] text-center py-6">
+            <p className="text-sm text-text-dim text-center py-6">
               Este cliente no tiene movimientos de deuda.
             </p>
           )}
@@ -68,31 +68,31 @@ export default function HistorialDeudaModal({
             <div
               key={e.id}
               className={`rounded-xl px-4 py-3 ${
-                e.tipo === "pago" ? "bg-[#e8f7ef]" : "bg-[#fdecec]"
+                e.tipo === "pago" ? "bg-[#e8f7ef]" : "bg-danger/10"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-2">
                   <span
                     className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${
-                      e.tipo === "pago" ? "bg-[#0f9d58]" : "bg-[#ba1a1a]"
+                      e.tipo === "pago" ? "bg-[#0f9d58]" : "bg-danger"
                     }`}
                   />
                   <div>
-                    <p className="font-semibold text-sm text-[#191c1e]">{e.label}</p>
-                    <p className="text-xs text-[#45464f]">{e.sublabel}</p>
+                    <p className="font-semibold text-sm text-text">{e.label}</p>
+                    <p className="text-xs text-text-dim">{e.sublabel}</p>
                   </div>
                 </div>
                 <span
                   className={`text-sm font-bold shrink-0 ${
-                    e.tipo === "pago" ? "text-[#0f9d58]" : "text-[#ba1a1a]"
+                    e.tipo === "pago" ? "text-[#0f9d58]" : "text-danger"
                   }`}
                 >
                   {e.tipo === "pago" ? "−" : "+"}
                   {formatARS(Math.abs(e.monto))}
                 </span>
               </div>
-              <p className="text-xs text-[#8a8c94] mt-2">
+              <p className="text-xs text-text-dim mt-2">
                 {formatFechaHoraAR(new Date(e.fecha))} · Saldo:{" "}
                   {formatARS(e.saldoAntes)} → {formatARS(e.saldoDespues)}
                 {e.tipo === "venta" ? ` · Venta #${e.ventaId}` : ""}
@@ -101,10 +101,10 @@ export default function HistorialDeudaModal({
           ))}
         </div>
 
-        <div className="p-4 border-t border-[#E2E8F0]">
+        <div className="p-4 border-t border-border">
           <button
             onClick={onClose}
-            className="w-full rounded-full border border-[#c5c6d0] py-2.5 text-sm font-medium hover:bg-[#eceef0]"
+            className="w-full rounded-full border border-border py-2.5 text-sm font-medium hover:bg-surface-hover"
           >
             Cerrar
           </button>

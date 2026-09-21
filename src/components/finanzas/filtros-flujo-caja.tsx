@@ -84,7 +84,7 @@ export function FiltrosFlujoCaja({ filtros, onChange, cuentas }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium uppercase tracking-wider text-[#45464f]">Período:</span>
+        <span className="text-xs font-medium uppercase tracking-wider text-text-dim">Período:</span>
         {(["HOY", "SEMANA", "MES"] as const).map((p) => (
           <button
             key={p}
@@ -92,8 +92,8 @@ export function FiltrosFlujoCaja({ filtros, onChange, cuentas }: Props) {
             onClick={() => setPeriodoRapido(p)}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               filtros.periodoRapido === p
-                ? "bg-[#021541] text-white"
-                : "border border-[#c5c6d0] bg-white text-[#45464f] hover:bg-[#eceef0] cursor-pointer hover:text-[#191c1e]"
+                ? "bg-primary text-white"
+                : "border border-border bg-white text-text-dim hover:bg-surface-hover cursor-pointer hover:text-text"
             }`}
           >
             {p === "HOY" ? "Hoy" : p === "SEMANA" ? "Esta semana" : "Este mes"}
@@ -103,19 +103,19 @@ export function FiltrosFlujoCaja({ filtros, onChange, cuentas }: Props) {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="flex w-full flex-col gap-1 sm:w-auto">
-          <label className="text-xs font-medium uppercase tracking-wider text-[#45464f]">Desde</label>
+          <label className="text-xs font-medium uppercase tracking-wider text-text-dim">Desde</label>
           <DateInput
             value={filtros.desde}
             onChange={(valor) => onChange({ ...filtros, periodoRapido: "PERSONALIZADO", desde: valor })}
-            className="w-full rounded-lg border border-[#c5c6d0] bg-white px-3 py-2 text-sm text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541] sm:w-auto"
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary sm:w-auto"
           />
         </div>
         <div className="flex w-full flex-col gap-1 sm:w-auto">
-          <label className="text-xs font-medium uppercase tracking-wider text-[#45464f]">Hasta</label>
+          <label className="text-xs font-medium uppercase tracking-wider text-text-dim">Hasta</label>
           <DateInput
             value={filtros.hasta}
             onChange={(valor) => onChange({ ...filtros, periodoRapido: "PERSONALIZADO", hasta: valor })}
-            className="w-full rounded-lg border border-[#c5c6d0] bg-white px-3 py-2 text-sm text-[#191c1e] focus:outline-none focus:ring-1 focus:ring-[#021541] sm:w-auto"
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary sm:w-auto"
           />
         </div>
         <Select

@@ -56,7 +56,7 @@ export function CardPedido({ pedido, onCambio }: Props) {
   return (
     <div
       onClick={() => setModalDetalleAbierto(true)}
-      className="cursor-pointer rounded-lg border border-border bg-surface px-3 py-2.5 shadow-sm transition-colors hover:border-[#021541]/30"
+      className="cursor-pointer rounded-lg border border-border bg-surface px-3 py-2.5 shadow-sm transition-colors hover:border-primary/30"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">

@@ -26,17 +26,17 @@ export default async function DetallePresupuestoPage({
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-6 py-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#191c1e]">Presupuesto #{presupuesto.id}</h1>
+          <h1 className="text-2xl font-bold text-text">Presupuesto #{presupuesto.id}</h1>
           <EstadoBadge estado={estadoEfectivo} />
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/presupuestos" className="text-sm text-[#021541]">
+          <Link href="/presupuestos" className="text-sm text-primary">
             ← Volver a la lista
           </Link>
           {esBorrador && (
             <Link
                 href={`/ventas?presupuestoId=${presupuesto.id}`}
-                className="px-4 py-2 rounded-lg bg-[#021541] text-white text-sm"
+                className="px-4 py-2 rounded-lg bg-primary text-white text-sm"
             >
                 Convertir a venta
             </Link>
@@ -44,10 +44,10 @@ export default async function DetallePresupuestoPage({
         </div>
       </div>
 
-      <div className="flex-1 bg-white rounded-2xl m-4 border border-[#e2e8f0] overflow-y-auto p-6 space-y-6">
+      <div className="flex-1 bg-white rounded-2xl m-4 border border-border overflow-y-auto p-6 space-y-6">
         <div>
-          <p className="text-sm text-[#45464f]">Cliente</p>
-          <p className="text-base font-medium text-[#191c1e]">
+          <p className="text-sm text-text-dim">Cliente</p>
+          <p className="text-base font-medium text-text">
             {presupuesto.cliente
               ? `${presupuesto.cliente.nombre} ${presupuesto.cliente.apellido ?? ""}`.trim()
               : "Consumidor final"}
@@ -56,7 +56,7 @@ export default async function DetallePresupuestoPage({
 
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-[#e2e8f0] text-left text-[#45464f]">
+            <tr className="border-b border-border text-left text-text-dim">
               <th className="py-2">Ítem</th>
               <th className="py-2">Cant.</th>
               <th className="py-2">Precio unit.</th>
@@ -65,7 +65,7 @@ export default async function DetallePresupuestoPage({
           </thead>
           <tbody>
             {presupuesto.items.map((item) => (
-              <tr key={item.id} className="border-b border-[#e2e8f0]">
+              <tr key={item.id} className="border-b border-border">
                 <td className="py-2">{item.descripcion}</td>
                 <td className="py-2">{item.cantidad}</td>
                 <td className="py-2">${item.precioUnitario.toLocaleString("es-AR")}</td>
@@ -75,14 +75,14 @@ export default async function DetallePresupuestoPage({
           </tbody>
         </table>
 
-        <div className="flex justify-end text-base font-semibold text-[#191c1e]">
+        <div className="flex justify-end text-base font-semibold text-text">
           Total: ${presupuesto.total.toLocaleString("es-AR")}
         </div>
 
         {presupuesto.observaciones && (
           <div>
-            <p className="text-sm text-[#45464f]">Observaciones</p>
-            <p className="text-sm text-[#191c1e]">{presupuesto.observaciones}</p>
+            <p className="text-sm text-text-dim">Observaciones</p>
+            <p className="text-sm text-text">{presupuesto.observaciones}</p>
           </div>
         )}
       </div>
@@ -92,7 +92,7 @@ export default async function DetallePresupuestoPage({
 
 function EstadoBadge({ estado }: { estado: "BORRADOR" | "VENCIDO" | "CONVERTIDO" }) {
   const estilos: Record<string, string> = {
-    BORRADOR: "bg-[#eef2ff] text-[#021541]",
+    BORRADOR: "bg-[#eef2ff] text-primary",
     VENCIDO: "bg-[#fef3c7] text-[#92400e]",
     CONVERTIDO: "bg-[#dcfce7] text-[#166534]",
   };

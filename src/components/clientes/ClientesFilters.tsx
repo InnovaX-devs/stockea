@@ -60,7 +60,7 @@ export default function ClientesFilters() {
         placeholder="Buscar por nombre..."
         value={busqueda}
         onChange={(e) => handleBusquedaChange(e.target.value)}
-        className="w-full min-w-0 rounded-lg border border-[#c5c6d0] px-3 py-2 text-sm sm:w-64 focus:outline-none focus:ring-2 focus:ring-[#021541]"
+        className="w-full min-w-0 rounded-lg border border-border px-3 py-2 text-sm sm:w-64 focus:outline-none focus:ring-2 focus:ring-primary"
       />
 
       <Select

@@ -9,7 +9,7 @@ export default async function ReportesLayout({ children }: { children: React.Rea
   return (
     <div className="space-y-4 p-4 print:p-0">
       <div className="print:hidden">
-        <h1 className="text-xl font-semibold text-[#191c1e] sm:text-2xl">Reportes</h1>
+        <h1 className="text-xl font-semibold text-text sm:text-2xl">Reportes</h1>
       </div>
       <SeccionesReportes />
       {children}

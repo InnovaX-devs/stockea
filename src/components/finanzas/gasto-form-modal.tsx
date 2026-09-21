@@ -283,7 +283,7 @@ export function GastoFormModal({ isOpen, onClose, onSuccess }: Props) {
             <button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover">
               Cancelar
             </button>
-            <button type="submit" disabled={loading} className="rounded-lg cursor-pointer bg-[#021541] px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50">
+            <button type="submit" disabled={loading} className="rounded-lg cursor-pointer bg-primary px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50">
               {loading ? "Guardando..." : "Guardar gasto"}
             </button>
           </div>

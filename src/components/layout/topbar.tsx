@@ -16,7 +16,7 @@ import { actualizarCotizacionRapida } from "@/app/(dashboard)/configuracion/acti
 // portan casi sin cambios).
 const ITEM_BASE =
   "group relative flex items-center gap-2 rounded-full px-3.5 py-2 text-[13px] font-medium transition-colors";
-const ITEM_INACTIVO = "text-white/55 hover:bg-white/[0.06] hover:text-white";
+const ITEM_INACTIVO = "text-white hover:bg-white/[0.06] hover:text-white";
 const ITEM_ACTIVO = "bg-primary-soft/[0.16] text-white";
 
 function grupoTieneRutaActiva(grupo: NavGroup, pathname: string) {
@@ -146,7 +146,7 @@ export function Topbar({
         <div className="hidden sm:block">
           <span className="font-display text-[15.5px] font-bold tracking-[-0.02em] text-white">{nombreNegocio}</span>
           {eslogan && (
-            <p className="-mt-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-white/40">{eslogan}</p>
+            <p className="-mt-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-white">{eslogan}</p>
           )}
         </div>
       </Link>
@@ -182,7 +182,7 @@ export function Topbar({
                 </button>
 
                 {abierto && (
-                  <div className="absolute left-0 top-[calc(100%+6px)] z-10 min-w-[200px] rounded-xl border border-white/10 bg-[#0B1710] p-1.5 shadow-xl">
+                  <div className="bg-topbar absolute left-0 top-[calc(100%+6px)] z-10 min-w-[200px] rounded-xl border border-white/10 p-1.5 shadow-xl">
                     {item.children.map((child) => {
                       const ChildIcon = child.icon;
                       const isActive = child.href === activeHref;
@@ -193,7 +193,7 @@ export function Topbar({
                           aria-current={isActive ? "page" : undefined}
                           className={cn(
                             "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
-                            isActive ? "bg-primary-soft/[0.16] text-white" : "text-white/55 hover:bg-white/[0.06] hover:text-white"
+                            isActive ? "bg-primary-soft/[0.16] text-white" : "text-white hover:bg-white/[0.06] hover:text-white"
                           )}
                         >
                           <ChildIcon className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -229,7 +229,7 @@ export function Topbar({
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
         {usaCotizacionUSD && (editando ? (
           <div className="hidden items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2 py-1 sm:flex">
-            <span className="text-xs text-white/50">USD</span>
+            <span className="text-xs text-white">USD</span>
             <span className="font-mono text-sm text-white">$</span>
             <input
               type="number"
@@ -260,7 +260,7 @@ export function Topbar({
             className="hidden items-center cursor-pointer gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 transition-colors hover:border-primary-soft/50 sm:flex"
             title="Editar cotización"
           >
-            <span className="text-xs text-white/50">USD</span>
+            <span className="text-xs text-white">USD</span>
             <span className="font-mono text-sm font-medium text-white">${cotizacionFormateada}</span>
           </button>
         ))}
@@ -270,7 +270,7 @@ export function Topbar({
           className={
             configuracionActiva
               ? "flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border border-primary-soft bg-primary-soft/15 text-primary-soft"
-              : "flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border border-white/10 bg-white/[0.04] text-white/55 hover:text-white"
+              : "flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border border-white/10 bg-white/[0.04] text-white hover:text-white"
           }
           title="Configuración"
           aria-label="Configuración"
@@ -285,7 +285,7 @@ export function Topbar({
         <button
           type="button"
           onClick={() => setMenuMobileAbierto((v) => !v)}
-          className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border border-white/10 text-white/70 hover:bg-white/[0.06] md:hidden"
+          className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border border-white/10 text-white hover:bg-white/[0.06] md:hidden"
           aria-label="Abrir menú"
         >
           {menuMobileAbierto ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -317,11 +317,11 @@ export function Topbar({
           )}
         >
           <div className="mb-2 flex items-center justify-between px-1">
-            <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-white/40">Menú</span>
+            <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-white">Menú</span>
             <button
               type="button"
               onClick={() => setMenuMobileAbierto(false)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:bg-white/[0.06] hover:text-white"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-white hover:bg-white/[0.06] hover:text-white"
               aria-label="Cerrar menú"
             >
               <X className="h-4 w-4" />
@@ -337,7 +337,7 @@ export function Topbar({
           {navItems.map((item) =>
             esGrupo(item) ? (
               <div key={item.label} className="pt-3">
-                <p className="px-3.5 pb-1.5 font-mono text-[11px] uppercase tracking-[0.1em] text-white/35">{item.label}</p>
+                <p className="px-3.5 pb-1.5 font-mono text-[11px] uppercase tracking-[0.1em] text-white">{item.label}</p>
                 {item.children.map((child) => {
                   const ChildIcon = child.icon;
                   const isActive = pathname === child.href || pathname.startsWith(`${child.href}/`);

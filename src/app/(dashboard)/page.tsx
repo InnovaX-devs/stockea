@@ -111,7 +111,7 @@ export default function DashboardPage() {
       {/* Saldo total + Hoy */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Saldo total */}
-        <div className="cta-glow relative overflow-hidden rounded-2xl bg-[#132A1F] p-6 text-ivory">
+        <div className="cta-glow bg-topbar relative overflow-hidden rounded-2xl p-6 text-ivory">
           {/* Parte de arriba: label + ojito + monto -> va a /finanzas */}
           <Link
             href="/finanzas"
@@ -119,7 +119,7 @@ export default function DashboardPage() {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-white/45">
+                <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-white">
                   Saldo Total
                 </p>
                 <button
@@ -129,7 +129,7 @@ export default function DashboardPage() {
                     e.stopPropagation();
                     setMostrarSaldos((prev) => !prev);
                   }}
-                  className="cursor-pointer rounded p-0.5 text-white/40 hover:text-white/70"
+                  className="cursor-pointer rounded p-0.5 text-white hover:text-white"
                   title={mostrarSaldos ? "Ocultar saldos" : "Mostrar saldos"}
                 >
                   {mostrarSaldos ? <Eye size={13} /> : <EyeOff size={13} />}
@@ -153,7 +153,7 @@ export default function DashboardPage() {
               <div className="mt-6 grid grid-cols-2 gap-4 border-t border-white/10 pt-4 sm:grid-cols-5">
                 {datos.cuentas.principales.slice(0, 5).map((c) => (
                   <div key={c.id} className="min-w-0">
-                    <p className="flex items-center gap-1.5 truncate font-mono text-[10px] uppercase tracking-[0.1em] text-white/45">
+                    <p className="flex items-center gap-1.5 truncate font-mono text-[10px] uppercase tracking-[0.1em] text-white">
                       {c.color && (
                         <span
                           className="h-2 w-2 shrink-0 rounded-full"

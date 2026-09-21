@@ -11,7 +11,7 @@ export function TogglePrecio() {
         type="button"
         onClick={() => setTipoPrecio("MINORISTA")}
         className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-          tipoPrecio === "MINORISTA" ? "bg-[#021541] text-white" : "text-text-dim cursor-pointer hover:text-text"
+          tipoPrecio === "MINORISTA" ? "bg-primary text-white" : "text-text-dim cursor-pointer hover:text-text"
         }`}
       >
         Min
@@ -20,7 +20,7 @@ export function TogglePrecio() {
         type="button"
         onClick={() => setTipoPrecio("MAYORISTA")}
         className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-          tipoPrecio === "MAYORISTA" ? "bg-[#021541] text-white" : "text-text-dim cursor-pointer hover:text-text"
+          tipoPrecio === "MAYORISTA" ? "bg-primary text-white" : "text-text-dim cursor-pointer hover:text-text"
         }`}
       >
         May

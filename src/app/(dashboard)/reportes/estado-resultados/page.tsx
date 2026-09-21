@@ -25,11 +25,11 @@ export default async function EstadoResultadosPage({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-[#45464f]">{rangoTexto}</p>
+      <p className="text-sm text-text-dim">{rangoTexto}</p>
       <TabsReportes tabActual={tab} desde={params.desde} hasta={params.hasta} />
 
       {faltaPeriodo ? (
-        <p className="text-sm text-[#45464f]">Elegí un rango de fechas para ver el estado de resultados.</p>
+        <p className="text-sm text-text-dim">Elegí un rango de fechas para ver el estado de resultados.</p>
       ) : (
         <EstadoResultadosSection rango={rango} />
       )}
@@ -50,30 +50,30 @@ async function EstadoResultadosSection({ rango }: { rango: { desde: Date; hasta:
   ];
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white">
-      <div className="border-b border-[#E2E8F0] px-4 py-3">
-        <h2 className="text-sm font-semibold text-[#191c1e]">Estado de Resultados</h2>
-        <p className="text-xs text-[#45464f]">
+    <div className="overflow-hidden rounded-2xl border border-border bg-white">
+      <div className="border-b border-border px-4 py-3">
+        <h2 className="text-sm font-semibold text-text">Estado de Resultados</h2>
+        <p className="text-xs text-text-dim">
           Ingresos por lo efectivamente cobrado en el período (no lo facturado). Margen neto: {kpis.margenPorcentaje.toFixed(1)}%
         </p>
       </div>
-      <div className="divide-y divide-[#E2E8F0]">
+      <div className="divide-y divide-border">
         {filas.map((f) => (
           <div
             key={f.label}
             className={cn(
               "flex items-center justify-between px-4 py-3",
-              f.tono === "subtotal" && "bg-[#F8FAFC]",
-              f.tono === "total" && "bg-[#F0FDF4]"
+              f.tono === "subtotal" && "bg-surface",
+              f.tono === "total" && "bg-success/10"
             )}
           >
             <span
               className={cn(
                 "text-sm",
-                f.tono === "normal" && "text-[#45464f]",
-                f.tono === "resta" && "pl-4 text-[#45464f]",
-                f.tono === "subtotal" && "font-medium text-[#191c1e]",
-                f.tono === "total" && "font-semibold text-[#191c1e]"
+                f.tono === "normal" && "text-text-dim",
+                f.tono === "resta" && "pl-4 text-text-dim",
+                f.tono === "subtotal" && "font-medium text-text",
+                f.tono === "total" && "font-semibold text-text"
               )}
             >
               {f.label}
@@ -81,10 +81,10 @@ async function EstadoResultadosSection({ rango }: { rango: { desde: Date; hasta:
             <span
               className={cn(
                 "text-sm",
-                f.tono === "normal" && "text-[#191c1e]",
-                f.tono === "resta" && "text-[#ba1a1a]",
-                f.tono === "subtotal" && "font-medium text-[#191c1e]",
-                f.tono === "total" && "text-lg font-bold text-[#1e7d38]"
+                f.tono === "normal" && "text-text",
+                f.tono === "resta" && "text-danger",
+                f.tono === "subtotal" && "font-medium text-text",
+                f.tono === "total" && "text-lg font-bold text-success"
               )}
             >
               {f.valor < 0 ? "-" : ""}

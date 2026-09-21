@@ -894,7 +894,7 @@ export function ProductoFormModal({
             <button
               type="submit"
               disabled={loading}
-              className="w-full sm:w-auto rounded-lg bg-[#021541] cursor-pointer px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="w-full sm:w-auto rounded-lg bg-primary cursor-pointer px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {loading ? "Guardando..." : "Guardar Producto"}
             </button>

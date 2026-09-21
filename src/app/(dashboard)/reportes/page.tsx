@@ -39,7 +39,7 @@ export default async function ReportesPage({
   return (
     <div className="space-y-4 print:p-0">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <p className="text-sm text-[#45464f]">{rangoTexto}</p>
+        <p className="text-sm text-text-dim">{rangoTexto}</p>
         <div className="flex items-center gap-2">
           <BotonExportarPdf tab={tab} desde={params.desde} hasta={params.hasta} />
         </div>
@@ -48,7 +48,7 @@ export default async function ReportesPage({
       <TabsReportes tabActual={tab} desde={params.desde} hasta={params.hasta} />
 
       {faltaPeriodo ? (
-        <p className="text-sm text-[#45464f]">Elegí un rango de fechas para ver el reporte.</p>
+        <p className="text-sm text-text-dim">Elegí un rango de fechas para ver el reporte.</p>
       ) : (
         <ReportePeriodoSection rango={rango} />
       )}

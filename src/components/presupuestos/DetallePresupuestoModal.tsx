@@ -6,9 +6,9 @@ import { obtenerDetallePresupuesto, type DetallePresupuesto } from "@/app/(dashb
 import { formatFechaAR } from "@/lib/timezone";
 
 const ESTADO_STYLES: Record<string, string> = {
-  BORRADOR: "bg-[#e0e3e5] text-[#45464f]",
+  BORRADOR: "bg-surface-hover text-text-dim",
   VENCIDO: "bg-[#ffdad6] text-[#93000a]",
-  CONVERTIDO: "bg-[#fed65b] text-[#745c00]",
+  CONVERTIDO: "bg-warning/20 text-warning",
 };
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -51,7 +51,7 @@ export default function DetallePresupuestoModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-2xl max-h-[85vh] bg-white rounded-2xl shadow-xl flex flex-col overflow-hidden">
-        <div className="bg-[#021541] text-white px-6 py-4 flex items-center justify-between">
+        <div className="bg-primary text-white px-6 py-4 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-bold">Presupuesto #{presupuestoId}</h2>
@@ -62,7 +62,7 @@ export default function DetallePresupuestoModal({
               )}
             </div>
             {detalle && (
-              <p className="text-sm text-white/70 mt-1">
+              <p className="text-sm text-white mt-1">
                 Creado {formatFechaAR(detalle.fecha)} · Vence{" "}
                 {formatFechaAR(detalle.fechaVencimiento)}
               </p>
@@ -71,7 +71,7 @@ export default function DetallePresupuestoModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-white/80 hover:text-white text-xl leading-none"
+            className="text-white hover:text-white text-xl leading-none"
             aria-label="Cerrar"
           >
             ×
@@ -79,21 +79,21 @@ export default function DetallePresupuestoModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {cargando && <p className="text-sm text-[#45464f]">Cargando...</p>}
-          {error && <p className="text-sm text-[#ba1a1a]">{error}</p>}
+          {cargando && <p className="text-sm text-text-dim">Cargando...</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
 
           {detalle && (
             <>
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">Cliente</p>
-                <p className="text-base font-medium text-[#191c1e]">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-text-dim">Cliente</p>
+                <p className="text-base font-medium text-text">
                   {detalle.clienteNombre ?? "Consumidor final"}
                 </p>
               </div>
 
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#e2e8f0] text-left text-[#45464f]">
+                  <tr className="border-b border-border text-left text-text-dim">
                     <th className="py-2">Producto</th>
                     <th className="py-2 text-right">Cant.</th>
                     <th className="py-2 text-right">P. Unit.</th>
@@ -102,7 +102,7 @@ export default function DetallePresupuestoModal({
                 </thead>
                 <tbody>
                   {detalle.items.map((item) => (
-                    <tr key={item.id} className="border-b border-[#e2e8f0]">
+                    <tr key={item.id} className="border-b border-border">
                       <td className="py-2">{item.descripcion}</td>
                       <td className="py-2 text-right">{item.cantidad}</td>
                       <td className="py-2 text-right">
@@ -116,16 +116,16 @@ export default function DetallePresupuestoModal({
                 </tbody>
               </table>
 
-              <div className="flex justify-end text-base font-semibold text-[#191c1e]">
+              <div className="flex justify-end text-base font-semibold text-text">
                 Total: ${detalle.total.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
               </div>
 
               {detalle.observaciones && (
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-text-dim">
                     Observaciones
                   </p>
-                  <p className="text-sm text-[#191c1e]">{detalle.observaciones}</p>
+                  <p className="text-sm text-text">{detalle.observaciones}</p>
                 </div>
               )}
             </>
@@ -133,10 +133,10 @@ export default function DetallePresupuestoModal({
         </div>
 
         {detalle?.puedeConvertir && (
-          <div className="px-6 py-4 border-t border-[#e2e8f0] flex justify-end">
+          <div className="px-6 py-4 border-t border-border flex justify-end">
             <Link
               href={`/ventas?presupuestoId=${detalle.id}`}
-              className="px-4 py-2.5 rounded-lg bg-[#021541] text-white text-sm font-medium"
+              className="px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-medium"
             >
               Convertir a venta
             </Link>

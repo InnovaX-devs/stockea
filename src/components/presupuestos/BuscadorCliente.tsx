@@ -46,13 +46,13 @@ export default function BuscadorCliente({
           }}
           onFocus={() => setAbierto(true)}
           placeholder="Buscar cliente (opcional)..."
-          className="w-full px-3 py-2.5 border border-[#c5c6d0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#021541]"
+          className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         />
         {abierto && query.trim() && !clienteSeleccionado && (
-          <div className="absolute z-10 mt-1 w-full bg-white border border-[#c5c6d0] rounded-lg shadow-lg max-h-64 overflow-y-auto">
-            {isPending && <p className="px-3 py-2 text-sm text-[#45464f]">Buscando...</p>}
+          <div className="absolute z-10 mt-1 w-full bg-white border border-border rounded-lg shadow-lg max-h-64 overflow-y-auto">
+            {isPending && <p className="px-3 py-2 text-sm text-text-dim">Buscando...</p>}
             {!isPending && resultados.length === 0 && (
-              <p className="px-3 py-2 text-sm text-[#45464f]">Sin resultados.</p>
+              <p className="px-3 py-2 text-sm text-text-dim">Sin resultados.</p>
             )}
             {!isPending &&
               resultados.map((c) => (
@@ -60,7 +60,7 @@ export default function BuscadorCliente({
                   key={c.id}
                   type="button"
                   onClick={() => handleSeleccionar(c)}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-[#f1f5f9]"
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-surface-hover"
                 >
                   {c.nombre} {c.apellido ?? ""}
                   {c.esMayorista && <span className="ml-2 text-[11px] text-[#735c00]">mayorista</span>}
@@ -73,7 +73,7 @@ export default function BuscadorCliente({
       <button
         type="button"
         onClick={() => setMostrarModal(true)}
-        className="w-10 h-10 flex items-center justify-center border border-[#c5c6d0] rounded-lg text-[#021541] hover:bg-[#f1f5f9]"
+        className="w-10 h-10 flex items-center justify-center border border-border rounded-lg text-primary hover:bg-surface-hover"
         aria-label="Nuevo cliente"
       >
         +
@@ -82,7 +82,7 @@ export default function BuscadorCliente({
       {mostrarModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4 text-[#191c1e]">Nuevo cliente</h3>
+            <h3 className="text-lg font-semibold mb-4 text-text">Nuevo cliente</h3>
             <ClienteForm
               onSuccess={(cliente) => {
                 onSeleccionar(cliente);

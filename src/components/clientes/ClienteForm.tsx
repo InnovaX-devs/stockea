@@ -66,7 +66,7 @@ export default function ClienteForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+        <label className="text-[11px] font-bold uppercase tracking-wider text-text-dim">
           Nombre *
         </label>
         <input
@@ -75,89 +75,89 @@ export default function ClienteForm({
           onChange={(e) => update("nombre", e.target.value)}
           required
           autoFocus
-          className="mt-1 w-full border border-[#c5c6d0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#021541]"
+          className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         />
       </div>
 
       <div>
-        <label className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+        <label className="text-[11px] font-bold uppercase tracking-wider text-text-dim">
           Apellido
         </label>
         <input
           type="text"
           value={values.apellido}
           onChange={(e) => update("apellido", e.target.value)}
-          className="mt-1 w-full border border-[#c5c6d0] rounded-lg px-3 py-2 text-sm"
+          className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+          <label className="text-[11px] font-bold uppercase tracking-wider text-text-dim">
             Teléfono
           </label>
           <input
             type="text"
             value={values.telefono}
             onChange={(e) => update("telefono", e.target.value)}
-            className="mt-1 w-full border border-[#c5c6d0] rounded-lg px-3 py-2 text-sm"
+            className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm"
           />
         </div>
         <div>
-          <label className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+          <label className="text-[11px] font-bold uppercase tracking-wider text-text-dim">
             Email
           </label>
           <input
             type="email"
             value={values.email}
             onChange={(e) => update("email", e.target.value)}
-            className="mt-1 w-full border border-[#c5c6d0] rounded-lg px-3 py-2 text-sm"
+            className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm"
           />
         </div>
       </div>
 
       <div>
-        <label className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+        <label className="text-[11px] font-bold uppercase tracking-wider text-text-dim">
           Dirección
         </label>
         <input
           type="text"
           value={values.direccion}
           onChange={(e) => update("direccion", e.target.value)}
-          className="mt-1 w-full border border-[#c5c6d0] rounded-lg px-3 py-2 text-sm"
+          className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm"
         />
       </div>
 
       <div>
-        <label className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+        <label className="text-[11px] font-bold uppercase tracking-wider text-text-dim">
           Localidad
         </label>
         <input
           type="text"
           value={values.localidad}
           onChange={(e) => update("localidad", e.target.value)}
-          className="mt-1 w-full border border-[#c5c6d0] rounded-lg px-3 py-2 text-sm"
+          className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm"
         />
       </div>
 
-      <label className="flex items-center gap-2 text-sm cursor-pointer text-[#191c1e]">
+      <label className="flex items-center gap-2 text-sm cursor-pointer text-text">
         <input
           type="checkbox"
           checked={values.esMayorista}
           onChange={(e) => update("esMayorista", e.target.checked)}
-          className="rounded border-[#c5c6d0] cursor-pointer"
+          className="rounded border-border cursor-pointer"
         />
         Cliente mayorista
       </label>
 
-      {error && <p className="text-sm text-[#ba1a1a]">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       <div className="flex justify-end gap-2 pt-2">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-sm rounded-lg cursor-pointer border border-[#c5c6d0] hover:bg-[#e8e9f1] transition-colors"
+            className="px-4 py-2 text-sm rounded-lg cursor-pointer border border-border hover:bg-[#e8e9f1] transition-colors"
           >
             Cancelar
           </button>
@@ -165,7 +165,7 @@ export default function ClienteForm({
         <button
           type="submit"
           disabled={enviando}
-          className="px-4 py-2 text-sm rounded-lg cursor-pointer bg-[#021541] text-white disabled:opacity-50 hover:opacity-90 transition-colors"
+          className="px-4 py-2 text-sm rounded-lg cursor-pointer bg-primary text-white disabled:opacity-50 hover:opacity-90 transition-colors"
         >
           {enviando ? "Guardando..." : esEdicion ? "Guardar cambios" : "Crear cliente"}
         </button>

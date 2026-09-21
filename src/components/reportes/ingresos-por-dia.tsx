@@ -35,9 +35,9 @@ export function IngresosPorDia({ datos }: { datos: IngresoPorDia[] }) {
 
   if (datos.length === 0) {
     return (
-      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-[#191c1e]">Ingresos por día</h2>
-        <p className="text-sm text-[#45464f]">Sin datos en el período.</p>
+      <div className="rounded-2xl border border-border bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-text">Ingresos por día</h2>
+        <p className="text-sm text-text-dim">Sin datos en el período.</p>
       </div>
     );
   }
@@ -46,10 +46,10 @@ export function IngresosPorDia({ datos }: { datos: IngresoPorDia[] }) {
   const maximoAbs = Math.max(...valores.map((v) => Math.abs(v)), 1);
 
   return (
-    <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
+    <div className="rounded-2xl border border-border bg-white p-4">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-[#191c1e]">Ingresos por día</h2>
-        <div className="flex gap-1 rounded-lg border border-[#c5c6d0] bg-[#F1F5F9] p-0.5">
+        <h2 className="text-sm font-semibold text-text">Ingresos por día</h2>
+        <div className="flex gap-1 rounded-lg border border-border bg-surface-hover p-0.5">
           {TABS.map((t) => (
             <button
               key={t.value}
@@ -57,8 +57,8 @@ export function IngresosPorDia({ datos }: { datos: IngresoPorDia[] }) {
               onClick={() => setMetrica(t.value)}
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                 metrica === t.value
-                  ? "bg-[#021541] text-white"
-                  : "text-[#45464f] hover:bg-[#eceef0] hover:text-[#191c1e] cursor-pointer"
+                  ? "bg-primary text-white"
+                  : "text-text-dim hover:bg-surface-hover hover:text-text cursor-pointer"
               }`}
             >
               {t.label}
@@ -86,7 +86,7 @@ export function IngresosPorDia({ datos }: { datos: IngresoPorDia[] }) {
                   title={formatearValor(valor, metrica)}
                 />
               </div>
-              <span className="shrink-0 text-[10px] text-[#45464f]">{formatearEtiqueta(item.fecha)}</span>
+              <span className="shrink-0 text-[10px] text-text-dim">{formatearEtiqueta(item.fecha)}</span>
             </div>
           );
         })}

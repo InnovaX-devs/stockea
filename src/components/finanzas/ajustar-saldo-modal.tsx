@@ -63,8 +63,8 @@ export function AjustarSaldoModal({ isOpen, onClose, cuenta, onSuccess }: Props)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-[#191c1e]">Ajustar saldo</h2>
-        <p className="mt-0.5 flex items-center gap-1.5 text-sm text-[#45464f]">
+        <h2 className="text-lg font-semibold text-text">Ajustar saldo</h2>
+        <p className="mt-0.5 flex items-center gap-1.5 text-sm text-text-dim">
           <span
             className="h-2.5 w-2.5 rounded-full"
             style={{ backgroundColor: cuenta.color ?? "#94a3b8" }}
@@ -73,30 +73,30 @@ export function AjustarSaldoModal({ isOpen, onClose, cuenta, onSuccess }: Props)
         </p>
 
         <div className="mt-4">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">Saldo actual</p>
-          <p className="text-xl font-bold text-[#191c1e]">{formatCurrency(cuenta.saldoActual, moneda)}</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-text-dim">Saldo actual</p>
+          <p className="text-xl font-bold text-text">{formatCurrency(cuenta.saldoActual, moneda)}</p>
         </div>
 
         <div className="mt-4">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">Nuevo saldo</label>
+          <label className="text-[11px] font-bold uppercase tracking-wider text-text-dim">Nuevo saldo</label>
           <input
             type="text"
             inputMode="decimal"
             value={nuevoSaldo}
             onChange={(e) => setNuevoSaldo(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm focus:border-[#021541] focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
             autoFocus
           />
         </div>
 
         <div className="mt-4">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">Concepto</label>
+          <label className="text-[11px] font-bold uppercase tracking-wider text-text-dim">Concepto</label>
           <input
             type="text"
             value={concepto}
             onChange={(e) => setConcepto(e.target.value)}
             placeholder="Ej: Arqueo de caja, corrección..."
-            className="mt-1 w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm focus:border-[#021541] focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
           />
         </div>
 
@@ -111,7 +111,7 @@ export function AjustarSaldoModal({ isOpen, onClose, cuenta, onSuccess }: Props)
           <button
             onClick={onClose}
             disabled={guardando}
-            className="rounded-lg bg-[#eceef0] px-4 py-2 text-sm font-medium text-[#45464f] hover:bg-[#e0e3e5]"
+            className="rounded-lg bg-surface-hover px-4 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover"
           >
             Cancelar
           </button>

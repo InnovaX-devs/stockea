@@ -49,14 +49,14 @@ export default function ClientesTable({
         <button
           onClick={() => setClienteAjuste(c)}
           title="Ajuste manual de deuda"
-          className="text-[#45464f] cursor-pointer hover:text-[#021541]"
+          className="text-text-dim cursor-pointer hover:text-primary"
         >
           <SlidersHorizontal size={18} />
         </button>
         <button
           onClick={() => onEditar(c)}
           title="Editar"
-          className="text-[#45464f] cursor-pointer hover:text-[#021541]"
+          className="text-text-dim cursor-pointer hover:text-primary"
         >
           <Pencil size={18} />
         </button>
@@ -64,7 +64,7 @@ export default function ClientesTable({
           onClick={() => handleEliminar(c.id, nombreCompleto(c))}
           disabled={eliminandoId === c.id}
           title="Eliminar"
-          className="text-[#45464f] hover:text-[#ba1a1a] cursor-pointer disabled:opacity-50"
+          className="text-text-dim hover:text-danger cursor-pointer disabled:opacity-50"
         >
           <Trash2 size={18} />
         </button>
@@ -74,7 +74,7 @@ export default function ClientesTable({
 
   if (clientes.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] px-4 py-8 text-center text-[#45464f] text-sm">
+      <div className="bg-white rounded-2xl border border-border px-4 py-8 text-center text-text-dim text-sm">
         No se encontraron clientes con estos filtros.
       </div>
     );
@@ -83,10 +83,10 @@ export default function ClientesTable({
   return (
     <>
       {/* Desktop: tabla */}
-      <div className="hidden md:block bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden">
+      <div className="hidden md:block bg-white rounded-2xl border border-border overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-[#F1F5F9]">
-            <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+          <thead className="bg-topbar">
+            <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-white">
               <th className="px-4 py-3">Cliente</th>
               <th className="px-4 py-3">Contacto</th>
               <th className="px-4 py-3">Tipo</th>
@@ -96,15 +96,15 @@ export default function ClientesTable({
           </thead>
           <tbody>
             {clientes.map((c) => (
-              <tr key={c.id} className="border-t border-[#E2E8F0]">
-                <td className="px-4 py-4 font-medium text-[#191c1e]">{nombreCompleto(c)}</td>
-                <td className="px-4 py-4 text-[#45464f]">{c.telefono ?? c.email ?? "—"}</td>
+              <tr key={c.id} className="border-t border-border">
+                <td className="px-4 py-4 font-medium text-text">{nombreCompleto(c)}</td>
+                <td className="px-4 py-4 text-text-dim">{c.telefono ?? c.email ?? "—"}</td>
                 <td className="px-4 py-4">
                   <span
                     className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
                       c.esMayorista
-                        ? "bg-[#fed65b] text-[#745c00]"
-                        : "bg-[#e0e3e5] text-[#45464f]"
+                        ? "bg-warning/20 text-warning"
+                        : "bg-surface-hover text-text-dim"
                     }`}
                   >
                     {c.esMayorista ? "Mayorista" : "Minorista"}
@@ -134,25 +134,25 @@ export default function ClientesTable({
         {clientes.map((c) => (
           <div
             key={c.id}
-            className="bg-white rounded-2xl border border-[#E2E8F0] p-4 shadow-[0_4px_20px_rgba(26,43,86,0.04)]"
+            className="bg-white rounded-2xl border border-border p-4 shadow-[0_4px_20px_rgba(26,43,86,0.04)]"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-medium text-[#191c1e] truncate">{nombreCompleto(c)}</p>
-                <p className="text-sm text-[#45464f] truncate">{c.telefono ?? c.email ?? "—"}</p>
+                <p className="font-medium text-text truncate">{nombreCompleto(c)}</p>
+                <p className="text-sm text-text-dim truncate">{c.telefono ?? c.email ?? "—"}</p>
               </div>
               <span
                 className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold ${
                   c.esMayorista
-                    ? "bg-[#fed65b] text-[#745c00]"
-                    : "bg-[#e0e3e5] text-[#45464f]"
+                    ? "bg-warning/20 text-warning"
+                    : "bg-surface-hover text-text-dim"
                 }`}
               >
                 {c.esMayorista ? "Mayorista" : "Minorista"}
               </span>
             </div>
 
-            <div className="mt-3 flex items-center justify-between border-t border-[#E2E8F0] pt-3">
+            <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
               <DeudaCell
                 cliente={{ id: c.id, nombre: nombreCompleto(c) }}
                 deuda={c.deuda}

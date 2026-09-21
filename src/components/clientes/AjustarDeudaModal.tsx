@@ -78,20 +78,20 @@ export default function AjustarDeudaModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl">
-        <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-[#E2E8F0]">
+        <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-border">
           <div>
-            <h2 className="text-lg font-bold text-[#191c1e]">
+            <h2 className="text-lg font-bold text-text">
               Ajuste manual de deuda
             </h2>
 
-            <p className="text-sm text-[#8a8c94]">
+            <p className="text-sm text-text-dim">
               {cliente.nombre}
             </p>
           </div>
 
           <button
             onClick={onClose}
-            className="text-[#45464f] hover:text-[#191c1e]"
+            className="text-text-dim hover:text-text"
           >
             <X size={20} />
           </button>
@@ -103,8 +103,8 @@ export default function AjustarDeudaModal({
               onClick={() => setTipo("aumentar")}
               className={`py-2 rounded-lg text-sm font-medium border ${
                 tipo === "aumentar"
-                  ? "bg-[#ba1a1a] text-white border-[#ba1a1a]"
-                  : "border-[#c5c6d0] text-[#45464f]"
+                  ? "bg-danger text-white border-[#ba1a1a]"
+                  : "border-border text-text-dim"
               }`}
             >
               Aumentar deuda
@@ -115,7 +115,7 @@ export default function AjustarDeudaModal({
               className={`py-2 rounded-lg text-sm font-medium border ${
                 tipo === "reducir"
                   ? "bg-[#0f9d58] text-white border-[#0f9d58]"
-                  : "border-[#c5c6d0] text-[#45464f]"
+                  : "border-border text-text-dim"
               }`}
             >
               Reducir deuda
@@ -123,7 +123,7 @@ export default function AjustarDeudaModal({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#45464f] mb-1">
+            <label className="block text-xs font-semibold text-text-dim mb-1">
               Monto
             </label>
 
@@ -134,13 +134,13 @@ export default function AjustarDeudaModal({
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
               placeholder="$0,00"
-              className="w-full rounded-lg border border-[#c5c6d0] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#021541]"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
 
           {tipo === "reducir" && (
             <div>
-              <label className="block text-xs font-semibold text-[#45464f] mb-1">
+              <label className="block text-xs font-semibold text-text-dim mb-1">
                 Cuenta que recibe el pago
               </label>
 
@@ -153,23 +153,23 @@ export default function AjustarDeudaModal({
           )}
 
           {tipo === "aumentar" && (
-            <p className="text-xs text-[#8a8c94]">
+            <p className="text-xs text-text-dim">
               Se registra como una venta a cuenta ("Ajuste manual de deuda")
               sin movimiento de caja.
             </p>
           )}
 
           {error && (
-            <p className="text-sm text-[#ba1a1a]">
+            <p className="text-sm text-danger">
               {error}
             </p>
           )}
         </div>
 
-        <div className="flex gap-2 p-4 border-t border-[#E2E8F0]">
+        <div className="flex gap-2 p-4 border-t border-border">
           <button
             onClick={onClose}
-            className="flex-1 rounded-full border border-[#c5c6d0] py-2.5 text-sm font-medium hover:bg-[#eceef0]"
+            className="flex-1 rounded-full border border-border py-2.5 text-sm font-medium hover:bg-surface-hover"
           >
             Cancelar
           </button>
@@ -177,7 +177,7 @@ export default function AjustarDeudaModal({
           <button
             onClick={handleSubmit}
             disabled={guardando}
-            className="flex-1 rounded-full bg-[#021541] text-white py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
+            className="flex-1 rounded-full bg-primary text-white py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
           >
             {guardando ? "Guardando..." : "Registrar ajuste"}
           </button>

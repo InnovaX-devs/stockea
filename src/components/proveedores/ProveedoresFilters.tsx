@@ -30,7 +30,7 @@ export default function ProveedoresFilters() {
         placeholder="Buscar por nombre..."
         value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)}
-        className="w-full rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-[#191c1e] placeholder:text-[#45464f] focus:border-[#021541] focus:outline-none sm:w-64"
+        className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none sm:w-64"
       />
     </div>
   );

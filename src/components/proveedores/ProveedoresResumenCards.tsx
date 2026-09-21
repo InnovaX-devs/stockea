@@ -13,17 +13,17 @@ export default function ProveedoresResumenCards({
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] p-4">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+      <div className="bg-white rounded-2xl border border-border p-4">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-text-dim">
           Total Proveedores
         </p>
-        <p className="mt-1 text-2xl font-semibold text-[#191c1e]">{resumen.totalProveedores}</p>
+        <p className="mt-1 text-2xl font-semibold text-text">{resumen.totalProveedores}</p>
       </div>
-      <div className="bg-white rounded-2xl border border-[#E2E8F0] p-4">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+      <div className="bg-white rounded-2xl border border-border p-4">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-text-dim">
           Total Comprado
         </p>
-        <p className="mt-1 text-2xl font-semibold text-[#191c1e]">
+        <p className="mt-1 text-2xl font-semibold text-text">
           {formatMoney(resumen.totalComprado)}
         </p>
       </div>

@@ -15,7 +15,7 @@ export default function ItemsPresupuestoTable({
 }) {
   if (items.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center py-20 text-[#45464f]">
+      <div className="flex-1 flex flex-col items-center justify-center text-center py-20 text-text-dim">
         <p>Buscá productos arriba para agregarlos al presupuesto</p>
       </div>
     );
@@ -24,7 +24,7 @@ export default function ItemsPresupuestoTable({
   return (
     <table className="w-full text-sm">
       <thead>
-        <tr className="bg-[#f1f5f9] text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+        <tr className="bg-surface-hover text-[11px] font-bold uppercase tracking-wider text-text-dim">
           <th className="text-left px-4 py-3">Producto</th>
           <th className="text-left px-4 py-3">Tipo</th>
           <th className="text-center px-4 py-3">Cantidad</th>
@@ -35,7 +35,7 @@ export default function ItemsPresupuestoTable({
       </thead>
       <tbody>
         {items.map((item) => (
-          <tr key={item.key} className="border-b border-[#e2e8f0]">
+          <tr key={item.key} className="border-b border-border">
             <td className="px-4 py-3">{item.descripcion}</td>
             <td className="px-4 py-3">{item.tipoPrecio === "MAYORISTA" ? "May" : "Min"}</td>
             <td className="px-4 py-3 text-center">
@@ -44,7 +44,7 @@ export default function ItemsPresupuestoTable({
                 min={1}
                 value={item.cantidad}
                 onChange={(e) => onCambiarCantidad(item.key, Number(e.target.value))}
-                className="w-16 text-center border border-[#c5c6d0] rounded px-1 py-1"
+                className="w-16 text-center border border-border rounded px-1 py-1"
               />
             </td>
             <td className="px-4 py-3 text-right">
@@ -53,7 +53,7 @@ export default function ItemsPresupuestoTable({
                 step="0.01"
                 value={item.precioUnitario}
                 onChange={(e) => onCambiarPrecio(item.key, Number(e.target.value))}
-                className="w-24 text-right border border-[#c5c6d0] rounded px-1 py-1"
+                className="w-24 text-right border border-border rounded px-1 py-1"
               />
             </td>
             <td className="px-4 py-3 text-right font-medium">
@@ -63,7 +63,7 @@ export default function ItemsPresupuestoTable({
               <button
                 type="button"
                 onClick={() => onQuitar(item.key)}
-                className="text-[#ba1a1a] text-xs"
+                className="text-danger text-xs"
               >
                 Quitar
               </button>

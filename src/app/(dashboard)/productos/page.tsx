@@ -381,10 +381,10 @@ export default function ProductosPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-[#191c1e] sm:text-2xl">
+          <h1 className="text-xl font-semibold text-text sm:text-2xl">
             Catálogo de Productos
           </h1>
-          <p className="text-sm text-[#45464f]">
+          <p className="text-sm text-text-dim">
             Gestión de inventario y valores de venta
           </p>
         </div>
@@ -393,21 +393,21 @@ export default function ProductosPage() {
           <button
             type="button"
             onClick={() => setIsPdfModalOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#c5c6d0] bg-white px-4 py-2 text-sm font-medium text-[#45464f] hover:bg-[#eceef0] cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover cursor-pointer"
           >
             <FileText className="h-4 w-4 shrink-0" />
             <span className="truncate">Generar PDF</span>
           </button>
           <Link
             href="/productos/actualizar-precios"
-            className="inline-flex items-center justify-center rounded-lg bg-[#021541] px-4 py-2 text-center text-sm font-medium text-white hover:opacity-90 cursor-pointer"
+            className="bg-grad inline-flex items-center justify-center rounded-full px-4 py-2 text-center text-sm font-semibold text-[#050507] shadow-[0_6px_20px_rgba(34,197,94,0.22)] transition-transform hover:-translate-y-0.5 cursor-pointer"
           >
             + Actualizar Precios
           </Link>
           <button
             type="button"
             onClick={handleAbrirCrear}
-            className="inline-flex items-center justify-center rounded-lg bg-[#021541] px-4 py-2 text-sm font-medium text-white hover:opacity-90 cursor-pointer"
+            className="bg-grad inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold text-[#050507] shadow-[0_6px_20px_rgba(34,197,94,0.22)] transition-transform hover:-translate-y-0.5 cursor-pointer"
           >
             + Nuevo Producto
           </button>
@@ -416,43 +416,43 @@ export default function ProductosPage() {
 
       {/* Tarjetas Resumen */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-[#45464f]">
+        <div className="min-w-0 rounded-2xl border border-border bg-white p-4">
+          <p className="text-xs uppercase tracking-wide text-text-dim">
             Stock a Costo
           </p>
-          <p className="mt-1 truncate text-xl font-semibold text-[#191c1e] sm:text-2xl">
+          <p className="mt-1 truncate text-xl font-semibold text-text sm:text-2xl">
             {formatMoney(resumen.costoARS, "ARS")}
           </p>
           {configProducto.usaCotizacionUSD && (
-            <p className="mt-1 truncate text-xs font-medium text-[#45464f]">
+            <p className="mt-1 truncate text-xs font-medium text-text-dim">
               {formatMoney(resumen.costoUSD, "USD")}
             </p>
           )}
         </div>
 
-        <div className="min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-[#45464f]">
+        <div className="min-w-0 rounded-2xl border border-border bg-white p-4">
+          <p className="text-xs uppercase tracking-wide text-text-dim">
             Stock a Precio Venta
           </p>
-          <p className="mt-1 truncate text-xl font-semibold text-[#191c1e] sm:text-2xl">
+          <p className="mt-1 truncate text-xl font-semibold text-text sm:text-2xl">
             {formatMoney(resumen.ventaARS, "ARS")}
           </p>
           {configProducto.usaCotizacionUSD && (
-            <p className="mt-1 text-xs font-medium text-[#45464f]">
+            <p className="mt-1 text-xs font-medium text-text-dim">
               {formatMoney(resumen.ventaUSD, "USD")}
             </p>
           )}
         </div>
 
-        <div className="min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-[#45464f]">
+        <div className="min-w-0 rounded-2xl border border-border bg-white p-4">
+          <p className="text-xs uppercase tracking-wide text-text-dim">
             Ganancia Potencial
           </p>
-          <p className="mt-1 truncate text-xl font-semibold text-[#1e7d38] sm:text-2xl">
+          <p className="mt-1 truncate text-xl font-semibold text-success sm:text-2xl">
             {formatMoney(resumen.gananciaARS, "ARS")}
           </p>
           {configProducto.usaCotizacionUSD && (
-            <p className="mt-1 truncate text-xs font-medium text-[#1e7d38] opacity-80">
+            <p className="mt-1 truncate text-xs font-medium text-success opacity-80">
               {formatMoney(resumen.gananciaUSD, "USD")}
             </p>
           )}
@@ -460,17 +460,17 @@ export default function ProductosPage() {
       </div>
 
       {/* Búsqueda + Filtros */}
-      <div className="space-y-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
+      <div className="space-y-3 rounded-2xl border border-border bg-white p-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-3 md:flex-row md:items-center lg:flex-1">
             <div className="relative w-full md:w-80">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#45464f]" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" />
               <input
                 type="text"
                 placeholder="Buscar por nombre o marca..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                className="w-full rounded-lg border border-[#c5c6d0] bg-white py-2 pl-9 pr-3 text-sm text-[#191c1e] placeholder:text-[#45464f] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+                className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
 
@@ -480,8 +480,8 @@ export default function ProductosPage() {
               className={cn(
                 "inline-flex items-center cursor-pointer justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
                 mostrarFiltros
-                  ? "border-[#021541] bg-[#021541] text-white"
-                  : "border-[#c5c6d0] bg-white text-[#45464f] hover:bg-[#eceef0]"
+                  ? "border-primary bg-primary text-white"
+                  : "border-border bg-white text-text-dim hover:bg-surface-hover"
               )}
             >
               <SlidersHorizontal className="h-4 w-4 shrink-0" />
@@ -490,7 +490,7 @@ export default function ProductosPage() {
                 <span
                   className={cn(
                     "flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold",
-                    mostrarFiltros ? "bg-white text-[#021541]" : "bg-[#021541] text-white"
+                    mostrarFiltros ? "bg-white text-primary" : "bg-primary text-white"
                   )}
                 >
                   {filtrosActivosCount}
@@ -499,15 +499,15 @@ export default function ProductosPage() {
             </button>
 
             {configProducto.usaCotizacionUSD && (
-            <div className="flex overflow-hidden rounded-lg border border-[#c5c6d0] md:hidden">
+            <div className="flex overflow-hidden rounded-lg border border-border md:hidden">
               <button
                 type="button"
                 onClick={() => setMonedaVista("USD")}
                 className={cn(
                   "flex-1 px-3 py-2 text-sm font-medium transition-colors",
                   monedaVista === "USD"
-                    ? "bg-[#021541] text-white"
-                    : "bg-white text-[#45464f] hover:bg-[#eceef0]"
+                    ? "bg-primary text-white"
+                    : "bg-white text-text-dim hover:bg-surface-hover"
                 )}
               >
                 USD
@@ -518,8 +518,8 @@ export default function ProductosPage() {
                 className={cn(
                   "flex-1 px-3 py-2 text-sm font-medium transition-colors",
                   monedaVista === "ARS"
-                    ? "bg-[#021541] text-white"
-                    : "bg-white text-[#45464f] hover:bg-[#eceef0]"
+                    ? "bg-primary text-white"
+                    : "bg-white text-text-dim hover:bg-surface-hover"
                 )}
               >
                 ARS
@@ -529,17 +529,17 @@ export default function ProductosPage() {
 
           </div>
 
-          <p className="text-xs text-[#45464f] lg:text-right">
+          <p className="text-xs text-text-dim lg:text-right">
             Mostrando {inicioRango}–{finRango} de {productosFiltrados.length} productos
           </p>
         </div>
 
         {/* Panel de filtros — solo visible si mostrarFiltros es true */}
         {mostrarFiltros && (
-          <div className="space-y-3 border-t border-[#E2E8F0] pt-3">
+          <div className="space-y-3 border-t border-border pt-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               <div>
-                <label className="block text-xs font-medium text-[#45464f]">Marca</label>
+                <label className="block text-xs font-medium text-text-dim">Marca</label>
                 <Select
                     value={filtroMarcaId}
                     onChange={setFiltroMarcaId}
@@ -552,7 +552,7 @@ export default function ProductosPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#45464f]">Categoría</label>
+                <label className="block text-xs font-medium text-text-dim">Categoría</label>
                 <Select
                   value={filtroCategoriaId}
                   onChange={setFiltroCategoriaId}
@@ -565,7 +565,7 @@ export default function ProductosPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#45464f]">Stock</label>
+                <label className="block text-xs font-medium text-text-dim">Stock</label>
                 <Select
                   value={filtroStock}
                   onChange={(v) => setFiltroStock(v as FiltroStock)}
@@ -579,7 +579,7 @@ export default function ProductosPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#45464f]">Foto</label>
+                <label className="block text-xs font-medium text-text-dim">Foto</label>
                 <Select
                   value={filtroFoto}
                   onChange={(v) => setFiltroFoto(v as FiltroFoto)}
@@ -593,7 +593,7 @@ export default function ProductosPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#45464f]">Estado</label>
+                <label className="block text-xs font-medium text-text-dim">Estado</label>
                 <Select
                   value={filtroEstado}
                   onChange={(v) => setFiltroEstado(v as FiltroEstado)}
@@ -607,7 +607,7 @@ export default function ProductosPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-[#45464f]">Ordenar por</label>
+                <label className="block text-xs font-medium text-text-dim">Ordenar por</label>
                 <Select
                   value={ordenarPor}
                   onChange={(v) => setOrdenarPor(v as OrdenarPor)}
@@ -627,7 +627,7 @@ export default function ProductosPage() {
 
             {/* Acceso rápido por stock */}
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-xs font-medium uppercase tracking-wide text-[#45464f]">
+              <span className="text-xs font-medium uppercase tracking-wide text-text-dim">
                 Acceso rápido:
               </span>
               <button
@@ -636,8 +636,8 @@ export default function ProductosPage() {
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                   filtroStock === "sin_stock"
-                    ? "border-[#ba1a1a] bg-[#ba1a1a] text-white"
-                    : "border-[#f5c2c2] bg-[#fdecec] text-[#ba1a1a] hover:bg-[#f8d7d7]"
+                    ? "border-[#ba1a1a] bg-danger text-white"
+                    : "border-[#f5c2c2] bg-danger/10 text-danger hover:bg-[#f8d7d7]"
                 )}
               >
                 Sin stock
@@ -650,7 +650,7 @@ export default function ProductosPage() {
                   "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                   filtroStock === "stock_bajo"
                     ? "border-[#a15c00] bg-[#a15c00] text-white"
-                    : "border-[#f2dca3] bg-[#fdf3dc] text-[#a15c00] hover:bg-[#f9ecc7]"
+                    : "border-[#f2dca3] bg-[#fdf3dc] text-warning hover:bg-[#f9ecc7]"
                 )}
               >
                 Stock bajo
@@ -661,7 +661,7 @@ export default function ProductosPage() {
                 <button
                   type="button"
                   onClick={limpiarFiltros}
-                  className="ml-auto text-xs font-medium text-[#021541] underline-offset-2 hover:underline"
+                  className="ml-auto text-xs font-medium text-primary underline-offset-2 hover:underline"
                 >
                   Limpiar filtros
                 </button>
@@ -672,24 +672,24 @@ export default function ProductosPage() {
       </div>
 
       {/* Tabla */}
-      <div className="overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white">
+      <div className="overflow-hidden rounded-2xl border border-border bg-white">
         {cargando ? (
-          <p className="p-8 text-center text-sm text-[#45464f]">Cargando...</p>
+          <p className="p-8 text-center text-sm text-text-dim">Cargando...</p>
         ) : productosPaginados.length === 0 ? (
-          <p className="p-8 text-center text-sm text-[#45464f]">
+          <p className="p-8 text-center text-sm text-text-dim">
             No se encontraron productos que coincidan con la búsqueda.
           </p>
         ) : (
           <>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[900px] text-sm">
-                <thead className="bg-[#021541]">
+                <thead className="bg-topbar">
                   <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-white">
                     <th className="px-4 py-3">Producto</th>
                     <th className="px-4 py-3">Marca</th>
                     <th className="px-4 py-3">Stock</th>
                     <th className="px-4 py-3">Costo</th>
-                    <th className="px-4 py-3 text-[#4ADE80]">Venta</th>
+                    <th className="px-4 py-3 text-primary-soft">Venta</th>
                     <th className="px-4 py-3">Gan. Min.</th>
                     <th className="px-4 py-3">Mayorista</th>
                     <th className="px-4 py-3 text-right">Acciones</th>
@@ -719,21 +719,21 @@ export default function ProductosPage() {
 
                     const stockColor =
                       p.stockActual <= 0
-                        ? "bg-[#ba1a1a]"
+                        ? "bg-danger"
                         : p.stockMinimo != null && p.stockActual <= p.stockMinimo
                         ? "bg-[#d97706]"
-                        : "bg-[#1e7d38]";
+                        : "bg-success";
 
                     return (
                       <tr
                         key={p.id}
                         onClick={() => setProductoDetalle(p)}
-                        className="cursor-pointer border-t border-[#E2E8F0] hover:bg-[#F8FAFC]"
+                        className="cursor-pointer border-t border-border hover:bg-surface"
                       >
-                        <td className="px-4 py-3 font-semibold text-[#191c1e]">{p.nombre}</td>
-                        <td className="px-4 py-3 text-[#5b6472]">{p.marca?.nombre ?? "-"}</td>
+                        <td className="px-4 py-3 font-semibold text-text">{p.nombre}</td>
+                        <td className="px-4 py-3 text-text-dim">{p.marca?.nombre ?? "-"}</td>
                         <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1.5 font-medium text-[#191c1e]">
+                          <span className="inline-flex items-center gap-1.5 font-medium text-text">
                             <span className={cn("h-2 w-2 rounded-full", stockColor)} />
                             {p.stockActual}
                           </span>
@@ -741,31 +741,31 @@ export default function ProductosPage() {
                         <td className="px-4 py-3">
                           {configProducto.usaCotizacionUSD ? (
                             <>
-                              <div className="font-semibold text-[#191c1e]">
+                              <div className="font-semibold text-text">
                                 {formatCurrency(costo.usd, "USD")}{" "}
-                                <span className="text-[10px] font-medium text-[#8a93a6]">USD</span>
+                                <span className="text-[10px] font-medium text-text-dim">USD</span>
                               </div>
-                              <div className="text-xs text-[#a3aab5]">{formatCurrency(costo.ars, "ARS")}</div>
+                              <div className="text-xs text-text-dim">{formatCurrency(costo.ars, "ARS")}</div>
                             </>
                           ) : (
-                            <div className="font-semibold text-[#191c1e]">{formatCurrency(costo.ars, "ARS")}</div>
+                            <div className="font-semibold text-text">{formatCurrency(costo.ars, "ARS")}</div>
                           )}
                         </td>
-                        <td className="bg-[#F0FDF4] px-4 py-3">
+                        <td className="bg-success/10 px-4 py-3">
                           {configProducto.usaCotizacionUSD ? (
                             <>
-                              <div className="font-bold text-[#15803D]">
+                              <div className="font-bold text-primary">
                                 {formatCurrency(venta.usd, "USD")}{" "}
                                 <span className="text-[10px] font-medium text-[#4ADE80]">USD</span>
                               </div>
                               <div className="text-xs text-[#86D89C]">{formatCurrency(venta.ars, "ARS")}</div>
                             </>
                           ) : (
-                            <div className="font-bold text-[#15803D]">{formatCurrency(venta.ars, "ARS")}</div>
+                            <div className="font-bold text-primary">{formatCurrency(venta.ars, "ARS")}</div>
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={cn("font-bold", gananciaPct >= 0 ? "text-[#15803D]" : "text-[#ba1a1a]")}>
+                          <span className={cn("font-bold", gananciaPct >= 0 ? "text-primary" : "text-danger")}>
                             {gananciaPct >= 0 ? "+" : ""}
                             {gananciaPct.toFixed(0)}%
                           </span>
@@ -774,17 +774,17 @@ export default function ProductosPage() {
                           {mayorista ? (
                             configProducto.usaCotizacionUSD ? (
                               <>
-                                <div className="font-bold text-[#1D4ED8]">
+                                <div className="font-bold text-primary">
                                   {formatCurrency(mayorista.usd, "USD")}{" "}
-                                  <span className="text-[10px] font-medium text-[#93B4F5]">USD</span>
+                                  <span className="text-[10px] font-medium text-primary">USD</span>
                                 </div>
-                                <div className="text-xs text-[#93B4F5]">{formatCurrency(mayorista.ars, "ARS")}</div>
+                                <div className="text-xs text-primary">{formatCurrency(mayorista.ars, "ARS")}</div>
                               </>
                             ) : (
-                              <div className="font-bold text-[#1D4ED8]">{formatCurrency(mayorista.ars, "ARS")}</div>
+                              <div className="font-bold text-primary">{formatCurrency(mayorista.ars, "ARS")}</div>
                             )
                           ) : (
-                            <span className="text-[#a3aab5]">-</span>
+                            <span className="text-text-dim">-</span>
                           )}
                         </td>
                         <td className="px-4 py-3">
@@ -795,7 +795,7 @@ export default function ProductosPage() {
                             <button
                               type="button"
                               onClick={() => handleAbrirEditar(p)}
-                              className="rounded-lg p-1.5 text-[#021541] hover:bg-[#E9EEF9]"
+                              className="rounded-lg p-1.5 text-primary hover:bg-surface-hover"
                               title="Editar producto"
                             >
                               <Pencil className="h-4 w-4" />
@@ -804,7 +804,7 @@ export default function ProductosPage() {
                               type="button"
                               onClick={() => p.fotoUrl && setImagenPreview(p.fotoUrl)}
                               disabled={!p.fotoUrl}
-                              className="rounded-lg p-1.5 text-[#16A34A] hover:bg-[#E7F8EC] disabled:opacity-30"
+                              className="rounded-lg p-1.5 text-[#16A34A] hover:bg-success/10 disabled:opacity-30"
                               title={p.fotoUrl ? "Ver foto" : "Sin foto cargada"}
                             >
                               <ImageIcon className="h-4 w-4" />
@@ -816,8 +816,8 @@ export default function ProductosPage() {
                               className={cn(
                                 "rounded-lg p-1.5 disabled:opacity-40",
                                 p.activo
-                                  ? "text-[#8a93a6] hover:bg-[#FEF2F2] hover:text-[#ba1a1a]"
-                                  : "text-[#1e7d38] hover:bg-[#E7F8EC]"
+                                  ? "text-text-dim hover:bg-danger/10 hover:text-danger"
+                                  : "text-success hover:bg-success/10"
                               )}
                               title={p.activo ? "Desactivar producto" : "Activar producto"}
                             >
@@ -836,7 +836,7 @@ export default function ProductosPage() {
               </table>
             </div>
 
-            <div className="divide-y divide-[#E2E8F0] md:hidden">
+            <div className="divide-y divide-border md:hidden">
               {productosPaginados.map((p) => {
                 const porcentajeGanancia =
                   p.precioCosto > 0
@@ -862,43 +862,43 @@ export default function ProductosPage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-[#191c1e]">{p.nombre}</p>
-                          <p className="truncate text-xs text-[#45464f]">{p.marca?.nombre ?? "-"}</p>
+                          <p className="truncate font-medium text-text">{p.nombre}</p>
+                          <p className="truncate text-xs text-text-dim">{p.marca?.nombre ?? "-"}</p>
                         </div>
-                        <span className="shrink-0 rounded-full bg-[#e1f2e6] px-2.5 py-1 text-xs font-semibold text-[#1e7d38]">
+                        <span className="shrink-0 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
                           +{porcentajeGanancia.toFixed(1)}%
                         </span>
                       </div>
 
                       <div className="mt-3 grid grid-cols-2 gap-y-2 text-sm">
                         <div>
-                          <p className="text-xs text-[#45464f]">Stock</p>
+                          <p className="text-xs text-text-dim">Stock</p>
                           <p
                             className={cn(
                               "font-medium",
                               p.stockMinimo != null && p.stockActual <= p.stockMinimo
-                                ? "text-[#ba1a1a]"
-                                : "text-[#191c1e]"
+                                ? "text-danger"
+                                : "text-text"
                             )}
                           >
                             {p.stockActual} u.
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-[#45464f]">Costo</p>
-                          <p className="font-mono text-[#45464f]">
+                          <p className="text-xs text-text-dim">Costo</p>
+                          <p className="font-mono text-text-dim">
                             {formatCurrency(convertir(p.precioCosto), monedaVista)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-[#45464f]">Venta</p>
-                          <p className="font-mono font-medium text-[#191c1e]">
+                          <p className="text-xs text-text-dim">Venta</p>
+                          <p className="font-mono font-medium text-text">
                             {formatCurrency(convertir(p.precioVenta), monedaVista)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs text-[#45464f]">Mayorista</p>
-                          <p className="font-mono text-[#45464f]">
+                          <p className="text-xs text-text-dim">Mayorista</p>
+                          <p className="font-mono text-text-dim">
                             {p.precioMayorista != null
                               ? formatCurrency(convertir(p.precioMayorista), monedaVista)
                               : "-"}
@@ -907,14 +907,14 @@ export default function ProductosPage() {
                       </div>
                     </div>
 
-                    <div className="mt-3 flex items-center justify-end gap-1 border-t border-[#E2E8F0] pt-3">
+                    <div className="mt-3 flex items-center justify-end gap-1 border-t border-border pt-3">
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleAbrirEditar(p);
                         }}
-                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-[#021541] hover:bg-[#E9EEF9]"
+                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-surface-hover"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                         Editar
@@ -926,7 +926,7 @@ export default function ProductosPage() {
                           if (p.fotoUrl) setImagenPreview(p.fotoUrl);
                         }}
                         disabled={!p.fotoUrl}
-                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-[#16A34A] hover:bg-[#E7F8EC] disabled:opacity-30"
+                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-[#16A34A] hover:bg-success/10 disabled:opacity-30"
                       >
                         <ImageIcon className="h-3.5 w-3.5" />
                         Foto
@@ -941,8 +941,8 @@ export default function ProductosPage() {
                         className={cn(
                           "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-40",
                           p.activo
-                            ? "text-[#8a93a6] hover:bg-[#FEF2F2] hover:text-[#ba1a1a]"
-                            : "text-[#1e7d38] hover:bg-[#E7F8EC]"
+                            ? "text-text-dim hover:bg-danger/10 hover:text-danger"
+                            : "text-success hover:bg-success/10"
                         )}
                       >
                         {p.activo ? (
@@ -962,7 +962,7 @@ export default function ProductosPage() {
 
       {/* Paginación */}
       {productosFiltrados.length > 0 && (
-        <div className="flex flex-col gap-2 text-sm text-[#45464f] sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 text-sm text-text-dim sm:flex-row sm:items-center sm:justify-between">
           <span>
             {productosFiltrados.length} producto{productosFiltrados.length !== 1 ? "s" : ""}
           </span>
@@ -970,7 +970,7 @@ export default function ProductosPage() {
             <button
               disabled={paginaActual === 1}
               onClick={() => setPaginaActual((prev) => prev - 1)}
-              className="px-3 py-1.5 rounded-lg border border-[#c5c6d0] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#eceef0]"
+              className="px-3 py-1.5 rounded-lg border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-hover"
             >
               Anterior
             </button>
@@ -980,7 +980,7 @@ export default function ProductosPage() {
             <button
               disabled={paginaActual === totalPaginas}
               onClick={() => setPaginaActual((prev) => prev + 1)}
-              className="px-3 py-1.5 rounded-lg border border-[#c5c6d0] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#eceef0]"
+              className="px-3 py-1.5 rounded-lg border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-hover"
             >
               Siguiente
             </button>
@@ -1044,7 +1044,7 @@ export default function ProductosPage() {
             <button
               type="button"
               onClick={() => setImagenPreview(null)}
-              className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#191c1e] shadow-lg"
+              className="absolute -right-3 -top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white text-text shadow-lg"
               aria-label="Cerrar"
             >
               <X className="h-4 w-4" />

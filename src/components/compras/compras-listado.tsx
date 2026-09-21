@@ -33,12 +33,12 @@ const DEBOUNCE_MS = 300;
 
 function estadoDeCompra(compra: Compra): { label: string; className: string } {
   if (compra.cancelada) {
-    return { label: "Cancelada", className: "bg-[#fbe4e4] text-[#ba1a1a]" };
+    return { label: "Cancelada", className: "bg-danger/10 text-danger" };
   }
   if (compra.confirmada) {
-    return { label: "Confirmada", className: "bg-[#e3e6f5] text-[#021541]" };
+    return { label: "Confirmada", className: "bg-surface-hover text-primary" };
   }
-  return { label: "Pendiente", className: "bg-[#e0e3e5] text-[#45464f]" };
+  return { label: "Pendiente", className: "bg-surface-hover text-text-dim" };
 }
 
 export function ComprasListado() {
@@ -126,25 +126,25 @@ export function ComprasListado() {
   return (
     <div className="space-y-5 sm:space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-semibold text-[#191c1e] sm:text-2xl">Compras</h1>
+        <h1 className="text-xl font-semibold text-text sm:text-2xl">Compras</h1>
         <Link
           href="/compras/nueva"
-          className="flex items-center justify-center gap-1.5 self-start rounded-lg bg-[#021541] px-4 py-2 text-sm text-white hover:opacity-90 sm:self-auto"
+          className="flex items-center justify-center gap-1.5 self-start rounded-lg bg-primary px-4 py-2 text-sm text-white hover:opacity-90 sm:self-auto"
         >
           <Plus className="h-4 w-4" /> Nueva Compra
         </Link>
       </div>
 
       {/* Filtros */}
-      <div className="space-y-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
+      <div className="space-y-3 rounded-2xl border border-border bg-white p-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#45464f]" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" />
           <input
             type="text"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por proveedor..."
-            className="w-full rounded-lg border border-[#c5c6d0] bg-white py-2 pl-9 pr-3 text-sm text-[#191c1e] placeholder:text-[#45464f] focus:outline-none focus:ring-1 focus:ring-[#021541]"
+            className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
 
@@ -158,8 +158,8 @@ export function ComprasListado() {
                 className={cn(
                   "shrink-0 cursor-pointer whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
                   filtro === f.key
-                    ? "bg-[#021541] text-white"
-                    : "border border-[#c5c6d0] bg-white text-[#45464f] hover:bg-[#eceef0]"
+                    ? "bg-primary text-white"
+                    : "border border-border bg-white text-text-dim hover:bg-surface-hover"
                 )}
               >
                 {f.label}
@@ -170,7 +170,7 @@ export function ComprasListado() {
           <button
             type="button"
             onClick={() => cargarCompras(true)}
-            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[#c5c6d0] text-[#45464f] hover:bg-[#eceef0]"
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border text-text-dim hover:bg-surface-hover"
             aria-label="Actualizar"
           >
             <RefreshCw className={cn("h-4 w-4", recargando && "animate-spin")} />
@@ -178,13 +178,13 @@ export function ComprasListado() {
         </div>
       </div>
 
-      {error && <p className="text-sm text-[#ba1a1a]">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
-      <div className="overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white">
+      <div className="overflow-hidden rounded-2xl border border-border bg-white">
         {cargando ? (
-          <p className="p-8 text-center text-sm text-[#45464f]">Cargando...</p>
+          <p className="p-8 text-center text-sm text-text-dim">Cargando...</p>
         ) : compras.length === 0 ? (
-          <p className="p-8 text-center text-sm text-[#45464f]">
+          <p className="p-8 text-center text-sm text-text-dim">
             {busquedaDebounced
               ? "No hay compras que coincidan con la búsqueda."
               : "No hay compras para este filtro."}
@@ -195,12 +195,12 @@ export function ComprasListado() {
             <div className="relative hidden overflow-x-auto md:block">
               {recargando && (
                 <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/60 pt-16 backdrop-blur-[1px]">
-                  <Loader2 className="h-5 w-5 animate-spin text-[#021541]" />
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 </div>
               )}
               <table className="w-full min-w-[720px] text-sm">
-                <thead className="bg-[#F1F5F9]">
-                  <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-[#45464f]">
+                <thead className="bg-topbar">
+                  <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-white">
                     <th className="px-4 py-3">#</th>
                     <th className="px-4 py-3">Proveedor</th>
                     <th className="px-4 py-3">Cuenta</th>
@@ -216,18 +216,18 @@ export function ComprasListado() {
                     const puedeAccionar = !compra.confirmada && !compra.cancelada;
                     const cargandoFila = accionandoId === compra.id;
                     return (
-                      <tr key={compra.id} className="border-t border-[#E2E8F0]">
-                        <td className="px-4 py-4 font-mono text-xs text-[#45464f]">#{compra.id}</td>
-                        <td className="px-4 py-4 font-medium text-[#191c1e]">
+                      <tr key={compra.id} className="border-t border-border">
+                        <td className="px-4 py-4 font-mono text-xs text-text-dim">#{compra.id}</td>
+                        <td className="px-4 py-4 font-medium text-text">
                           {compra.proveedor?.nombre ?? "Sin especificar"}
                         </td>
-                        <td className="px-4 py-4 text-[#45464f]">{compra.cuenta?.nombre ?? "—"}</td>
-                        <td className="px-4 py-4 font-mono font-medium text-[#191c1e]">
+                        <td className="px-4 py-4 text-text-dim">{compra.cuenta?.nombre ?? "—"}</td>
+                        <td className="px-4 py-4 font-mono font-medium text-text">
                           {usaCotizacionUSD ? (
                             <>
                               USD {compra.totalUSD.toFixed(2)}
                               {compra.totalARS != null && (
-                                <span className="ml-1 text-xs font-normal text-[#45464f]">
+                                <span className="ml-1 text-xs font-normal text-text-dim">
                                   (ARS {compra.totalARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })})
                                 </span>
                               )}
@@ -252,7 +252,7 @@ export function ComprasListado() {
                             {estado.label}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-[#45464f]">
+                        <td className="px-4 py-4 text-text-dim">
                           {formatFechaAR(new Date(compra.fecha))}
                         </td>
                         <td className="px-4 py-4 text-right">
@@ -264,7 +264,7 @@ export function ComprasListado() {
                                 onClick={() => ejecutarAccion(compra.id, "confirmar")}
                                 aria-label="Confirmar compra"
                                 title="Confirmar"
-                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-[#021541] hover:bg-[#e3e6f5] disabled:cursor-not-allowed disabled:opacity-50"
+                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-primary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 {cargandoFila ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -278,13 +278,13 @@ export function ComprasListado() {
                                 onClick={() => ejecutarAccion(compra.id, "cancelar")}
                                 aria-label="Cancelar compra"
                                 title="Cancelar"
-                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-[#ba1a1a] hover:bg-[#fbe4e4] disabled:cursor-not-allowed disabled:opacity-50"
+                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 <X className="h-4 w-4" />
                               </button>
                             </div>
                           ) : (
-                            <span className="text-[#45464f]">—</span>
+                            <span className="text-text-dim">—</span>
                           )}
                         </td>
                       </tr>
@@ -295,10 +295,10 @@ export function ComprasListado() {
             </div>
 
             {/* Mobile: tarjetas */}
-            <div className="relative divide-y divide-[#E2E8F0] md:hidden">
+            <div className="relative divide-y divide-border md:hidden">
               {recargando && (
                 <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/60 pt-10 backdrop-blur-[1px]">
-                  <Loader2 className="h-5 w-5 animate-spin text-[#021541]" />
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 </div>
               )}
               {compras.map((compra) => {
@@ -309,11 +309,11 @@ export function ComprasListado() {
                   <div key={compra.id} className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="font-mono text-xs text-[#45464f]">#{compra.id}</p>
-                        <p className="truncate font-medium text-[#191c1e]">
+                        <p className="font-mono text-xs text-text-dim">#{compra.id}</p>
+                        <p className="truncate font-medium text-text">
                           {compra.proveedor?.nombre ?? "Sin especificar"}
                         </p>
-                        <p className="text-xs text-[#45464f]">{compra.cuenta?.nombre ?? "—"}</p>
+                        <p className="text-xs text-text-dim">{compra.cuenta?.nombre ?? "—"}</p>
                       </div>
                       <span
                         className={cn(
@@ -326,12 +326,12 @@ export function ComprasListado() {
                     </div>
 
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-mono font-semibold text-[#191c1e]">
+                      <p className="font-mono font-semibold text-text">
                         {usaCotizacionUSD ? (
                           <>
                             USD {compra.totalUSD.toFixed(2)}
                             {compra.totalARS != null && (
-                              <span className="ml-1 text-xs font-normal text-[#45464f]">
+                              <span className="ml-1 text-xs font-normal text-text-dim">
                                 (ARS {compra.totalARS.toLocaleString("es-AR", { maximumFractionDigits: 0 })})
                               </span>
                             )}
@@ -346,7 +346,7 @@ export function ComprasListado() {
                           </>
                         )}
                       </p>
-                      <p className="text-xs text-[#45464f]">
+                      <p className="text-xs text-text-dim">
                         {formatFechaAR(new Date(compra.fecha))}
                       </p>
                     </div>
@@ -359,7 +359,7 @@ export function ComprasListado() {
                           onClick={() => ejecutarAccion(compra.id, "confirmar")}
                           aria-label="Confirmar compra"
                           title="Confirmar"
-                          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-[#021541] hover:bg-[#e3e6f5] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-primary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {cargandoFila ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -373,7 +373,7 @@ export function ComprasListado() {
                           onClick={() => ejecutarAccion(compra.id, "cancelar")}
                           aria-label="Cancelar compra"
                           title="Cancelar"
-                          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-[#ba1a1a] hover:bg-[#fbe4e4] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -389,7 +389,7 @@ export function ComprasListado() {
 
       {/* Paginación: bloque separado, igual que en Clientes */}
       {totalRegistros > 0 && (
-        <div className="flex flex-col gap-2 text-sm text-[#45464f] sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 text-sm text-text-dim sm:flex-row sm:items-center sm:justify-between">
           <span>
             {totalRegistros} compra{totalRegistros !== 1 ? "s" : ""}
           </span>
@@ -397,7 +397,7 @@ export function ComprasListado() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="cursor-pointer rounded-lg border border-[#c5c6d0] px-3 py-1.5 hover:bg-[#eceef0] disabled:cursor-not-allowed disabled:opacity-40"
+              className="cursor-pointer rounded-lg border border-border px-3 py-1.5 hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
             >
               Anterior
             </button>
@@ -407,7 +407,7 @@ export function ComprasListado() {
             <button
               onClick={() => setPage((p) => Math.min(totalPaginas, p + 1))}
               disabled={page >= totalPaginas}
-              className="cursor-pointer rounded-lg border border-[#c5c6d0] px-3 py-1.5 hover:bg-[#eceef0] disabled:cursor-not-allowed disabled:opacity-40"
+              className="cursor-pointer rounded-lg border border-border px-3 py-1.5 hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
             >
               Siguiente
             </button>
