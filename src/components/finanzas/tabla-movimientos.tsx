@@ -17,8 +17,8 @@ export function TablaMovimientos({ movimientos }: { movimientos: MovimientoCajaD
   return (
     <div className="max-h-[500px] overflow-y-auto rounded-xl border border-border">
       <table className="w-full text-sm">
-        <thead className="sticky top-0 bg-surface-hover/90 backdrop-blur">
-          <tr className="border-b border-border text-left text-xs font-semibold uppercase tracking-wider text-text-dim">
+        <thead className="bg-topbar sticky top-0">
+          <tr className="text-left text-xs font-semibold uppercase tracking-wider text-white">
             <th className="px-4 py-3">Fecha</th>
             <th className="px-4 py-3">Tipo</th>
             <th className="px-4 py-3">Concepto</th>

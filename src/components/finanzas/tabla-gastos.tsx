@@ -22,8 +22,8 @@ export function TablaGastos({ gastos }: Props) {
       {/* Desktop / tablet: tabla */}
       <div className="hidden overflow-x-auto md:block">
         <table className="w-full min-w-[720px] text-sm">
-          <thead>
-            <tr className="border-b border-border bg-surface-hover/50 text-left text-xs font-semibold uppercase tracking-wider text-text-dim">
+          <thead className="bg-topbar">
+            <tr className="text-left text-xs font-semibold uppercase tracking-wider text-white">
               <th className="px-4 py-3">Concepto</th>
               <th className="px-4 py-3">Categoría</th>
               <th className="px-4 py-3">Proveedor</th>

@@ -137,7 +137,7 @@ export default function FinanzasPage() {
           </button>
           <button
             onClick={abrirNueva}
-            className="flex items-center justify-center cursor-pointer gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="bg-grad flex items-center justify-center cursor-pointer gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-[#050507] shadow-[0_6px_20px_rgba(34,197,94,0.22)] transition-transform hover:-translate-y-0.5"
           >
             <Plus size={16} /> Nueva cuenta
           </button>

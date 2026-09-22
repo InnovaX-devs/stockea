@@ -155,7 +155,7 @@ export function HistorialVentas() {
         <h1 className="text-xl font-semibold text-text sm:text-2xl">Ventas</h1>
         <Link
           href="/ventas"
-          className="flex items-center justify-center gap-1.5 self-start rounded-lg bg-primary px-4 py-2 text-sm text-white hover:opacity-90 sm:self-auto"
+          className="bg-grad flex items-center justify-center gap-1.5 self-start rounded-full px-4 py-2 text-sm font-semibold text-[#050507] shadow-[0_6px_20px_rgba(34,197,94,0.22)] transition-transform hover:-translate-y-0.5 sm:self-auto"
         >
           <Plus className="h-4 w-4" /> Nueva Venta
         </Link>
