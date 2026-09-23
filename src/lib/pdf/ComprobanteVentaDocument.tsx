@@ -154,7 +154,7 @@ export function ComprobanteVentaDocument({
   const metodoTexto = metodosUnicos.length > 0 ? metodosUnicos.join(" + ") : "—";
 
   const esPagoCompleto = venta.estadoPago === "PAGADA";
-  const saldoPendiente = venta.totalARS - venta.montoPagado;
+  const saldoPendiente = Math.max(0, Math.round(venta.totalARS - venta.montoPagado));
 
   return (
     <Document>

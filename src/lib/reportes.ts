@@ -14,6 +14,7 @@ import {
   inicioFinHoyAR,
   siguienteDiaAR,
 } from "@/lib/timezone";
+import { montoARSDePago } from "@/lib/currency";
 
 export type ItemVentaParaReporte = {
   productoId: number | null;
@@ -49,7 +50,8 @@ export type PagoParaReporte = {
   cuentaId: number;
   cuentaNombre: string;
   tipoCuenta: TipoCuenta;
-  monto: number;
+  monto: number; // en la moneda de la cuenta
+  montoARS?: number | null;
 };
 
 export type ReporteCalculado = {
@@ -154,7 +156,8 @@ export function calcularReporte(ventas: VentaEnriquecida[], egresosGastosARS: nu
         montoARS: 0,
         ventas: new Set<number>(),
       };
-      actual.montoARS += pago.monto;
+      // En cuentas USD `monto` son dólares: hay que pasarlo a pesos.
+      actual.montoARS += montoARSDePago(pago, pago.tipoCuenta, venta.cotizacionUsada);
       actual.ventas.add(venta.id);
       totalesPorCuenta.set(pago.cuentaId, actual);
     }

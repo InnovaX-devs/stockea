@@ -48,7 +48,7 @@ export async function obtenerReporte(rango: RangoFechas): Promise<ReporteData> {
           },
         },
         pagos: {
-          select: { monto: true, cuenta: { select: { id: true, nombre: true, tipo: true } } },
+          select: { monto: true, montoARS: true, cuenta: { select: { id: true, nombre: true, tipo: true } } },
         },
       },
     }),
@@ -120,6 +120,7 @@ export async function obtenerReporte(rango: RangoFechas): Promise<ReporteData> {
       cuentaNombre: p.cuenta.nombre,
       tipoCuenta: p.cuenta.tipo,
       monto: p.monto,
+      montoARS: p.montoARS,
     })),
   }));
 
@@ -185,7 +186,7 @@ export async function obtenerKpisDelDia(rango: RangoFechas): Promise<{ gananciaN
           },
         },
         pagos: {
-          select: { monto: true, cuenta: { select: { id: true, nombre: true, tipo: true } } },
+          select: { monto: true, montoARS: true, cuenta: { select: { id: true, nombre: true, tipo: true } } },
         },
       },
     }),
@@ -254,6 +255,7 @@ export async function obtenerKpisDelDia(rango: RangoFechas): Promise<{ gananciaN
       cuentaNombre: p.cuenta.nombre,
       tipoCuenta: p.cuenta.tipo,
       monto: p.monto,
+      montoARS: p.montoARS,
     })),
   }));
 

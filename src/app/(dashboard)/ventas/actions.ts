@@ -5,7 +5,7 @@ import { obtenerConfiguracion } from "@/lib/configuracion";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { revalidatePath } from "next/cache";
 import type { EstadoPago, TipoPrecioVenta } from "@prisma/client";
-import { redondearARS } from "@/lib/currency";
+import { redondearARS, montoEnCuentaUSD, montoARSDePago } from "@/lib/currency";
 import { Prisma } from "@prisma/client";
 import { inicioDiaAR } from "@/lib/timezone";
 import type {
@@ -28,7 +28,10 @@ type ItemInput = {
 
 type PagoInput = {
   cuentaId: number;
+  /** Equivalente en ARS (lo que se descuenta del total). */
   monto: number;
+  /** Dólares que entran a la cuenta, si la cuenta es USD. */
+  montoUSD?: number | null;
 };
 
 type VentaInput = {
@@ -120,7 +123,9 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
   // conversión USD -> ARS.
   const totalARS = redondearARS(input.totalARS);
 
-  const pagosValidos = input.pagos.filter((p) => p.cuentaId != null && p.monto > 0);
+  const pagosValidos = input.pagos
+    .filter((p) => p.cuentaId != null && p.monto > 0)
+    .map((p) => ({ ...p, monto: redondearARS(p.monto) }));
   const montoPagado = pagosValidos.reduce((acc, p) => acc + p.monto, 0);
 
   let estadoPago: EstadoPago;
@@ -250,9 +255,9 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
         if (!cuentaInfo) throw new Error("La cuenta seleccionada no existe");
 
         // pago.monto llega en ARS (así arma los totales el front). Si la cuenta
-        // es en USD, convertimos con la cotización usada en esta venta.
+        // es en USD, entran los dólares que escribió el usuario (montoUSD).
         const esCuentaUSD = cuentaInfo.tipo === "EFECTIVO_USD" || cuentaInfo.tipo === "BANCO_USD";
-        const montoEnMonedaCuenta = esCuentaUSD ? pago.monto / cotizacionUsada : pago.monto;
+        const montoEnMonedaCuenta = esCuentaUSD ? montoEnCuentaUSD(pago, cotizacionUsada) : pago.monto;
 
         const cuenta = await tx.cuenta.update({
           where: { id: pago.cuentaId },
@@ -260,7 +265,7 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
         });
 
         await tx.pagoVenta.create({
-          data: { ventaId: venta.id, cuentaId: pago.cuentaId, monto: montoEnMonedaCuenta },
+          data: { ventaId: venta.id, cuentaId: pago.cuentaId, monto: montoEnMonedaCuenta, montoARS: pago.monto },
         });
 
         await tx.movimientoCaja.create({
@@ -655,9 +660,8 @@ export async function obtenerDetallePedido(ventaId: number): Promise<ResultadoDe
       gananciaARS,
       gananciaPorcentaje,
       pagos: venta.pagos.map((p) => {
-        const esCuentaUSD = p.cuenta.tipo === "EFECTIVO_USD" || p.cuenta.tipo === "BANCO_USD";
         return {
-          montoARS: esCuentaUSD ? p.monto * venta.cotizacionUsada : p.monto,
+          montoARS: montoARSDePago(p, p.cuenta.tipo, venta.cotizacionUsada),
           tipoCuenta: p.cuenta.tipo,
         };
       }),
@@ -696,9 +700,11 @@ export async function marcarRetirado(ventaId: number): Promise<ResultadoAccionPe
 
 export async function registrarCobroPedido(
   ventaId: number,
-  pagos: { cuentaId: number; monto: number }[]
+  pagos: PagoInput[]
 ): Promise<ResultadoAccionPedido> {
-  const pagosValidos = pagos.filter((p) => p.cuentaId != null && p.monto > 0);
+  const pagosValidos = pagos
+    .filter((p) => p.cuentaId != null && p.monto > 0)
+    .map((p) => ({ ...p, monto: redondearARS(p.monto) }));
   if (pagosValidos.length === 0) {
     return { success: false, error: "Ingresá al menos un pago válido" };
   }
@@ -716,10 +722,11 @@ export async function registrarCobroPedido(
       // normalizamos acá antes de comparar.
       const totalARS = redondearARS(venta.totalARS);
 
-      const configuracion = await tx.configuracion.findUnique({ where: { empresaId } });
-      const cotizacion = configuracion?.cotizacionUSD && configuracion.cotizacionUSD > 0
-        ? configuracion.cotizacionUSD
-        : 1;
+      // Mismo criterio que al crear la venta: si el negocio no opera con
+      // dólares (o la licencia no lo permite), la cotización es 1.
+      const configuracion = await obtenerConfiguracion();
+      const cotizacionRaw = configuracion.usaCotizacionUSD ? configuracion.cotizacionUSD : 1;
+      const cotizacion = cotizacionRaw > 0 ? cotizacionRaw : 1;
 
       const montoNuevo = pagosValidos.reduce((acc, p) => acc + p.monto, 0);
       const restante = totalARS - venta.montoPagado;
@@ -738,7 +745,7 @@ export async function registrarCobroPedido(
         if (!cuentaInfo) throw new Error("La cuenta seleccionada no existe");
 
         const esCuentaUSD = cuentaInfo.tipo === "EFECTIVO_USD" || cuentaInfo.tipo === "BANCO_USD";
-        const montoEnMonedaCuenta = esCuentaUSD ? pago.monto / cotizacion : pago.monto;
+        const montoEnMonedaCuenta = esCuentaUSD ? montoEnCuentaUSD(pago, cotizacion) : pago.monto;
 
         const cuenta = await tx.cuenta.update({
           where: { id: pago.cuentaId },
@@ -746,7 +753,7 @@ export async function registrarCobroPedido(
         });
 
         await tx.pagoVenta.create({
-          data: { ventaId, cuentaId: pago.cuentaId, monto: montoEnMonedaCuenta },
+          data: { ventaId, cuentaId: pago.cuentaId, monto: montoEnMonedaCuenta, montoARS: pago.monto },
         });
 
         await tx.movimientoCaja.create({

@@ -3,6 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 // src/components/clientes/CobrarDeudaModal.tsx — línea 4
 import { cobrarDeuda } from "@/app/(dashboard)/clientes/actions";
+import { esCuentaUSD } from "@/lib/currency";
+import { useCotizacionUSD } from "@/lib/hooks/use-cotizacion";
 
 export interface CuentaOption {
   id: number;
@@ -13,7 +15,7 @@ export interface CuentaOption {
 
 interface Fila {
   cuentaId: number;
-  monto: string; // string para que el input sea controlable libremente
+  monto: string; // en la moneda de la cuenta (US$ si es USD). String para que el input sea controlable libremente
 }
 
 interface CobrarDeudaModalProps {
@@ -39,14 +41,43 @@ export default function CobrarDeudaModal({
   ]);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const cotizacion = useCotizacionUSD();
+
+  const esUSD = (cuentaId: number | undefined) => esCuentaUSD(cuentas.find((c) => c.id === cuentaId)?.tipo);
+
+  // Equivalente en ARS de una fila: es lo que se descuenta de la deuda.
+  function aARS(fila: Fila) {
+    const valor = parseFloat(fila.monto) || 0;
+    return esUSD(fila.cuentaId) ? Math.round(valor * cotizacion) : valor;
+  }
+
+  // Pasa un monto en ARS a la moneda de la cuenta, como texto para el input.
+  function desdeARS(ars: number, cuentaId: number) {
+    if (esUSD(cuentaId)) return cotizacion > 0 ? (ars / cotizacion).toFixed(2) : "0";
+    return ars.toFixed(2);
+  }
 
   const total = useMemo(
-    () => filas.reduce((sum, f) => sum + (parseFloat(f.monto) || 0), 0),
-    [filas]
+    () => filas.reduce((sum, f) => sum + aARS(f), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filas, cotizacion]
   );
+  const hayUSD = filas.some((f) => esUSD(f.cuentaId));
+  const esperandoCotizacion = hayUSD && cotizacion <= 0;
 
   function actualizarFila(index: number, cambio: Partial<Fila>) {
-    setFilas((prev) => prev.map((f, i) => (i === index ? { ...f, ...cambio } : f)));
+    setFilas((prev) =>
+      prev.map((f, i) => {
+        if (i !== index) return f;
+        // Si cambia de una cuenta en pesos a una en dólares (o al revés),
+        // convertimos el monto para que siga valiendo lo mismo.
+        if (cambio.cuentaId != null && cambio.monto == null && esUSD(cambio.cuentaId) !== esUSD(f.cuentaId)) {
+          const ars = aARS(f);
+          return { ...f, ...cambio, monto: ars > 0 ? desdeARS(ars, cambio.cuentaId) : f.monto };
+        }
+        return { ...f, ...cambio };
+      })
+    );
   }
 
   function agregarFila() {
@@ -62,15 +93,13 @@ export default function CobrarDeudaModal({
   function ponerTodo() {
     if (mixto) {
       // Completa lo que falta en la última fila para llegar a la deuda total
-      const restoActual = filas
-        .slice(0, -1)
-        .reduce((sum, f) => sum + (parseFloat(f.monto) || 0), 0);
+      const restoActual = filas.slice(0, -1).reduce((sum, f) => sum + aARS(f), 0);
       const faltante = Math.max(0, deudaTotal - restoActual);
       setFilas((prev) =>
-        prev.map((f, i) => (i === prev.length - 1 ? { ...f, monto: faltante.toFixed(2) } : f))
+        prev.map((f, i) => (i === prev.length - 1 ? { ...f, monto: desdeARS(faltante, f.cuentaId) } : f))
       );
     } else {
-      setFilas([{ ...filas[0], monto: deudaTotal.toFixed(2) }]);
+      setFilas([{ ...filas[0], monto: desdeARS(deudaTotal, filas[0].cuentaId) }]);
     }
   }
 
@@ -84,14 +113,19 @@ export default function CobrarDeudaModal({
       setError("Ingresá un monto mayor a $0.");
       return;
     }
-    if (total > deudaTotal + 0.01) {
+    // Tolerancia de medio peso: al pasar dólares a pesos pueden quedar centavos.
+    if (Math.round(total) > Math.round(deudaTotal)) {
       setError(`El total ($${fmt(total)}) no puede superar la deuda ($${fmt(deudaTotal)}).`);
       return;
     }
 
     const pagos = filas
       .filter((f) => (parseFloat(f.monto) || 0) > 0)
-      .map((f) => ({ cuentaId: f.cuentaId, monto: parseFloat(f.monto) }));
+      .map((f) => ({
+        cuentaId: f.cuentaId,
+        monto: aARS(f),
+        montoUSD: esUSD(f.cuentaId) ? parseFloat(f.monto) : null,
+      }));
 
     startTransition(async () => {
       const result = await cobrarDeuda(cliente.id, pagos);
@@ -150,13 +184,16 @@ export default function CobrarDeudaModal({
                 >
                   {cuentas.map((c) => (
                     <option key={c.id} value={c.id} className="text-slate-900">
-                      {c.nombre} — ${fmt(c.saldoActual)}
+                      {c.nombre} — {esCuentaUSD(c.tipo) ? "US$" : "$"}{fmt(c.saldoActual)}
                     </option>
                   ))}
                 </select>
 
                 {mixto && (
                   <div className="flex items-center gap-2">
+                    <span className="shrink-0 text-xs font-medium text-slate-500">
+                      {esUSD(fila.cuentaId) ? "US$" : "$"}
+                    </span>
                     <input
                       type="number"
                       value={fila.monto}
@@ -175,6 +212,9 @@ export default function CobrarDeudaModal({
                     )}
                   </div>
                 )}
+                {mixto && esUSD(fila.cuentaId) && (parseFloat(fila.monto) || 0) > 0 && (
+                  <span className="text-xs text-slate-500 sm:w-full sm:text-right">≈ ${fmt(aARS(fila))}</span>
+                )}
               </div>
             ))}
 
@@ -191,7 +231,11 @@ export default function CobrarDeudaModal({
 
           {/* Monto (modo simple) */}
           {!mixto && (
+            <div className="space-y-1">
             <div className="flex items-center gap-2">
+              <span className="shrink-0 text-sm font-medium text-slate-500">
+                {esUSD(filas[0]?.cuentaId) ? "US$" : "$"}
+              </span>
               <input
                 type="number"
                 value={filas[0]?.monto ?? "0"}
@@ -205,6 +249,14 @@ export default function CobrarDeudaModal({
               >
                 Todo
               </button>
+            </div>
+            {esUSD(filas[0]?.cuentaId) && (
+              <p className="text-right text-xs text-slate-500">
+                {cotizacion > 0
+                  ? `≈ $${fmt(total)} de deuda (cotización ${cotizacion.toLocaleString("es-AR")})`
+                  : "Cargando cotización..."}
+              </p>
+            )}
             </div>
           )}
 
@@ -232,10 +284,14 @@ export default function CobrarDeudaModal({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={total <= 0 || isPending}
+              disabled={total <= 0 || isPending || esperandoCotizacion}
               className="flex-1 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white disabled:bg-primary/40"
             >
-              {isPending ? "Cobrando..." : `Cobrar $${fmt(total)}`}
+              {isPending
+                ? "Cobrando..."
+                : !mixto && esUSD(filas[0]?.cuentaId)
+                  ? `Cobrar US$${fmt(parseFloat(filas[0]?.monto) || 0)}`
+                  : `Cobrar $${fmt(total)}`}
             </button>
           </div>
         </div>

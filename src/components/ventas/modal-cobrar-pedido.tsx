@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { SelectorCobro } from "./selector-cobro";
 import { registrarCobroPedido } from "@/app/(dashboard)/ventas/actions";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, redondearARS } from "@/lib/currency";
 import type { ModoCobro, PagoLinea } from "@/types/pago";
 import type { PedidoListItem } from "@/types/venta";
 
@@ -16,24 +16,33 @@ interface Props {
 }
 
 export function ModalCobrarPedido({ pedido, tieneCliente, onClose, onCobrado }: Props) {
-  const restante = pedido.totalARS - pedido.montoPagado;
+  // El totalARS puede venir con decimales por la conversión USD → ARS
+  // (ej. 67.87 × 1560 = 105877.2). En pantalla y en el cobro se trabaja
+  // siempre con pesos enteros, igual que en SelectorCobro y en el backend.
+  const restante = redondearARS(pedido.totalARS - pedido.montoPagado);
 
   const [modo, setModo] = useState<ModoCobro>("UNICA");
   const [pagos, setPagos] = useState<PagoLinea[]>([{ id: "pago-unica", cuentaId: null, monto: restante }]);
   const [procesando, setProcesando] = useState(false);
 
-  const sumaPagada = pagos.reduce((acc, p) => acc + p.monto, 0);
+  const sumaPagada = redondearARS(pagos.reduce((acc, p) => acc + p.monto, 0));
   const esValido =
     modo === "A_CUENTA"
       ? sumaPagada > 0 && sumaPagada <= restante && pagos.every((p) => p.cuentaId != null)
-      : Math.abs(restante - sumaPagada) < 0.01 && pagos.every((p) => p.cuentaId != null && p.monto > 0);
+      : sumaPagada === restante && pagos.every((p) => p.cuentaId != null && p.monto > 0);
 
   async function handleConfirmar() {
     if (!esValido) return;
     setProcesando(true);
     const resultado = await registrarCobroPedido(
       pedido.id,
-      pagos.filter((p) => p.cuentaId != null).map((p) => ({ cuentaId: p.cuentaId as number, monto: p.monto }))
+      pagos
+        .filter((p) => p.cuentaId != null)
+        .map((p) => ({
+          cuentaId: p.cuentaId as number,
+          monto: p.monto,
+          montoUSD: p.esUSD ? p.montoUSD ?? null : null,
+        }))
     );
     setProcesando(false);
 

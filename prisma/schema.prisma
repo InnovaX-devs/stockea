@@ -255,7 +255,8 @@ model PagoVenta {
   ventaId  Int
   cuenta   Cuenta @relation(fields: [cuentaId], references: [id])
   cuentaId Int
-  monto    Float
+  monto    Float    // en la moneda de la cuenta (USD si la cuenta es en dólares)
+  montoARS Float?   // equivalente en ARS que se descontó de la venta (null en pagos viejos)
   fecha    DateTime @default(now())
 
   @@index([ventaId])
