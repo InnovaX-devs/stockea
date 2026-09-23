@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { montoARSDePago } from "@/lib/currency";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 
 export type ClienteConDeuda = {
@@ -31,7 +32,7 @@ export type Paginacion = {
   pageSize: number;
 };
 
-const UMBRAL_AL_DIA = 0.01;
+const UMBRAL_AL_DIA = 0.5;
 const PAGE_SIZE = 25;
 
 const SELECT_BASE = {
@@ -174,7 +175,9 @@ async function getDeudaPorCliente(empresaId: number): Promise<Map<number, number
   const mapa = new Map<number, number>();
   for (const v of ventasPendientes) {
     if (v.clienteId == null) continue;
-    const deudaVenta = Math.max(0, v.totalARS - v.montoPagado);
+    // Pesos enteros: el totalARS puede tener decimales (conversión USD,
+    // descuentos) que nunca se cobran.
+    const deudaVenta = Math.max(0, Math.round(v.totalARS) - v.montoPagado);
     mapa.set(v.clienteId, redondear((mapa.get(v.clienteId) ?? 0) + deudaVenta));
   }
   return mapa;
@@ -237,7 +240,7 @@ export async function getHistorialDeuda(clienteId: number): Promise<EventoHistor
 
     eventos.push({
       fecha: venta.fecha,
-      monto: venta.totalARS,
+      monto: Math.round(venta.totalARS),
       tipo: "venta",
       label: esAjuste ? "Ajuste manual" : "Venta a cuenta",
       sublabel: esAjuste ? "Aumento de deuda" : `Venta #${venta.id}`,
@@ -247,7 +250,8 @@ export async function getHistorialDeuda(clienteId: number): Promise<EventoHistor
     for (const pago of venta.pagos) {
       eventos.push({
         fecha: pago.fecha,
-        monto: -pago.monto,
+        // En cuentas USD `pago.monto` son dólares: se muestra lo que bajó la deuda en pesos.
+        monto: -montoARSDePago(pago, pago.cuenta.tipo, venta.cotizacionUsada),
         tipo: "pago",
         label: "Pago recibido",
         sublabel: labelMedioPago(pago.cuenta.tipo),

@@ -7,6 +7,8 @@ import { X } from "lucide-react";
 import { ajustarDeudaManual } from "@/app/(dashboard)/clientes/actions";
 import type { CuentaOption } from "./CobrarDeudaModal";
 import Select from "@/components/ui/select";
+import { esCuentaUSD } from "@/lib/currency";
+import { useCotizacionUSD } from "@/lib/hooks/use-cotizacion";
 
 
 export default function AjustarDeudaModal({
@@ -25,9 +27,22 @@ export default function AjustarDeudaModal({
   const [cuentaId, setCuentaId] = useState<number | "">(cuentas[0]?.id ?? "");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const cotizacion = useCotizacionUSD();
+
+  // Al reducir deuda con una cuenta en dólares, se escriben los dólares que
+  // pagó el cliente; la deuda baja por su equivalente en pesos.
+  const enDolares =
+    tipo === "reducir" && esCuentaUSD(cuentas.find((c) => c.id === cuentaId)?.tipo);
+  const valorIngresado = Number(monto) || 0;
+  const montoARS = enDolares ? Math.round(valorIngresado * cotizacion) : valorIngresado;
 
   async function handleSubmit() {
-    const montoNum = Number(monto);
+    const montoNum = montoARS;
+
+    if (enDolares && cotizacion <= 0) {
+      setError("Todavía no cargó la cotización, probá de nuevo en un segundo.");
+      return;
+    }
 
     if (!montoNum || montoNum <= 0) {
       setError("Ingresá un monto mayor a $0.");
@@ -48,6 +63,7 @@ export default function AjustarDeudaModal({
       monto: montoNum,
       cuentaId:
         tipo === "reducir" ? (cuentaId as number) : undefined,
+      montoUSD: enDolares ? valorIngresado : null,
     });
 
     setGuardando(false);
@@ -124,7 +140,7 @@ export default function AjustarDeudaModal({
 
           <div>
             <label className="block text-xs font-semibold text-text-dim mb-1">
-              Monto
+              {enDolares ? "Monto (US$)" : "Monto"}
             </label>
 
             <input
@@ -133,9 +149,16 @@ export default function AjustarDeudaModal({
               step="0.01"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
-              placeholder="$0,00"
+              placeholder={enDolares ? "US$0,00" : "$0,00"}
               className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
+            {enDolares && valorIngresado > 0 && (
+              <p className="mt-1 text-xs text-text-dim">
+                {cotizacion > 0
+                  ? `Baja la deuda ${montoARS.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 })} (cotización ${cotizacion.toLocaleString("es-AR")})`
+                  : "Cargando cotización..."}
+              </p>
+            )}
           </div>
 
           {tipo === "reducir" && (

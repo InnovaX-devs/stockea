@@ -5,6 +5,29 @@ import { revalidatePath } from "next/cache";
 import { getHistorialDeuda } from "@/lib/clientes";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
+import { redondearARS, esCuentaUSD, montoEnCuentaUSD, redondearUSD } from "@/lib/currency";
+
+// Saldo pendiente de una venta en pesos enteros. El totalARS puede tener
+// decimales (conversión USD → ARS, descuentos) y nadie cobra los centavos:
+// si no redondeamos, la venta queda "A_CUENTA" con $0,20 de deuda.
+function pendienteDeVenta(venta: { totalARS: number; montoPagado: number }) {
+  return Math.max(0, redondearARS(venta.totalARS) - venta.montoPagado);
+}
+
+// Mismo criterio que en ventas/actions.ts: si el negocio no opera con
+// dólares, la cotización es 1.
+async function obtenerCotizacion() {
+  const config = await obtenerConfiguracion();
+  const cotizacionRaw = config.usaCotizacionUSD ? config.cotizacionUSD : 1;
+  return cotizacionRaw > 0 ? cotizacionRaw : 1;
+}
+
+// Proporción "moneda de la cuenta / ARS" de un pago. En cuentas USD respeta
+// los dólares que escribió el usuario, así la cuenta recibe ese monto exacto
+// aunque el pago se reparta entre varias ventas.
+function factorCuenta(pago: { monto: number; montoUSD?: number | null }, esUSD: boolean, cotizacion: number) {
+  return esUSD ? montoEnCuentaUSD(pago, cotizacion) / pago.monto : 1;
+}
 
 export async function eliminarCliente(clienteId: number) { // antes: string
   try {
@@ -107,17 +130,24 @@ export async function actualizarCliente(id: number, data: ClienteInput) { // ant
 
 interface PagoInput {
   cuentaId: number;
+  /** Equivalente en ARS: lo que se descuenta de la deuda. */
   monto: number;
+  /** Dólares que entran a la cuenta, si la cuenta es USD. */
+  montoUSD?: number | null;
 }
 
 export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
-  const pagosValidos = pagos.filter((p) => p.monto > 0);
+  const pagosValidos = pagos
+    .filter((p) => p.monto > 0)
+    .map((p) => ({ ...p, monto: redondearARS(p.monto) }))
+    .filter((p) => p.monto > 0);
   if (pagosValidos.length === 0) {
     return { success: false as const, error: "Ingresá un monto mayor a $0." };
   }
 
   try {
     const empresaId = await obtenerEmpresaIdActual();
+    const cotizacion = await obtenerCotizacion();
 
     await prisma.$transaction(async (tx) => {
       const cliente = await tx.cliente.findFirst({ where: { id: clienteId, empresaId } });
@@ -128,13 +158,19 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
         orderBy: { fecha: "asc" },
       });
 
-      const pendientePorVenta = new Map(
-        ventasPendientes.map((v) => [v.id, v.totalARS - v.montoPagado])
+      const pendientePorVenta = new Map<number, number>(
+        ventasPendientes.map((v) => [v.id, pendienteDeVenta(v)] as [number, number])
       );
 
       for (const pago of pagosValidos) {
         const cuentaValida = await tx.cuenta.findFirst({ where: { id: pago.cuentaId, empresaId } });
         if (!cuentaValida) throw new Error("CUENTA_NO_ENCONTRADA");
+
+        // pago.monto llega en ARS. Si la cuenta es en USD, entran los dólares
+        // que escribió el usuario (igual que en ventas y pedidos).
+        const esUSD = esCuentaUSD(cuentaValida.tipo);
+        const factor = factorCuenta(pago, esUSD, cotizacion);
+        const enCuenta = (ars: number) => (esUSD ? redondearUSD(ars * factor) : ars);
 
         let restante = pago.monto;
         const ventasTocadas: number[] = [];
@@ -142,20 +178,21 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
         for (const venta of ventasPendientes) {
           if (restante <= 0) break;
           const pendiente = pendientePorVenta.get(venta.id)!;
-          if (pendiente <= 0.01) continue;
+          if (pendiente < 0.5) continue;
 
           const aplicado = Math.min(restante, pendiente);
           const nuevoPendiente = pendiente - aplicado;
+          const saldada = nuevoPendiente < 0.5;
 
           await tx.pagoVenta.create({
-            data: { ventaId: venta.id, cuentaId: pago.cuentaId, monto: aplicado },
+            data: { ventaId: venta.id, cuentaId: pago.cuentaId, monto: enCuenta(aplicado), montoARS: aplicado },
           });
 
           await tx.venta.update({
             where: { id: venta.id },
             data: {
-              montoPagado: venta.totalARS - nuevoPendiente,
-              estadoPago: nuevoPendiente <= 0.01 ? "PAGADA" : "A_CUENTA",
+              montoPagado: redondearARS(venta.totalARS) - (saldada ? 0 : nuevoPendiente),
+              estadoPago: saldada ? "PAGADA" : "A_CUENTA",
             },
           });
 
@@ -168,7 +205,7 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
         if (montoAplicado > 0.01) {
           const cuenta = await tx.cuenta.update({
             where: { id: pago.cuentaId },
-            data: { saldoActual: { increment: montoAplicado } },
+            data: { saldoActual: { increment: enCuenta(montoAplicado) } },
           });
 
           await tx.movimientoCaja.create({
@@ -177,7 +214,7 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
               cuentaId: pago.cuentaId,
               tipo: "INGRESO",
               concepto: "PAGO_DEUDA_CLIENTE",
-              monto: montoAplicado,
+              monto: enCuenta(montoAplicado),
               saldoResultante: cuenta.saldoActual,
               ventaId: ventasTocadas.length === 1 ? ventasTocadas[0] : null,
             },
@@ -204,12 +241,16 @@ export async function obtenerHistorialDeuda(clienteId: number) {
 type AjusteDeudaInput = {
   clienteId: number;
   tipo: "aumentar" | "reducir";
+  /** En ARS. */
   monto: number;
   cuentaId?: number;
+  /** Solo "reducir" con cuenta USD: dólares que entran a la cuenta. */
+  montoUSD?: number | null;
 };
 
 export async function ajustarDeudaManual(input: AjusteDeudaInput) {
-  const { clienteId, tipo, monto, cuentaId } = input;
+  const { clienteId, tipo, cuentaId, montoUSD } = input;
+  const monto = redondearARS(input.monto);
 
   if (!monto || monto <= 0) {
     return { success: false as const, error: "Ingresá un monto mayor a $0." };
@@ -275,6 +316,9 @@ export async function ajustarDeudaManual(input: AjusteDeudaInput) {
     }
 
     let aplicadoTotal = 0;
+    const esUSD = esCuentaUSD(cuentaValida.tipo);
+    const factor = factorCuenta({ monto, montoUSD }, esUSD, await obtenerCotizacion());
+    const enCuenta = (ars: number) => (esUSD ? redondearUSD(ars * factor) : ars);
 
     await prisma.$transaction(async (tx) => {
       const ventasPendientes = await tx.venta.findMany({
@@ -287,21 +331,22 @@ export async function ajustarDeudaManual(input: AjusteDeudaInput) {
 
       for (const venta of ventasPendientes) {
         if (restante <= 0) break;
-        const pendiente = venta.totalARS - venta.montoPagado;
-        if (pendiente <= 0.01) continue;
+        const pendiente = pendienteDeVenta(venta);
+        if (pendiente < 0.5) continue;
 
         const aplicado = Math.min(restante, pendiente);
         const nuevoPendiente = pendiente - aplicado;
+        const saldada = nuevoPendiente < 0.5;
 
         await tx.pagoVenta.create({
-          data: { ventaId: venta.id, cuentaId, monto: aplicado },
+          data: { ventaId: venta.id, cuentaId, monto: enCuenta(aplicado), montoARS: aplicado },
         });
 
         await tx.venta.update({
           where: { id: venta.id },
           data: {
-            montoPagado: venta.totalARS - nuevoPendiente,
-            estadoPago: nuevoPendiente <= 0.01 ? "PAGADA" : "A_CUENTA",
+            montoPagado: redondearARS(venta.totalARS) - (saldada ? 0 : nuevoPendiente),
+            estadoPago: saldada ? "PAGADA" : "A_CUENTA",
           },
         });
 
@@ -317,7 +362,7 @@ export async function ajustarDeudaManual(input: AjusteDeudaInput) {
 
       const cuenta = await tx.cuenta.update({
         where: { id: cuentaId },
-        data: { saldoActual: { increment: aplicadoTotal } },
+        data: { saldoActual: { increment: enCuenta(aplicadoTotal) } },
       });
 
       await tx.movimientoCaja.create({
@@ -326,7 +371,7 @@ export async function ajustarDeudaManual(input: AjusteDeudaInput) {
           cuentaId,
           tipo: "INGRESO",
           concepto: "OTRO",
-          monto: aplicadoTotal,
+          monto: enCuenta(aplicadoTotal),
           saldoResultante: cuenta.saldoActual,
           ventaId: ventasTocadas.length === 1 ? ventasTocadas[0] : null,
         },

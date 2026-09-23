@@ -42,8 +42,10 @@ export async function obtenerCuentasPorCobrar(): Promise<CuentasPorCobrarData> {
   for (const v of ventasPendientes) {
     if (!v.cliente) continue; // venta a "consumidor final" sin cliente asociado no puede quedar "a cuenta"; por las dudas, se ignora
 
-    const pendiente = v.totalARS - v.montoPagado;
-    if (pendiente <= 0.01) continue;
+    // Pesos enteros, igual que en la lista de clientes: los centavos de la
+    // conversión USD / descuentos no cuentan como deuda.
+    const pendiente = Math.max(0, Math.round(v.totalARS) - v.montoPagado);
+    if (pendiente < 0.5) continue;
 
     const dias = Math.floor((ahora - v.fecha.getTime()) / (1000 * 60 * 60 * 24));
 

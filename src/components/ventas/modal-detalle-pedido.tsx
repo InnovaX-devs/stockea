@@ -131,7 +131,7 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
         .join(" + ")
     : "Sin registrar";
 
-  const saldoPendiente = pedido ? pedido.totalARS - pedido.montoPagado : 0;
+  const saldoPendiente = pedido ? Math.max(0, Math.round(pedido.totalARS - pedido.montoPagado)) : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>

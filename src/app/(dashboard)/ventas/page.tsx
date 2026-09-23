@@ -44,7 +44,8 @@ function NuevaVentaContenido() {
   const [presupuestoIdOrigen, setPresupuestoIdOrigen] = useState<number | null>(null);
   const yaPrecargado = useRef(false);
 
-  const { tipoPrecio, cliente, setCliente, modoCobro, setModoCobro, pagos, setPagos, cotizacionUSD } = useVenta();
+  const { tipoPrecio, cliente, setCliente, modoCobro, setModoCobro, pagos, setPagos, cotizacionUSD, usaCotizacionUSD } =
+    useVenta();
 
   const [advertenciaStock, setAdvertenciaStock] = useState<{
     producto: ProductoBusquedaDTO;
@@ -180,7 +181,11 @@ function NuevaVentaContenido() {
         precioUnitarioArs: it.precioUnitarioArs,
         tipoPrecio: it.tipoPrecio,
       })),
-      pagos: pagos.map((p) => ({ cuentaId: p.cuentaId as number, monto: p.monto })),
+      pagos: pagos.map((p) => ({
+        cuentaId: p.cuentaId as number,
+        monto: p.monto,
+        montoUSD: p.esUSD ? p.montoUSD ?? null : null,
+      })),
       descuentoMonto: descuento?.tipo === "MONTO" ? descuento.valor : null,
       descuentoPorcentaje: descuento?.tipo === "PORCENTAJE" ? descuento.valor : null,
       totalARS: total,
@@ -242,7 +247,9 @@ function NuevaVentaContenido() {
       toast.error("El carrito está vacío.");
       return;
     }
-    if (modoCobro !== "A_CUENTA" && Math.abs(pagos.reduce((a, p) => a + p.monto, 0) - total) > 0.01) {
+    // Pesos enteros: el total puede tener centavos (descuentos, conversión USD)
+    // que no se cobran, igual que en SelectorCobro y en el backend.
+    if (modoCobro !== "A_CUENTA" && Math.round(pagos.reduce((a, p) => a + p.monto, 0)) !== Math.round(total)) {
       toast.error("El monto cobrado no coincide con el total. Revisá el cobro.");
       return;
     }
@@ -312,6 +319,7 @@ function NuevaVentaContenido() {
               pagos={pagos}
               onCambiarModo={setModoCobro}
               onCambiarPagos={setPagos}
+              cotizacionUSD={usaCotizacionUSD ? cotizacionUSD : 1}
             />
             <ResumenVenta
               subtotal={subtotal}
