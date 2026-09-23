@@ -1,4 +1,4 @@
-# ERP genérico — InnovaX
+# STOCKEA by InnovaX
 
 Sistema de gestión (productos, ventas, compras, caja, reportes) pensado para
 desplegarse una vez por cliente: cada negocio tiene su propio deploy y su
