@@ -6,10 +6,11 @@ import { calcularFechaVencimiento, calcularTotalPresupuesto, calcularEstadoEfect
 import type { ProductoBusqueda, ClienteBusqueda, ItemPresupuestoLocal } from "../../../types/presupuesto";
 import type { ProductoBusquedaDTO } from "@/types/producto";
 import type { ClienteBusquedaResult } from "@/lib/clientes-busqueda";
-import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { obtenerEmpresaIdActual, requerirAdmin } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 
 export async function buscarClientes(query: string): Promise<ClienteBusqueda[]> {
+  await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
   if (!query.trim()) return [];
   const empresaId = await obtenerEmpresaIdActual();
   return prisma.cliente.findMany({
@@ -32,6 +33,7 @@ export type CrearPresupuestoInput = {
 export async function crearPresupuesto(
   input: CrearPresupuestoInput
 ): Promise<{ success: true; id: number } | { success: false; error: string }> {
+  await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
   if (input.items.length === 0) {
     return { success: false, error: "Agregá al menos un ítem al presupuesto." };
   }
@@ -119,6 +121,7 @@ type ResultadoConversion =
   | { success: false; error: string };
 
 export async function obtenerPresupuestoParaConvertir(id: number): Promise<ResultadoConversion> {
+  await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
   const empresaId = await obtenerEmpresaIdActual();
   const presupuesto = await prisma.presupuesto.findFirst({
     where: { id, empresaId },
@@ -232,6 +235,7 @@ type ResultadoDetalle =
   | { success: false; error: string };
 
 export async function obtenerDetallePresupuesto(id: number): Promise<ResultadoDetalle> {
+  await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
   const empresaId = await obtenerEmpresaIdActual();
   const presupuesto = await prisma.presupuesto.findFirst({
     where: { id, empresaId },

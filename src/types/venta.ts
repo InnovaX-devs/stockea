@@ -73,8 +73,9 @@ export type PedidoDetalle = {
   retirado: boolean;
   totalARS: number;
   montoPagado: number;
-  gananciaARS: number;
-  gananciaPorcentaje: number;
+  /** null cuando lo mira un empleado (no ve costos ni ganancias). */
+  gananciaARS: number | null;
+  gananciaPorcentaje: number | null;
   pagos: { montoARS: number; tipoCuenta: string }[];
   items: PedidoDetalleItem[];
 };

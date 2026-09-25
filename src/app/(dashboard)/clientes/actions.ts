@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getHistorialDeuda } from "@/lib/clientes";
-import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { obtenerEmpresaIdActual, requerirAdmin } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { redondearARS, esCuentaUSD, montoEnCuentaUSD, redondearUSD } from "@/lib/currency";
 
@@ -31,6 +31,7 @@ function factorCuenta(pago: { monto: number; montoUSD?: number | null }, esUSD: 
 
 export async function eliminarCliente(clienteId: number) { // antes: string
   try {
+  await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
     const empresaId = await obtenerEmpresaIdActual();
     const cliente = await prisma.cliente.findFirst({ where: { id: clienteId, empresaId } });
     if (!cliente) {
@@ -249,6 +250,7 @@ type AjusteDeudaInput = {
 };
 
 export async function ajustarDeudaManual(input: AjusteDeudaInput) {
+  await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
   const { clienteId, tipo, cuentaId, montoUSD } = input;
   const monto = redondearARS(input.monto);
 

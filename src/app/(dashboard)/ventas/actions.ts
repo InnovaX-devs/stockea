@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { obtenerConfiguracion } from "@/lib/configuracion";
-import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { obtenerEmpresaIdActual, obtenerUsuarioActual, requerirAdmin } from "@/lib/empresa";
 import { revalidatePath } from "next/cache";
 import type { EstadoPago, TipoPrecioVenta } from "@prisma/client";
 import { redondearARS, montoEnCuentaUSD, montoARSDePago } from "@/lib/currency";
@@ -65,6 +65,7 @@ type ResultadoDescontarStock =
 export async function descontarStockSinVenta(
   items: DescontarStockItemInput[]
 ): Promise<ResultadoDescontarStock> {
+  await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
   if (items.length === 0) {
     return { success: false, error: "El carrito está vacío." };
   }
@@ -316,6 +317,7 @@ export async function registrarPedido(input: VentaInput): Promise<ResultadoVenta
 }
 
 export async function listarVentas(filtros: FiltrosVentas): Promise<ResultadoListadoVentas> {
+  await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
   const empresaId = await obtenerEmpresaIdActual();
   const { estado, clienteTexto, fechaDesde, fechaHasta, orden, page, pageSize } = filtros;
 
@@ -607,7 +609,8 @@ export async function marcarEnviado(ventaId: number): Promise<ResultadoAccionPed
 
 export async function obtenerDetallePedido(ventaId: number): Promise<ResultadoDetallePedido> {
   try {
-    const empresaId = await obtenerEmpresaIdActual();
+    const { empresaId, rol } = await obtenerUsuarioActual();
+    const esEmpleado = rol === "EMPLEADO";
     const venta = await prisma.venta.findFirst({
       where: { id: ventaId, empresaId },
       include: {
@@ -657,8 +660,9 @@ export async function obtenerDetallePedido(ventaId: number): Promise<ResultadoDe
       retirado: venta.retirado,
       totalARS: venta.totalARS,
       montoPagado: venta.montoPagado,
-      gananciaARS,
-      gananciaPorcentaje,
+      // El empleado no ve costos ni ganancias.
+      gananciaARS: esEmpleado ? null : gananciaARS,
+      gananciaPorcentaje: esEmpleado ? null : gananciaPorcentaje,
       pagos: venta.pagos.map((p) => {
         return {
           montoARS: montoARSDePago(p, p.cuenta.tipo, venta.cotizacionUsada),
@@ -791,6 +795,7 @@ export async function registrarCobroPedido(
 }
 
 export async function anularVenta(ventaId: number): Promise<ResultadoAccionPedido> {
+  await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
   try {
     const empresaId = await obtenerEmpresaIdActual();
     const venta = await prisma.venta.findFirst({

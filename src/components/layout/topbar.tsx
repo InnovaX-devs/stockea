@@ -8,8 +8,9 @@ import { ChevronDown, Check, X as XIcon, Settings, House, Menu, X } from "lucide
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
 import { NAV_ITEMS, esGrupo, type NavGroup } from "@/lib/nav-items";
-import { LogoutButton } from "@/components/layout/logout-button";
 import { actualizarCotizacionRapida } from "@/app/(dashboard)/configuracion/actions";
+import { MenuUsuario } from "@/components/layout/menu-usuario";
+import { INICIO_EMPLEADO, puedeVerEnMenu, type Rol } from "@/lib/permisos";
 
 // Clases compartidas por los ítems de nav, pensadas para la topbar oscura
 // (antes vivían en sidebar.tsx, sobre fondo también oscuro, así que se
@@ -45,6 +46,9 @@ export function Topbar({
   premium,
   cotizacionUSD,
   usaCotizacionUSD,
+  rol,
+  usuarioNombre,
+  otroUsuario,
 }: {
   logoUrl: string | null;
   nombreNegocio: string;
@@ -52,12 +56,20 @@ export function Topbar({
   premium: boolean;
   cotizacionUSD: number;
   usaCotizacionUSD: boolean;
+  rol: Rol;
+  usuarioNombre: string;
+  /** Usuario al que se puede pasar (admin ⇄ empleado), o null si no hay. */
+  otroUsuario: { nombre: string; rol: Rol } | null;
 }) {
   const pathname = usePathname();
+  const esAdmin = rol === "ADMIN";
+  const inicioHref = esAdmin ? "/" : INICIO_EMPLEADO;
 
-  const navItems = NAV_ITEMS.filter((item) => esGrupo(item) || !item.premium || premium).map((item) =>
-    esGrupo(item) ? { ...item, children: item.children.filter((c) => !c.premium || premium) } : item
-  );
+  // Filtra por licencia (Premium) y por rol (ver src/lib/permisos.ts).
+  const visible = (href: string, esPremium?: boolean) => (!esPremium || premium) && puedeVerEnMenu(rol, href);
+  const navItems = NAV_ITEMS.map((item) =>
+    esGrupo(item) ? { ...item, children: item.children.filter((c) => visible(c.href, c.premium)) } : item
+  ).filter((item) => (esGrupo(item) ? item.children.length > 0 : visible(item.href, item.premium)));
 
   // Grupo con el dropdown abierto (uno solo a la vez). Se cierra al navegar
   // o al hacer click afuera.
@@ -135,7 +147,7 @@ export function Topbar({
   return (
     <header className="bg-topbar sticky top-0 z-50 flex items-center gap-6 px-4 sm:px-7 h-[68px] shrink-0">
       {/* Logo */}
-      <Link href="/" className="flex shrink-0 items-center gap-2.5">
+      <Link href={inicioHref} className="flex shrink-0 items-center gap-2.5">
         <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-[9px] bg-grad">
           {logoUrl ? (
             <Image src={logoUrl} alt={`Logo ${nombreNegocio}`} width={32} height={32} className="h-full w-full object-cover" />
@@ -153,14 +165,16 @@ export function Topbar({
 
       {/* Nav horizontal — desktop */}
       <nav ref={navRef} className="hidden flex-1 items-center gap-1 md:flex" aria-label="Navegación principal">
-        <Link
-          href="/"
-          aria-current={pathname === "/" ? "page" : undefined}
-          className={cn(ITEM_BASE, pathname === "/" ? ITEM_ACTIVO : ITEM_INACTIVO)}
-        >
-          <House className="h-[15px] w-[15px]" strokeWidth={1.8} />
-          Inicio
-        </Link>
+        {esAdmin && (
+          <Link
+            href="/"
+            aria-current={pathname === "/" ? "page" : undefined}
+            className={cn(ITEM_BASE, pathname === "/" ? ITEM_ACTIVO : ITEM_INACTIVO)}
+          >
+            <House className="h-[15px] w-[15px]" strokeWidth={1.8} />
+            Inicio
+          </Link>
+        )}
 
         {navItems.map((item) => {
           if (esGrupo(item)) {
@@ -227,7 +241,14 @@ export function Topbar({
 
       {/* Acciones a la derecha */}
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
-        {usaCotizacionUSD && (editando ? (
+        {usaCotizacionUSD && !esAdmin && (
+          // El empleado ve la cotización pero no la puede cambiar.
+          <span className="hidden items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 sm:flex">
+            <span className="text-xs text-white">USD</span>
+            <span className="font-mono text-sm font-medium text-white">${cotizacionFormateada}</span>
+          </span>
+        )}
+        {usaCotizacionUSD && esAdmin && (editando ? (
           <div className="hidden items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2 py-1 sm:flex">
             <span className="text-xs text-white">USD</span>
             <span className="font-mono text-sm text-white">$</span>
@@ -265,6 +286,7 @@ export function Topbar({
           </button>
         ))}
 
+        {esAdmin && (
         <Link
           href="/configuracion"
           className={
@@ -278,9 +300,10 @@ export function Topbar({
         >
           <Settings className="h-4 w-4" />
         </Link>
+        )}
 
-        {/* En dark, LogoutButton necesita el variant claro — ver logout-button.tsx */}
-        <LogoutButton variant="dark" />
+        {/* Quién está usando el sistema: cambio de usuario, contraseña y salir. */}
+        <MenuUsuario nombre={usuarioNombre} rol={rol} otroUsuario={otroUsuario} />
 
         <button
           type="button"
@@ -328,12 +351,14 @@ export function Topbar({
             </button>
           </div>
 
-          <Link
-            href="/"
-            className={cn(ITEM_BASE, "!py-3.5 !text-[15px]", pathname === "/" ? ITEM_ACTIVO : ITEM_INACTIVO)}
-          >
-            <House className="h-[18px] w-[18px]" strokeWidth={1.8} /> Inicio
-          </Link>
+          {esAdmin && (
+            <Link
+              href="/"
+              className={cn(ITEM_BASE, "!py-3.5 !text-[15px]", pathname === "/" ? ITEM_ACTIVO : ITEM_INACTIVO)}
+            >
+              <House className="h-[18px] w-[18px]" strokeWidth={1.8} /> Inicio
+            </Link>
+          )}
           {navItems.map((item) =>
             esGrupo(item) ? (
               <div key={item.label} className="pt-3">

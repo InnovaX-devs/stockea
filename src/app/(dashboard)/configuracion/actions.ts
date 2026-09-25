@@ -1,5 +1,6 @@
 "use server";
 
+import { requerirAdmin } from "@/lib/empresa";
 import { put } from "@vercel/blob";
 import { actualizarConfiguracion, obtenerConfiguracion } from "@/lib/configuracion";
 import { revalidatePath } from "next/cache";
@@ -9,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { isPasswordValid } from "@/lib/password-validation";
 
 export async function guardarConfiguracion(formData: FormData) {
+  await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
   const nombreNegocio = formData.get("nombreNegocio") as string;
   const telefono = formData.get("telefono") as string;
   const email = formData.get("email") as string;
@@ -79,6 +81,7 @@ export async function guardarConfiguracion(formData: FormData) {
 }
 
 export async function actualizarCotizacionRapida(cotizacionUSD: number) {
+  await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
   const configuracionActual = await obtenerConfiguracion();
   if (!configuracionActual.usaCotizacionUSD) {
     throw new Error("Este negocio no opera con cotización en dólares");
