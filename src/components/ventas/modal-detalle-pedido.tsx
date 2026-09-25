@@ -240,12 +240,14 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
                       {formatCurrency(pedido.totalARS, "ARS")}
                     </span>
                   </div>
-                  <div className="mt-1 flex items-center justify-between text-sm">
-                    <span className="text-text-dim">Ganancia</span>
-                    <span className="font-medium text-success">
-                      {formatCurrency(pedido.gananciaARS, "ARS")} · {pedido.gananciaPorcentaje.toFixed(2)}%
-                    </span>
-                  </div>
+                  {pedido.gananciaARS != null && (
+                    <div className="mt-1 flex items-center justify-between text-sm">
+                      <span className="text-text-dim">Ganancia</span>
+                      <span className="font-medium text-success">
+                        {formatCurrency(pedido.gananciaARS, "ARS")} · {(pedido.gananciaPorcentaje ?? 0).toFixed(2)}%
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="rounded-xl border border-border p-4">

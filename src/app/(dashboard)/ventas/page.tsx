@@ -15,6 +15,7 @@ import { toArs } from "@/lib/currency";
 import type { ProductoBusquedaDTO } from "@/types/producto";
 import type { ItemCarrito, TipoPrecioLinea } from "@/types/item-carrito";
 import { SelectorCobro } from "@/components/ventas/selector-cobro";
+import { useEsAdmin } from "@/components/layout/rol-context";
 import { obtenerPresupuestoParaConvertir } from "@/app/(dashboard)/presupuestos/actions";
 import { confirmarVenta, registrarPedido, descontarStockSinVenta, verificarStockDisponible, type StockDisponibilidad } from "./actions";
 import { ModalStockComprometido } from "@/components/ventas/modal-stock-comprometido";
@@ -46,6 +47,8 @@ function NuevaVentaContenido() {
 
   const { tipoPrecio, cliente, setCliente, modoCobro, setModoCobro, pagos, setPagos, cotizacionUSD, usaCotizacionUSD } =
     useVenta();
+  // "Solo descontar stock" saca mercadería sin venta: es solo del admin.
+  const esAdmin = useEsAdmin();
 
   const [advertenciaStock, setAdvertenciaStock] = useState<{
     producto: ProductoBusquedaDTO;
@@ -343,14 +346,16 @@ function NuevaVentaContenido() {
               >
                 Registrar pedido
               </button>
-              <button
-                type="button"
-                onClick={handleDescontarStock}
-                disabled={procesando}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2.5 text-sm font-medium text-text-dim hover:bg-surface-hover disabled:opacity-50"
-              >
-                <Gift size={14} /> Solo descontar stock
-              </button>
+              {esAdmin && (
+                <button
+                  type="button"
+                  onClick={handleDescontarStock}
+                  disabled={procesando}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2.5 text-sm font-medium text-text-dim hover:bg-surface-hover disabled:opacity-50"
+                >
+                  <Gift size={14} /> Solo descontar stock
+                </button>
+              )}
             </div>
           </div>
         </div>

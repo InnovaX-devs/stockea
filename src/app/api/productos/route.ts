@@ -3,13 +3,21 @@ import { prisma } from "@/lib/prisma";
 import { toArs } from "@/lib/currency";
 import type { Prisma } from "@prisma/client";
 import { obtenerConfiguracion } from "@/lib/configuracion";
-import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { obtenerEmpresaIdActual, obtenerUsuarioActual } from "@/lib/empresa";
 
 export const dynamic = "force-dynamic";
 
+// El empleado ve el catálogo sin costos: se saca acá, del lado del servidor.
+function sinCosto<T extends { precioCosto?: number }>(item: T): Omit<T, "precioCosto"> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { precioCosto, ...resto } = item;
+  return resto;
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const empresaId = await obtenerEmpresaIdActual();
+    const { empresaId, rol } = await obtenerUsuarioActual();
+    const esEmpleado = rol === "EMPLEADO";
     const searchParams = request.nextUrl.searchParams;
     const q = searchParams.get("q")?.trim() ?? "";
     const fetchAll = searchParams.get("all") === "true";
@@ -51,7 +59,7 @@ export async function GET(request: NextRequest) {
       });
 
       return NextResponse.json({
-        items,
+        items: esEmpleado ? items.map(sinCosto) : items,
         total: items.length,
         page: 1,
         pageSize: items.length,
@@ -87,6 +95,10 @@ export async function GET(request: NextRequest) {
     for (const p of aggregateBase) {
       stockCostoArs += p.stockActual * toArs(p.precioCosto, p.monedaPrecio, cotizacionUSD);
       stockVentaArs += p.stockActual * toArs(p.precioVenta, p.monedaPrecio, cotizacionUSD);
+    }
+
+    if (esEmpleado) {
+      return NextResponse.json({ items: items.map(sinCosto), total, page, pageSize });
     }
 
     return NextResponse.json({

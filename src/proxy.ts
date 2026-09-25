@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
+import { INICIO_EMPLEADO, esRutaApi, puedeAcceder } from "@/lib/permisos";
 
 const RUTAS_PUBLICAS = ["/login", "/api/auth"];
 
@@ -18,6 +19,16 @@ export default auth((req) => {
   if (!isLoggedIn && !esRutaPublica) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Permisos por rol (ver src/lib/permisos.ts). El empleado que toca una
+  // página que no le corresponde vuelve a Nueva Venta; una API, recibe 403.
+  const rol = req.auth?.user?.rol;
+  if (isLoggedIn && !esRutaPublica && !puedeAcceder(rol, req.nextUrl.pathname, req.method)) {
+    if (esRutaApi(req.nextUrl.pathname)) {
+      return NextResponse.json({ error: "No tenés permiso para esta acción." }, { status: 403 });
+    }
+    return NextResponse.redirect(new URL(INICIO_EMPLEADO, req.nextUrl.origin));
   }
 
   return NextResponse.next();

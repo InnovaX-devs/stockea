@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { montoARSDePago } from "@/lib/currency";
-import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { obtenerEmpresaIdActual, obtenerUsuarioActual } from "@/lib/empresa";
 
 export type ClienteConDeuda = {
   id: number;
@@ -188,12 +188,14 @@ function redondear(n: number) {
 }
 
 export async function getCuentasActivas() {
-  const empresaId = await obtenerEmpresaIdActual();
-  return prisma.cuenta.findMany({
+  const { empresaId, rol } = await obtenerUsuarioActual();
+  const cuentas = await prisma.cuenta.findMany({
     where: { activa: true, empresaId },
     orderBy: [{ favorita: "desc" }, { nombre: "asc" }],
     select: { id: true, nombre: true, tipo: true, saldoActual: true },
   });
+  // El empleado elige la cuenta al cobrar, pero no ve saldos.
+  return rol === "EMPLEADO" ? cuentas.map((c) => ({ ...c, saldoActual: null })) : cuentas;
 }
 
 // --- Historial de deuda ---

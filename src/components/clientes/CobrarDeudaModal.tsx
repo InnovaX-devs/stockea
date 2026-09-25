@@ -10,7 +10,7 @@ export interface CuentaOption {
   id: number;
   nombre: string;
   tipo: string;
-  saldoActual: number;
+  saldoActual: number | null; // null para el empleado (no ve saldos)
 }
 
 interface Fila {
@@ -184,7 +184,8 @@ export default function CobrarDeudaModal({
                 >
                   {cuentas.map((c) => (
                     <option key={c.id} value={c.id} className="text-slate-900">
-                      {c.nombre} — {esCuentaUSD(c.tipo) ? "US$" : "$"}{fmt(c.saldoActual)}
+                      {c.nombre}
+                      {c.saldoActual != null && ` — ${esCuentaUSD(c.tipo) ? "US$" : "$"}${fmt(c.saldoActual)}`}
                     </option>
                   ))}
                 </select>

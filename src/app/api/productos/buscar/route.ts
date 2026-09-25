@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { obtenerUsuarioActual } from "@/lib/empresa";
 
 export async function GET(request: NextRequest) {
-  const empresaId = await obtenerEmpresaIdActual();
+  const { empresaId, rol } = await obtenerUsuarioActual();
   const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
 
   if (!q) {
@@ -37,6 +37,12 @@ export async function GET(request: NextRequest) {
       marca: { select: { nombre: true } },
     },
   });
+
+  if (rol === "EMPLEADO") {
+    // El empleado no ve costos: se saca del lado del servidor.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    return NextResponse.json({ items: items.map(({ precioCosto, ...resto }) => resto) });
+  }
 
   return NextResponse.json({ items });
 }

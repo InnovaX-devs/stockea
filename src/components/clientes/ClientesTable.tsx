@@ -8,6 +8,7 @@ import HistorialDeudaModal from "./HistorialDeudaModal";
 import AjustarDeudaModal from "./AjustarDeudaModal";
 import type { ClienteConDeuda } from "@/lib/clientes";
 import type { CuentaOption } from "./CobrarDeudaModal";
+import { useEsAdmin } from "@/components/layout/rol-context";
 
 export default function ClientesTable({
   clientes,
@@ -23,6 +24,9 @@ export default function ClientesTable({
   const [eliminandoId, setEliminandoId] = useState<number | null>(null);
   const [clienteHistorial, setClienteHistorial] = useState<ClienteConDeuda | null>(null);
   const [clienteAjuste, setClienteAjuste] = useState<ClienteConDeuda | null>(null);
+  // El empleado puede ver, cargar, editar y cobrar, pero no borrar clientes
+  // ni hacer ajustes manuales de deuda.
+  const esAdmin = useEsAdmin();
 
   async function handleEliminar(id: number, nombre: string) {
     if (!confirm(`¿Eliminar a ${nombre}? Esta acción no se puede deshacer.`)) return;
@@ -46,13 +50,15 @@ export default function ClientesTable({
         >
           <Clock size={18} />
         </button>
-        <button
-          onClick={() => setClienteAjuste(c)}
-          title="Ajuste manual de deuda"
-          className="text-text-dim cursor-pointer hover:text-primary"
-        >
-          <SlidersHorizontal size={18} />
-        </button>
+        {esAdmin && (
+          <button
+            onClick={() => setClienteAjuste(c)}
+            title="Ajuste manual de deuda"
+            className="text-text-dim cursor-pointer hover:text-primary"
+          >
+            <SlidersHorizontal size={18} />
+          </button>
+        )}
         <button
           onClick={() => onEditar(c)}
           title="Editar"
@@ -60,14 +66,16 @@ export default function ClientesTable({
         >
           <Pencil size={18} />
         </button>
-        <button
-          onClick={() => handleEliminar(c.id, nombreCompleto(c))}
-          disabled={eliminandoId === c.id}
-          title="Eliminar"
-          className="text-text-dim hover:text-danger cursor-pointer disabled:opacity-50"
-        >
-          <Trash2 size={18} />
-        </button>
+        {esAdmin && (
+          <button
+            onClick={() => handleEliminar(c.id, nombreCompleto(c))}
+            disabled={eliminandoId === c.id}
+            title="Eliminar"
+            className="text-text-dim hover:text-danger cursor-pointer disabled:opacity-50"
+          >
+            <Trash2 size={18} />
+          </button>
+        )}
       </div>
     );
   }
@@ -172,7 +180,7 @@ export default function ClientesTable({
         />
       )}
 
-      {clienteAjuste && (
+      {esAdmin && clienteAjuste && (
         <AjustarDeudaModal
           cliente={{ id: clienteAjuste.id, nombre: nombreCompleto(clienteAjuste) }}
           cuentas={cuentas}

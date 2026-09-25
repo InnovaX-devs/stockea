@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { obtenerEmpresaIdActual, obtenerUsuarioActual } from "@/lib/empresa";
 
 export async function GET(request: NextRequest) {
-  const empresaId = await obtenerEmpresaIdActual();
+  const { empresaId, rol } = await obtenerUsuarioActual();
   const searchParams = request.nextUrl.searchParams;
   const q = searchParams.get("q")?.trim() ?? "";
   const incluirInactivas = searchParams.get("incluirInactivas") === "true";
@@ -27,6 +27,15 @@ export async function GET(request: NextRequest) {
     where,
     orderBy: [{ favorita: "desc" }, { nombre: "asc" }],
   });
+
+  if (rol === "EMPLEADO") {
+    // Para cobrar, el empleado solo necesita elegir la cuenta: no ve saldos.
+    return NextResponse.json({
+      items: items
+        .filter((c) => c.activa)
+        .map((c) => ({ id: c.id, nombre: c.nombre, tipo: c.tipo, favorita: c.favorita, activa: c.activa, color: c.color })),
+    });
+  }
 
   return NextResponse.json({ items });
 }

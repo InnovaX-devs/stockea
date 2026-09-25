@@ -35,11 +35,20 @@ model Empresa {
   gastos           Gasto[]
 }
 
+// ADMIN ve todo. EMPLEADO (solo licencia PREMIUM, máximo uno por empresa)
+// usa Ventas, Pedidos, Clientes y ve Productos sin costos. Los permisos
+// están en src/lib/permisos.ts.
+enum RolUsuario {
+  ADMIN
+  EMPLEADO
+}
+
 model Usuario {
   id           Int @id @default(autoincrement())
   nombre       String
   email        String            @unique
   passwordHash String
+  rol          RolUsuario        @default(ADMIN)
   activo       Boolean           @default(true)
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
