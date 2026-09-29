@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus, Search, RefreshCw, Loader2, Check, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatFechaAR } from "@/lib/timezone";
+import { ConfirmarCompraModal } from "@/components/compras/confirmar-compra-modal";
 
 interface Compra {
   id: number;
@@ -104,6 +105,9 @@ export function ComprasListado() {
     setPage(1);
   }, [filtro, busquedaDebounced]);
 
+  // Confirmar abre la ventana con el paso "¿Actualizar precios?".
+  const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
+
   const ejecutarAccion = async (id: number, accion: "confirmar" | "cancelar") => {
     setAccionandoId(id);
     try {
@@ -125,6 +129,16 @@ export function ComprasListado() {
 
   return (
     <div className="space-y-5 sm:space-y-6">
+      {confirmandoId != null && (
+        <ConfirmarCompraModal
+          compraId={confirmandoId}
+          onCerrar={() => setConfirmandoId(null)}
+          onConfirmada={async () => {
+            setConfirmandoId(null);
+            await cargarCompras(true);
+          }}
+        />
+      )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-semibold text-text sm:text-2xl">Compras</h1>
         <Link
@@ -261,7 +275,7 @@ export function ComprasListado() {
                               <button
                                 type="button"
                                 disabled={cargandoFila}
-                                onClick={() => ejecutarAccion(compra.id, "confirmar")}
+                                onClick={() => setConfirmandoId(compra.id)}
                                 aria-label="Confirmar compra"
                                 title="Confirmar"
                                 className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-primary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
@@ -356,7 +370,7 @@ export function ComprasListado() {
                         <button
                           type="button"
                           disabled={cargandoFila}
-                          onClick={() => ejecutarAccion(compra.id, "confirmar")}
+                          onClick={() => setConfirmandoId(compra.id)}
                           aria-label="Confirmar compra"
                           title="Confirmar"
                           className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-primary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"

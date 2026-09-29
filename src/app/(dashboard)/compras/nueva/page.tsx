@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import Select from "@/components/ui/select";
+import { ConfirmarCompraModal } from "@/components/compras/confirmar-compra-modal";
 
 interface Proveedor {
   id: number;
@@ -290,20 +291,11 @@ export default function NuevaCompraPage() {
     }
   };
 
-  const confirmarCompra = async () => {
+  // Confirmar abre la ventana con el paso "¿Actualizar precios?".
+  const confirmarCompra = () => {
     if (!compraCreada) return;
-    setConfirmando(true);
     setErrorConfirmar(null);
-    try {
-      const res = await fetch(`/api/compras/${compraCreada.id}/confirmar`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al confirmar la compra");
-      router.push("/compras");
-    } catch (err: any) {
-      setErrorConfirmar(err.message || "Ocurrió un error al confirmar la compra");
-    } finally {
-      setConfirmando(false);
-    }
+    setConfirmando(true);
   };
 
   if (compraCreada) {
@@ -317,6 +309,13 @@ export default function NuevaCompraPage() {
           </p>
 
           {errorConfirmar && <p className="mt-3 text-sm text-danger">{errorConfirmar}</p>}
+          {confirmando && (
+            <ConfirmarCompraModal
+              compraId={compraCreada.id}
+              onCerrar={() => setConfirmando(false)}
+              onConfirmada={() => router.push("/compras")}
+            />
+          )}
 
           <div className="mt-6 flex flex-col gap-2">
             <button
@@ -325,7 +324,7 @@ export default function NuevaCompraPage() {
               onClick={confirmarCompra}
               className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium cursor-pointer text-white hover:opacity-90 disabled:opacity-50"
             >
-              {confirmando ? "Confirmando..." : "Confirmar compra ahora"}
+              Confirmar compra ahora
             </button>
             <button
               type="button"

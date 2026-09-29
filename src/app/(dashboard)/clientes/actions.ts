@@ -31,8 +31,10 @@ function factorCuenta(pago: { monto: number; montoUSD?: number | null }, esUSD: 
 }
 
 export async function eliminarCliente(clienteId: number) { // antes: string
-  try {
+  // Fuera del try: si no, el catch respondía "tiene ventas asociadas" a
+  // cualquier error, incluido "no tenés permiso".
   await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
+  try {
     const empresaId = await obtenerEmpresaIdActual();
     const cliente = await prisma.cliente.findFirst({ where: { id: clienteId, empresaId } });
     if (!cliente) {
@@ -167,6 +169,18 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
         ventasPendientes.map((v) => [v.id, pendienteDeVenta(v)] as [number, number])
       );
 
+      // No se puede cobrar más de lo que se debe: si no, la cuenta sumaría
+      // solo la deuda pero el cajero habría recibido más plata (y el cierre
+      // de caja daría un sobrante sin explicación).
+      const deudaTotal = [...pendientePorVenta.values()].reduce((a, b) => a + b, 0);
+      const totalCobro = pagosValidos.reduce((a, p) => a + p.monto, 0);
+      if (deudaTotal < 0.5) throw new Error("COBRO:El cliente no tiene deuda pendiente.");
+      if (totalCobro > deudaTotal + 0.5) {
+        throw new Error(
+          `COBRO:El cobro ($${totalCobro.toLocaleString("es-AR")}) supera la deuda del cliente ($${deudaTotal.toLocaleString("es-AR")}).`
+        );
+      }
+
       for (const pago of pagosValidos) {
         const cuentaValida = await tx.cuenta.findFirst({ where: { id: pago.cuentaId, empresaId } });
         if (!cuentaValida) throw new Error("CUENTA_NO_ENCONTRADA");
@@ -232,6 +246,9 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
     return { success: true as const };
   } catch (e) {
     console.error(e);
+    if (e instanceof Error && e.message.startsWith("COBRO:")) {
+      return { success: false as const, error: e.message.slice("COBRO:".length) };
+    }
     return { success: false as const, error: "Ocurrió un error al registrar el cobro." };
   }
 }
