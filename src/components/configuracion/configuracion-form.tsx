@@ -18,6 +18,7 @@ interface ConfiguracionFormProps {
     remitenteNombre: string | null;
     remitenteDni: string | null;
     costoPromedioPonderado: boolean;
+    horaAperturaCaja: string;
     colorPrimario: string | null;
     colorSecundario: string | null;
     licencia: "BASICO" | "PREMIUM";
@@ -368,6 +369,23 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
               pasa a $1066.
             </p>
           </span>
+        </label>
+
+        <label className="flex items-start justify-between gap-4">
+          <span>
+            <span className="text-sm font-medium text-text">Hora de apertura de la caja</span>
+            <p className="text-xs text-text-dim">
+              Todos los días a esta hora la caja se abre sola con lo que quedó del último cierre.
+              Antes de esa hora (o después de cerrarla) no se puede vender, salvo que se abra a mano.
+            </p>
+          </span>
+          <input
+            type="time"
+            name="horaAperturaCaja"
+            defaultValue={configuracion.horaAperturaCaja}
+            required
+            className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary"
+          />
         </label>
       </div>
 

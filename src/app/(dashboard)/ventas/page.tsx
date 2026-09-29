@@ -16,6 +16,7 @@ import type { ProductoBusquedaDTO } from "@/types/producto";
 import type { ItemCarrito, TipoPrecioLinea } from "@/types/item-carrito";
 import { SelectorCobro } from "@/components/ventas/selector-cobro";
 import { useEsAdmin } from "@/components/layout/rol-context";
+import { AvisoCajaCerrada } from "@/components/ventas/aviso-caja-cerrada";
 import { obtenerPresupuestoParaConvertir } from "@/app/(dashboard)/presupuestos/actions";
 import { confirmarVenta, registrarPedido, descontarStockSinVenta, verificarStockDisponible, type StockDisponibilidad } from "./actions";
 import { ModalStockComprometido } from "@/components/ventas/modal-stock-comprometido";
@@ -270,6 +271,7 @@ function NuevaVentaContenido() {
 
   return (
     <div className="space-y-4 p-4">
+      <AvisoCajaCerrada />
       <div>
         <h1 className="text-xl font-semibold text-text sm:text-2xl">Nueva Venta</h1>
         <p className="text-sm text-text-dim">Buscá cliente y productos, y confirmá el cobro</p>

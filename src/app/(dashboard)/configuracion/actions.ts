@@ -1,6 +1,7 @@
 "use server";
 
 import { requerirAdmin } from "@/lib/empresa";
+import { esHoraValida } from "@/lib/caja";
 import { put } from "@vercel/blob";
 import { actualizarConfiguracion, obtenerConfiguracion } from "@/lib/configuracion";
 import { revalidatePath } from "next/cache";
@@ -49,6 +50,11 @@ export async function guardarConfiguracion(formData: FormData) {
 
   const costoPromedioPonderado = formData.get("costoPromedioPonderado") === "on";
 
+  const horaAperturaCaja = (formData.get("horaAperturaCaja") as string | null)?.trim() || "07:00";
+  if (!esHoraValida(horaAperturaCaja)) {
+    throw new Error("Hora de apertura de caja inválida");
+  }
+
   let logoUrl: string | null | undefined;
 
   if (logoFile && logoFile.size > 0) {
@@ -72,6 +78,7 @@ export async function guardarConfiguracion(formData: FormData) {
     colorPrimario,
     colorSecundario,
     costoPromedioPonderado,
+    horaAperturaCaja,
     ...(usaCotizacionUSD !== undefined ? { usaCotizacionUSD } : {}),
     ...(cotizacionUSD !== undefined ? { cotizacionUSD } : {}),
     ...(logoUrl !== undefined ? { logoUrl } : {}),

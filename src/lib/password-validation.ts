@@ -4,16 +4,12 @@ export type PasswordRequirement = {
   test: (password: string) => boolean;
 };
 
+// Único requisito: 6 caracteres como mínimo (por ejemplo "123456" es válida).
+// Es la única fuente de las reglas: la usan el cambio de contraseña, el alta
+// del empleado y el cambio de su contraseña. Para volver a exigir más cosas
+// (mayúsculas, números, etc.), se agregan acá.
 export const PASSWORD_REQUIREMENTS: PasswordRequirement[] = [
-  { id: "length", label: "Al menos 8 caracteres", test: (p) => p.length >= 8 },
-  { id: "uppercase", label: "Una letra mayúscula", test: (p) => /[A-Z]/.test(p) },
-  { id: "lowercase", label: "Una letra minúscula", test: (p) => /[a-z]/.test(p) },
-  { id: "number", label: "Un número", test: (p) => /[0-9]/.test(p) },
-  {
-    id: "special",
-    label: "Un carácter especial (!@#$%...)",
-    test: (p) => /[^A-Za-z0-9]/.test(p),
-  },
+  { id: "length", label: "Al menos 6 caracteres", test: (p) => p.length >= 6 },
 ];
 
 export function isPasswordValid(password: string): boolean {

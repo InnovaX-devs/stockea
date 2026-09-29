@@ -99,12 +99,13 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Cuenta no encontrada" }, { status: 404 });
     }
 
-    const [movimientos, pagos] = await Promise.all([
+    const [movimientos, pagos, cierres] = await Promise.all([
       prisma.movimientoCaja.count({ where: { cuentaId } }),
       prisma.pagoVenta.count({ where: { cuentaId } }),
+      prisma.cierreCajaCuenta.count({ where: { cuentaId } }),
     ]);
 
-    if (movimientos > 0 || pagos > 0) {
+    if (movimientos > 0 || pagos > 0 || cierres > 0) {
       return NextResponse.json(
         {
           error:

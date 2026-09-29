@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   Package,
   Truck,
+  ClipboardCheck,
 } from "lucide-react";
 
 export type NavLeaf = {
@@ -70,6 +71,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Calculator,
     children: [
       { label: "Cuentas Financieras", href: "/finanzas", icon: Calculator },
+      { label: "Cierre de caja", href: "/finanzas/cierre-caja", icon: ClipboardCheck },
       { label: "Flujo de Caja", href: "/finanzas/flujo-caja", icon: ArrowLeftRight, premium: true },
       { label: "Gastos", href: "/finanzas/gastos", icon: Wallet, premium: true },
     ],
