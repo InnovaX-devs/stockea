@@ -3,7 +3,8 @@
  *
  * - ADMIN: todo (sujeto a la licencia, como siempre).
  * - EMPLEADO: solo existe con licencia PREMIUM. Usa Nueva Venta, Pedidos y
- *   Clientes, y ve Productos como catálogo (sin costos ni ganancias).
+ *   Clientes, ve Productos como catálogo (sin costos ni ganancias) y puede
+ *   cerrar la caja "a ciegas" (sin ver lo esperado).
  *
  * Este archivo no importa Prisma ni nada de servidor: lo usa también el
  * proxy (middleware), que corre antes de cada request.
@@ -19,7 +20,7 @@ export type Rol = "ADMIN" | "EMPLEADO";
 export const INICIO_EMPLEADO = "/ventas";
 
 /** Páginas que ve el empleado (coincidencia exacta). */
-const PAGINAS_EMPLEADO = ["/ventas", "/ventas/pedidos", "/clientes", "/productos", "/salir"];
+const PAGINAS_EMPLEADO = ["/ventas", "/ventas/pedidos", "/clientes", "/productos", "/finanzas/cierre-caja", "/salir"];
 
 /** Rutas /api que puede usar el empleado, con el método permitido. */
 const API_EMPLEADO: { patron: RegExp; metodos: string[] }[] = [

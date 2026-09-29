@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getHistorialDeuda } from "@/lib/clientes";
 import { obtenerEmpresaIdActual, requerirAdmin } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
+import { mensajeSiCajaCerrada } from "@/lib/caja";
 import { redondearARS, esCuentaUSD, montoEnCuentaUSD, redondearUSD } from "@/lib/currency";
 
 // Saldo pendiente de una venta en pesos enteros. El totalARS puede tener
@@ -145,6 +146,9 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
   if (pagosValidos.length === 0) {
     return { success: false as const, error: "Ingresá un monto mayor a $0." };
   }
+
+  const cajaCerrada = await mensajeSiCajaCerrada(await obtenerEmpresaIdActual());
+  if (cajaCerrada) return { success: false as const, error: cajaCerrada };
 
   try {
     const empresaId = await obtenerEmpresaIdActual();

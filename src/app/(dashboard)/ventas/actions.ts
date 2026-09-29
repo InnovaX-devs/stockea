@@ -6,6 +6,7 @@ import { obtenerEmpresaIdActual, obtenerUsuarioActual, requerirAdmin } from "@/l
 import { revalidatePath } from "next/cache";
 import type { EstadoPago, TipoPrecioVenta } from "@prisma/client";
 import { redondearARS, montoEnCuentaUSD, montoARSDePago } from "@/lib/currency";
+import { mensajeSiCajaCerrada } from "@/lib/caja";
 import { Prisma } from "@prisma/client";
 import { inicioDiaAR } from "@/lib/timezone";
 import type {
@@ -117,6 +118,10 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
   }
 
   const empresaId = await obtenerEmpresaIdActual();
+
+  // Con la caja cerrada no se vende (ver src/lib/caja.ts).
+  const cajaCerrada = await mensajeSiCajaCerrada(empresaId);
+  if (cajaCerrada) return { success: false, error: cajaCerrada };
 
   // Blindaje: sin importar qué pantalla llame a esta función, el total
   // siempre se redondea acá, en el backend. Así "lo que se ve" y "lo que se
@@ -712,6 +717,9 @@ export async function registrarCobroPedido(
   if (pagosValidos.length === 0) {
     return { success: false, error: "Ingresá al menos un pago válido" };
   }
+
+  const cajaCerrada = await mensajeSiCajaCerrada(await obtenerEmpresaIdActual());
+  if (cajaCerrada) return { success: false, error: cajaCerrada };
 
   try {
     const empresaId = await obtenerEmpresaIdActual();

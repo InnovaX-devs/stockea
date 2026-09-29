@@ -100,7 +100,7 @@ export function CambiarPasswordModal({ open, onClose }: CambiarPasswordModalProp
     }
 
     if (!nuevaEsValida) {
-      toast.error("La nueva contraseña no cumple con todos los requisitos");
+      toast.error("La nueva contraseña tiene que tener al menos 6 caracteres");
       return;
     }
 

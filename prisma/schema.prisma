@@ -31,6 +31,8 @@ model Empresa {
   compras          Compra[]
   cuentas          Cuenta[]
   movimientosCaja  MovimientoCaja[]
+  cierresCaja      CierreCaja[]
+  sesionesCaja     SesionCaja[]
   categoriasGasto  CategoriaGasto[]
   gastos           Gasto[]
 }
@@ -409,6 +411,7 @@ model Cuenta {
   movimientos MovimientoCaja[]
   pagosVenta  PagoVenta[]
   compras Compra[]
+  cierres     CierreCajaCuenta[]
 
   @@index([nombre])
   @@index([empresaId])
@@ -531,6 +534,8 @@ model Configuracion {
   // queda forzado a false sin importar este valor (ver lib/configuracion.ts).
   usaCotizacionUSD Boolean @default(false)
   cotizacionUSD    Float   @default(1000)
+  // Hora (Argentina, "HH:MM") a la que la caja se abre sola cada día.
+  horaAperturaCaja String  @default("07:00")
 
   // Compras
   costoPromedioPonderado Boolean @default(true)
@@ -546,4 +551,79 @@ model Configuracion {
   empresaId Int     @unique
 
   updatedAt DateTime @updatedAt
+}
+
+// Cierre de caja (Básico y Premium). Cada cierre cubre los movimientos desde
+// el cierre anterior no anulado. Lógica en app/(dashboard)/finanzas/cierre-caja/actions.ts.
+model CierreCaja {
+  id            Int      @id @default(autoincrement())
+  fecha         DateTime @default(now())
+  // Quién cerró. Sin relación a Usuario a propósito: si se borra al
+  // empleado, el historial de cierres queda intacto.
+  usuarioId     Int?
+  usuarioNombre String
+  observacion   String?
+  // Último MovimientoCaja que cubre este cierre (incluye sus ajustes). El
+  // próximo cierre toma los movimientos con id mayor. Más confiable que
+  // comparar fechas.
+  ultimoMovimientoId Int @default(0)
+
+  anulado          Boolean   @default(false)
+  anuladoFecha     DateTime?
+  anuladoPorNombre String?
+
+  // Turno que cierra (null en los cierres de antes de la apertura de caja).
+  sesion   SesionCaja? @relation(fields: [sesionId], references: [id])
+  sesionId Int?        @unique
+
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  cuentas CierreCajaCuenta[]
+
+  @@index([empresaId, fecha])
+}
+
+model CierreCajaCuenta {
+  id       Int        @id @default(autoincrement())
+  cierre   CierreCaja @relation(fields: [cierreId], references: [id], onDelete: Cascade)
+  cierreId Int
+  cuenta   Cuenta     @relation(fields: [cuentaId], references: [id])
+  cuentaId Int
+
+  // Todo en la moneda de la cuenta.
+  saldoInicio Float  // saldo al cierre anterior (o al abrir la cuenta)
+  ingresos    Float
+  egresos     Float
+  esperado    Float  // saldo del sistema al momento de cerrar
+  contado     Float? // lo que se contó. null = no se revisó (o no es efectivo)
+  diferencia  Float? // contado - esperado
+
+  // Solo efectivo: cuánto quedó en la caja para el turno siguiente y cuánto
+  // se retiró. El destino es "Retiro del dueño" o una cuenta (transferencia).
+  queda           Float?
+  retiro          Float?
+  destinoCuentaId Int?    // null = retiro del dueño
+  destinoNombre   String?
+
+  @@index([cierreId])
+}
+
+// Turno de caja: se abre (sola a la hora configurada, o a mano) y se cierra
+// con un CierreCaja. Los movimientos del turno son los de id mayor a
+// aperturaMovimientoId. Lógica en src/lib/caja.ts.
+model SesionCaja {
+  id                   Int       @id @default(autoincrement())
+  abiertaFecha         DateTime  @default(now())
+  abiertaPorNombre     String
+  aperturaAutomatica   Boolean   @default(false)
+  aperturaMovimientoId Int       @default(0)
+  cerradaFecha         DateTime?
+
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  cierre CierreCaja?
+
+  @@index([empresaId, cerradaFecha])
 }
