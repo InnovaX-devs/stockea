@@ -245,10 +245,13 @@ function CajaCerrada({ estado }: { estado: EstadoCaja }) {
 
 type FilaCierre = { contado: string; queda: string; destino: Destino };
 const FILA_VACIA: FilaCierre = { contado: "", queda: "", destino: "RETIRO" };
+type FilaBanco = { saldo: string; ajustar: boolean };
+const BANCO_VACIO: FilaBanco = { saldo: "", ajustar: false };
 
 function CajaAbierta({ estado }: { estado: EstadoCaja }) {
   const router = useRouter();
   const [filas, setFilas] = useState<Record<number, FilaCierre>>({});
+  const [bancos, setBancos] = useState<Record<number, FilaBanco>>({});
   const [observacion, setObservacion] = useState("");
   const [confirmando, setConfirmando] = useState(false);
   const [revisando, setRevisando] = useState(false);
@@ -275,21 +278,33 @@ function CajaAbierta({ estado }: { estado: EstadoCaja }) {
     [estado.efectivo, filas]
   );
   const contadas = calculadas.filter((c) => c.contado != null);
+  const cambiarBanco = (id: number, cambio: Partial<FilaBanco>) =>
+    setBancos((p) => ({ ...p, [id]: { ...(p[id] ?? BANCO_VACIO), ...cambio } }));
+  const bancosCalculados = estado.bancos.map((b) => {
+    const f = bancos[b.id] ?? BANCO_VACIO;
+    const saldo = aNumero(f.saldo);
+    const diferencia = saldo != null && Number.isFinite(saldo) ? Math.round((saldo - b.resumen.esperado) * 100) / 100 : null;
+    return { banco: b, fila: f, saldo, diferencia };
+  });
+  const bancosRevisados = bancosCalculados.filter((b) => b.saldo != null);
   const invalida = calculadas.some(
     (c) =>
       c.contado != null &&
       (!Number.isFinite(c.contado) || c.contado < 0 || c.queda == null || c.queda < 0 || c.queda > c.contado)
-  );
+  ) || bancosRevisados.some((b) => !Number.isFinite(b.saldo!));
 
   function cerrar() {
     startTransition(async () => {
       const r = await registrarCierre({
-        cuentas: contadas.map((c) => ({
-          cuentaId: c.cuenta.id,
-          contado: c.contado,
-          queda: c.queda,
-          destino: c.fila.destino,
-        })),
+        cuentas: [
+          ...contadas.map((c) => ({
+            cuentaId: c.cuenta.id,
+            contado: c.contado,
+            queda: c.queda,
+            destino: c.fila.destino,
+          })),
+          ...bancosRevisados.map((b) => ({ cuentaId: b.banco.id, contado: b.saldo, ajustar: b.fila.ajustar })),
+        ],
         observacion,
       });
       if (!r.success) {
@@ -301,10 +316,10 @@ function CajaAbierta({ estado }: { estado: EstadoCaja }) {
     });
   }
 
-  if (estado.efectivo.length === 0) {
+  if (estado.efectivo.length === 0 && estado.bancos.length === 0) {
     return (
       <div className="rounded-2xl border border-border bg-white p-8 text-center text-sm text-text-dim">
-        No hay cuentas de efectivo activas. Creá una en Finanzas → Cuentas.
+        No hay cuentas activas. Creá una en Finanzas → Cuentas.
       </div>
     );
   }
@@ -427,17 +442,74 @@ function CajaAbierta({ estado }: { estado: EstadoCaja }) {
         );
       })}
 
-      {/* Otros medios (solo admin, informativo) */}
-      {estado.otrosMedios.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-text-dim">Otros medios del turno:</span>
-          {estado.otrosMedios.map((m) => (
-            <span key={m.id} className="rounded-full border border-border bg-white px-3 py-1 text-text">
-              {m.nombre} <span className="font-medium tabular-nums">+{fmt(m.ingresos, m.tipo)}</span>
-              {m.egresos > 0 && <span className="text-text-dim tabular-nums"> / −{fmt(m.egresos, m.tipo)}</span>}
-            </span>
-          ))}
-        </div>
+      {/* Bancos y billeteras (solo admin, opcional) */}
+      {bancosCalculados.length > 0 && (
+        <section className="space-y-4 rounded-2xl border border-border bg-white p-5 sm:p-6">
+          <div>
+            <h2 className="text-base font-semibold text-text">Bancos y billeteras</h2>
+            <p className="text-sm text-text-dim">
+              Compará lo que entró con la app del banco o de Mercado Pago. Es opcional: si no lo revisás, no pasa nada.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {bancosCalculados.map(({ banco: b, fila, diferencia }) => (
+              <div key={b.id} className="space-y-3 rounded-xl border border-border p-4">
+                <p className="font-medium text-text">{nombreConTipo(b.nombre, b.tipo)}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-lg bg-primary/5 px-3 py-2">
+                    <p className="text-xs font-medium text-primary">Entró en el turno</p>
+                    <p className="text-lg font-semibold tabular-nums text-primary">+{fmt(b.resumen.ingresos, b.tipo)}</p>
+                    {b.resumen.egresos > 0 && (
+                      <p className="text-xs tabular-nums text-text-dim">Salió −{fmt(b.resumen.egresos, b.tipo)}</p>
+                    )}
+                  </div>
+                  <div className="rounded-lg bg-surface px-3 py-2">
+                    <p className="text-xs text-text-dim">Debería tener</p>
+                    <p className="text-lg font-semibold tabular-nums text-text">{fmt(b.resumen.esperado, b.tipo)}</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm text-text-dim">Saldo en la app o el banco</label>
+                  <Monto
+                    valor={fila.saldo}
+                    onChange={(v) => cambiarBanco(b.id, { saldo: v })}
+                    tipo={b.tipo}
+                    placeholder="Opcional"
+                    etiqueta={`Saldo real de ${b.nombre}`}
+                    disabled={pendiente}
+                  />
+                </div>
+                {diferencia != null && (
+                  diferencia === 0 ? (
+                    <p className="flex items-center gap-1.5 text-sm font-medium text-success">
+                      <CheckCircle2 className="h-4 w-4" /> Coincide
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      <ChipDiferencia diferencia={diferencia} tipo={b.tipo} />
+                      <label className="flex cursor-pointer items-start gap-2 text-sm text-text">
+                        <input
+                          type="checkbox"
+                          checked={fila.ajustar}
+                          onChange={(e) => cambiarBanco(b.id, { ajustar: e.target.checked })}
+                          disabled={pendiente}
+                          className="mt-0.5 h-4 w-4"
+                        />
+                        <span>
+                          Ajustar el saldo a lo que cargué
+                          <span className="block text-xs text-text-dim">
+                            Dejalo sin tildar si es una transferencia que todavía no se acreditó: la diferencia queda
+                            registrada igual.
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                  )
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       <div className="space-y-3">
@@ -454,7 +526,7 @@ function CajaAbierta({ estado }: { estado: EstadoCaja }) {
           <button
             type="button"
             onClick={() => setConfirmando(true)}
-            disabled={contadas.length === 0 || invalida || pendiente}
+            disabled={(contadas.length === 0 && bancosRevisados.length === 0) || invalida || pendiente}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-4 text-base font-semibold text-white hover:opacity-90 disabled:opacity-40"
           >
             <ClipboardCheck className="h-5 w-5" /> Cerrar caja
@@ -478,6 +550,19 @@ function CajaAbierta({ estado }: { estado: EstadoCaja }) {
                   {c.diferencia != null && c.diferencia !== 0 && (
                     <ChipDiferencia diferencia={c.diferencia} tipo={c.cuenta.tipo} />
                   )}
+                </li>
+              ))}
+              {bancosRevisados.map((b) => (
+                <li key={b.banco.id} className="flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    {b.banco.nombre}:{" "}
+                    {b.diferencia === 0
+                      ? "coincide"
+                      : b.fila.ajustar
+                        ? "se ajusta el saldo"
+                        : "la diferencia queda registrada, sin tocar el saldo"}
+                  </span>
+                  {b.diferencia != null && b.diferencia !== 0 && <ChipDiferencia diferencia={b.diferencia} tipo={b.banco.tipo} />}
                 </li>
               ))}
             </ul>
@@ -599,7 +684,8 @@ function Historial({ cierres }: { cierres: CierreHistorial[] }) {
             </thead>
             <tbody>
               {cierres.map((c) => {
-                const efectivo = c.cuentas.filter((x) => x.contado != null);
+                const efectivo = c.cuentas.filter((x) => x.contado != null && x.tipo.startsWith("EFECTIVO"));
+                const revisadas = c.cuentas.filter((x) => x.contado != null);
                 const expandido = abierto === c.id;
                 return (
                   <Fragment key={c.id}>
@@ -619,9 +705,9 @@ function Historial({ cierres }: { cierres: CierreHistorial[] }) {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex flex-wrap justify-end gap-1">
-                          {efectivo.length === 0
+                          {revisadas.length === 0
                             ? "—"
-                            : efectivo.map((x) => <ChipDiferencia key={x.cuentaId} diferencia={x.diferencia ?? 0} tipo={x.tipo} />)}
+                            : revisadas.map((x) => <ChipDiferencia key={x.cuentaId} diferencia={x.diferencia ?? 0} tipo={x.tipo} />)}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-text-dim">
@@ -652,8 +738,17 @@ function Historial({ cierres }: { cierres: CierreHistorial[] }) {
                                   <dd className="text-right tabular-nums text-text">{fmt(x.esperado, x.tipo)}</dd>
                                   {x.contado != null && (
                                     <>
-                                      <dt>Contado</dt>
+                                      <dt>{x.tipo.startsWith("EFECTIVO") ? "Contado" : "Saldo en la app"}</dt>
                                       <dd className="text-right tabular-nums text-text">{fmt(x.contado, x.tipo)}</dd>
+                                    </>
+                                  )}
+                                  {x.diferencia != null && x.diferencia !== 0 && (
+                                    <>
+                                      <dt>Diferencia</dt>
+                                      <dd className="text-right">
+                                        <ChipDiferencia diferencia={x.diferencia} tipo={x.tipo} />
+                                        <span className="block text-xs">{x.ajustado ? "Ajustada" : "Solo registrada"}</span>
+                                      </dd>
                                     </>
                                   )}
                                   {x.retiro ? (

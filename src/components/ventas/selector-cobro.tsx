@@ -179,7 +179,7 @@ export function SelectorCobro({
             <button
               type="button"
               onClick={() => abrirSelectorCuenta(pago.id)}
-              className="flex min-w-[140px] flex-1 items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-left text-sm text-text hover:bg-surface-hover"
+              className="flex min-w-[120px] flex-1 items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-left text-sm text-text hover:bg-surface-hover"
             >
               <CreditCard size={14} className="text-text-dim shrink-0" />
               <span className="truncate">

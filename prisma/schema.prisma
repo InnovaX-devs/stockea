@@ -596,8 +596,14 @@ model CierreCajaCuenta {
   ingresos    Float
   egresos     Float
   esperado    Float  // saldo del sistema al momento de cerrar
-  contado     Float? // lo que se contó. null = no se revisó (o no es efectivo)
+  // Efectivo: lo contado. Banco / billetera: el saldo que muestra la app.
+  // null = no se revisó.
+  contado     Float?
   diferencia  Float? // contado - esperado
+  // Si la diferencia se corrigió con un AJUSTE_SALDO. El efectivo se ajusta
+  // siempre; bancos y billeteras solo si el admin lo tilda (muchas veces la
+  // diferencia es una transferencia que todavía no se acreditó).
+  ajustado    Boolean @default(false)
 
   // Solo efectivo: cuánto quedó en la caja para el turno siguiente y cuánto
   // se retiró. El destino es "Retiro del dueño" o una cuenta (transferencia).

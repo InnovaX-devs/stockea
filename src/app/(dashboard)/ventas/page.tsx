@@ -316,7 +316,7 @@ function NuevaVentaContenido() {
 
       {carrito.length > 0 && (
         <div className="rounded-2xl border border-border bg-white p-4">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr_220px]">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_1fr_220px]">
             <SelectorCobro
               total={total}
               tieneCliente={cliente != null}

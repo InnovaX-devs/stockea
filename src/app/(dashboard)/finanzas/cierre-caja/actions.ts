@@ -16,8 +16,10 @@ import { fechaISOAR, inicioDiaAR } from "@/lib/timezone";
 /**
  * Apertura y cierre de caja por turno (Básico y Premium).
  *
- * - Solo se CUENTA el efectivo. Bancos / Mercado Pago aparecen como
- *   información (lo que entró y salió en el turno), sin cargar nada.
+ * - El efectivo se CUENTA y la diferencia se ajusta siempre.
+ * - Bancos / billeteras (solo admin, opcional): se carga el saldo que muestra
+ *   la app; la diferencia queda registrada y se ajusta SOLO si se tilda
+ *   (suele ser una transferencia sin acreditar, no plata perdida).
  * - "Esperado" lo calcula el servidor dentro de la transacción.
  * - Diferencia → AJUSTE_SALDO que deja la cuenta en lo contado.
  * - Al cerrar se indica cuánto QUEDA en la caja; el resto se RETIRA:
@@ -52,8 +54,8 @@ export type EstadoCaja = {
   proximaApertura: string | null;
   ultimoCierre: { fecha: string; usuarioNombre: string } | null;
   efectivo: { id: number; nombre: string; tipo: TipoCuenta; fondo: number | null; resumen: ResumenCuenta | null }[];
-  /** Solo admin: bancos y billeteras del turno (informativo). */
-  otrosMedios: { id: number; nombre: string; tipo: TipoCuenta; ingresos: number; egresos: number }[];
+  /** Solo admin: bancos y billeteras, para revisarlos contra la app. */
+  bancos: { id: number; nombre: string; tipo: TipoCuenta; resumen: ResumenCuenta }[];
   /** Cuentas a las que se puede transferir el retiro. */
   destinos: { id: number; nombre: string; tipo: TipoCuenta }[];
 };
@@ -79,6 +81,7 @@ export type CierreHistorial = {
     esperado: number;
     contado: number | null;
     diferencia: number | null;
+    ajustado: boolean;
     queda: number | null;
     retiro: number | null;
     destinoNombre: string | null;
@@ -200,7 +203,15 @@ export async function obtenerEstadoCaja(): Promise<EstadoCaja> {
       fondo: esAdmin ? c.esperado : null,
       resumen: esAdmin && sesion ? { saldoInicio: c.saldoInicio, ingresos: c.ingresos, egresos: c.egresos, esperado: c.esperado } : null,
     })),
-    otrosMedios: esAdmin && sesion ? otros.map((c) => ({ id: c.id, nombre: c.nombre, tipo: c.tipo, ingresos: c.ingresos, egresos: c.egresos })) : [],
+    bancos:
+      esAdmin && sesion
+        ? otros.map((c) => ({
+            id: c.id,
+            nombre: c.nombre,
+            tipo: c.tipo,
+            resumen: { saldoInicio: c.saldoInicio, ingresos: c.ingresos, egresos: c.egresos, esperado: c.esperado },
+          }))
+        : [],
     destinos: periodo.map((c) => ({ id: c.id, nombre: c.nombre, tipo: c.tipo })),
   };
 }
@@ -270,7 +281,7 @@ export async function revisarApertura(conteos: { cuentaId: number; contado: numb
 }
 
 export async function registrarCierre(input: {
-  cuentas: { cuentaId: number; contado: number | null; queda?: number | null; destino?: Destino }[];
+  cuentas: { cuentaId: number; contado: number | null; queda?: number | null; destino?: Destino; ajustar?: boolean }[];
   observacion?: string;
 }): Promise<ResultadoCierre> {
   try {
@@ -287,9 +298,18 @@ export async function registrarCierre(input: {
       const periodo = await calcularPeriodo(tx, usuario.empresaId, sesion.aperturaMovimientoId);
       const items = periodo.map((c) => {
         const dato = porCuenta.get(c.id);
-        if (!esEfectivo(c.tipo) || dato?.contado == null) {
-          return { ...c, contado: null, diferencia: null, queda: null, retiro: null, destino: null as Destino | null };
+        const vacio = { ...c, contado: null, diferencia: null, ajustar: false, queda: null, retiro: null, destino: null as Destino | null };
+        if (dato?.contado == null) return vacio;
+
+        // Banco / billetera: solo el admin (el empleado no ve saldos), sin retiro.
+        if (!esEfectivo(c.tipo)) {
+          if (!esAdmin) return vacio;
+          const saldoReal = redondear(Number(dato.contado));
+          if (!Number.isFinite(saldoReal)) throw new Error(`El saldo cargado en "${c.nombre}" no es válido.`);
+          const diferencia = redondear(saldoReal - c.esperado);
+          return { ...c, contado: saldoReal, diferencia, ajustar: diferencia !== 0 && dato.ajustar === true, queda: null, retiro: null, destino: null };
         }
+
         const contado = redondear(Number(dato.contado));
         if (!Number.isFinite(contado) || contado < 0) throw new Error(`El efectivo contado en "${c.nombre}" no es válido.`);
         const queda = dato.queda == null ? contado : redondear(Number(dato.queda));
@@ -300,12 +320,13 @@ export async function registrarCierre(input: {
           ...c,
           contado,
           diferencia: redondear(contado - c.esperado),
+          ajustar: true, // el efectivo se ajusta siempre
           queda,
           retiro: redondear(contado - queda),
           destino: (dato.destino ?? "RETIRO") as Destino,
         };
       });
-      if (!items.some((it) => it.contado != null)) throw new Error("Contá al menos una caja de efectivo para cerrar.");
+      if (!items.some((it) => it.contado != null)) throw new Error("Revisá al menos una cuenta para cerrar la caja.");
 
       const guardados = [];
       for (const it of items) {
@@ -313,11 +334,13 @@ export async function registrarCierre(input: {
           guardados.push({ ...it, destinoCuentaId: null as number | null, destinoNombre: null as string | null });
           continue;
         }
-        // 1) Diferencia → la cuenta queda en lo contado.
-        await ajustarSaldo(
-          tx, usuario.empresaId, it.id, it.esperado, it.contado,
-          `Cierre de caja: ${it.diferencia! > 0 ? "sobrante" : "faltante"} (cerró ${usuarioNombre})`
-        );
+        // 1) Diferencia → la cuenta queda en lo contado (bancos: solo si se tildó).
+        if (it.ajustar) {
+          await ajustarSaldo(
+            tx, usuario.empresaId, it.id, it.esperado, it.contado,
+            `Cierre de caja: ${it.diferencia! > 0 ? "sobrante" : "faltante"} (cerró ${usuarioNombre})`
+          );
+        }
         // 2) Retiro → queda en la caja solo lo indicado.
         let destinoCuentaId: number | null = null;
         let destinoNombre: string | null = null;
@@ -377,6 +400,7 @@ export async function registrarCierre(input: {
               esperado: it.esperado,
               contado: it.contado,
               diferencia: it.diferencia,
+              ajustado: it.ajustar && it.diferencia != null && it.diferencia !== 0,
               queda: it.queda,
               retiro: it.retiro,
               destinoCuentaId: it.destinoCuentaId,
@@ -438,6 +462,7 @@ export async function listarCierres(): Promise<CierreHistorial[]> {
       esperado: it.esperado,
       contado: it.contado,
       diferencia: it.diferencia,
+      ajustado: it.ajustado,
       queda: it.queda,
       retiro: it.retiro,
       destinoNombre: it.destinoNombre,
@@ -471,7 +496,8 @@ export async function anularUltimoCierre(cierreId: number): Promise<Resultado> {
             },
           });
         };
-        if (it.diferencia) await revertir(it.cuentaId, -it.diferencia, `Anulación del cierre de caja #${cierreId}`, "AJUSTE_SALDO");
+        // Solo se revierte lo que se ajustó (una diferencia de banco solo registrada no tocó el saldo).
+        if (it.diferencia && it.ajustado) await revertir(it.cuentaId, -it.diferencia, `Anulación del cierre de caja #${cierreId}`, "AJUSTE_SALDO");
         if (it.retiro) {
           if (it.destinoCuentaId == null) {
             await revertir(it.cuentaId, it.retiro, `Anulación del retiro del cierre #${cierreId}`, "OTRO");
