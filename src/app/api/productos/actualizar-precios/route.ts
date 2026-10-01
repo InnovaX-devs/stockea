@@ -88,15 +88,22 @@ export async function POST(request: NextRequest) {
           if (nuevoPrecio !== null && nuevoPrecio !== precioAnterior) {
             dataUpdate[campo] = nuevoPrecio;
 
-            // Historial de Precio por cada cambio
-            historialRegistros.push({
-              productoId: prod.id,
-              empresaId,
-              campo: t.toUpperCase(),
-              valorAnterior: precioAnterior,
-              valorNuevo: nuevoPrecio,
-              origen: "ACTUALIZACION_MASIVA",
-            });
+            // Historial de Precio por cada cambio. El historial no tiene el
+            // tipo "oferta" (CampoPrecio: COSTO / MINORISTA / MAYORISTA): antes
+            // se intentaba guardar "OFERTA" y fallaba TODA la actualización.
+            const campoHistorial = ({ costo: "COSTO", minorista: "MINORISTA", mayorista: "MAYORISTA" } as const)[
+              t as "costo" | "minorista" | "mayorista"
+            ];
+            if (campoHistorial) {
+              historialRegistros.push({
+                productoId: prod.id,
+                empresaId,
+                campo: campoHistorial,
+                valorAnterior: precioAnterior,
+                valorNuevo: nuevoPrecio,
+                origen: "ACTUALIZACION_MASIVA",
+              });
+            }
           }
         }
       }

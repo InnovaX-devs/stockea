@@ -48,7 +48,19 @@ export async function POST(
         throw new Error("SALDO_INSUFICIENTE");
       }
 
-      const saldoResultante = cuenta.saldoActual - montoADescontar;
+      // Guard atómico: si lo pagaron en otra pestaña, no se paga dos veces.
+      const marcado = await tx.gasto.updateMany({
+        where: { id: gastoId, empresaId, estadoPago: "PENDIENTE" },
+        data: { estadoPago: "PAGADO" },
+      });
+      if (marcado.count === 0) throw new Error("YA_PAGADO");
+
+      // Se resta sobre el saldo de ESTE momento (no uno leído antes).
+      const cuentaActualizada = await tx.cuenta.update({
+        where: { id: cuentaId },
+        data: { saldoActual: { decrement: montoADescontar } },
+      });
+      if (cuentaActualizada.saldoActual < 0) throw new Error("SALDO_INSUFICIENTE");
 
       await tx.movimientoCaja.create({
         data: {
@@ -57,20 +69,12 @@ export async function POST(
           tipo: "EGRESO",
           concepto: "GASTO",
           monto: montoADescontar,
-          saldoResultante,
+          saldoResultante: cuentaActualizada.saldoActual,
           gastoId: gasto.id,
         },
       });
 
-      await tx.cuenta.update({
-        where: { id: cuentaId },
-        data: { saldoActual: saldoResultante },
-      });
-
-      return tx.gasto.update({
-        where: { id: gastoId },
-        data: { estadoPago: "PAGADO" },
-      });
+      return tx.gasto.findUniqueOrThrow({ where: { id: gastoId } });
     });
 
     return NextResponse.json(resultado);

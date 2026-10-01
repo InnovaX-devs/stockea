@@ -20,6 +20,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (Number.isNaN(nuevoSaldo)) {
       return NextResponse.json({ error: "El nuevo saldo debe ser un número" }, { status: 400 });
     }
+    if (nuevoSaldo < 0) {
+      return NextResponse.json({ error: "El saldo de una cuenta no puede ser negativo" }, { status: 400 });
+    }
 
     const cuenta = await prisma.cuenta.findFirst({ where: { id: cuentaId, empresaId } });
     if (!cuenta) {

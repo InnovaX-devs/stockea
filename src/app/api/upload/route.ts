@@ -23,14 +23,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Eliminar la foto anterior de Vercel Blob si existe para no dejar huérfanos
-    if (fotoUrlAnterior && fotoUrlAnterior.includes("public.blob.vercel-storage.com")) {
-      try {
-        await del(fotoUrlAnterior);
-      } catch (err) {
-        console.warn("No se pudo eliminar la imagen anterior de Vercel Blob:", err);
-      }
-    }
+    // La foto anterior ya NO se borra acá: se borra en PUT /api/productos/[id]
+    // recién cuando el producto se guardó bien (si no, si el guardado fallaba,
+    // el producto quedaba apuntando a una foto que ya no existe).
+    void fotoUrlAnterior;
 
     // 2. Subir el nuevo archivo a Vercel Blob
     const filename = `productos/${Date.now()}-${file.name.replace(/\s+/g, "_")}`;

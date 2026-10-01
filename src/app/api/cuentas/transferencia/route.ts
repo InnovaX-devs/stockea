@@ -42,50 +42,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const saldoOrigenResultante = origen.saldoActual - monto;
-    if (saldoOrigenResultante < 0) {
+    if (origen.saldoActual - monto < 0) {
       return NextResponse.json(
         { error: "Saldo insuficiente en la cuenta de origen" },
         { status: 400 }
       );
     }
-    const saldoDestinoResultante = destino.saldoActual + monto;
 
-    const resultado = await prisma.$transaction([
-      prisma.cuenta.update({
+    // Se resta y se suma sobre el saldo de ESTE momento (no uno leído antes):
+    // si entra una venta o se hace otra transferencia a la vez, no se pisa.
+    const resultado = await prisma.$transaction(async (tx) => {
+      const cuentaOrigen = await tx.cuenta.update({
         where: { id: cuentaOrigenId },
-        data: { saldoActual: saldoOrigenResultante },
-      }),
-      prisma.cuenta.update({
+        data: { saldoActual: { decrement: monto } },
+      });
+      if (cuentaOrigen.saldoActual < 0) throw new Error("SALDO_INSUFICIENTE");
+      const cuentaDestino = await tx.cuenta.update({
         where: { id: cuentaDestinoId },
-        data: { saldoActual: saldoDestinoResultante },
-      }),
-      prisma.movimientoCaja.create({
-        data: {
-          empresaId,
-          cuentaId: cuentaOrigenId,
-          tipo: "EGRESO",
-          concepto: "TRANSFERENCIA",
-          monto,
-          saldoResultante: saldoOrigenResultante,
-          detalle: concepto ? `A ${destino.nombre}: ${concepto}` : `Transferencia a ${destino.nombre}`,
-        },
-      }),
-      prisma.movimientoCaja.create({
-        data: {
-          empresaId,
-          cuentaId: cuentaDestinoId,
-          tipo: "INGRESO",
-          concepto: "TRANSFERENCIA",
-          monto,
-          saldoResultante: saldoDestinoResultante,
-          detalle: concepto ? `De ${origen.nombre}: ${concepto}` : `Transferencia de ${origen.nombre}`,
-        },
-      }),
-    ]);
+        data: { saldoActual: { increment: monto } },
+      });
+      await tx.movimientoCaja.createMany({
+        data: [
+          {
+            empresaId,
+            cuentaId: cuentaOrigenId,
+            tipo: "EGRESO",
+            concepto: "TRANSFERENCIA",
+            monto,
+            saldoResultante: cuentaOrigen.saldoActual,
+            detalle: concepto ? `A ${destino.nombre}: ${concepto}` : `Transferencia a ${destino.nombre}`,
+          },
+          {
+            empresaId,
+            cuentaId: cuentaDestinoId,
+            tipo: "INGRESO",
+            concepto: "TRANSFERENCIA",
+            monto,
+            saldoResultante: cuentaDestino.saldoActual,
+            detalle: concepto ? `De ${origen.nombre}: ${concepto}` : `Transferencia de ${origen.nombre}`,
+          },
+        ],
+      });
+      return [cuentaOrigen, cuentaDestino];
+    });
 
     return NextResponse.json({ success: true, origen: resultado[0], destino: resultado[1] });
   } catch (error) {
+    if (error instanceof Error && error.message === "SALDO_INSUFICIENTE") {
+      return NextResponse.json({ error: "Saldo insuficiente en la cuenta de origen" }, { status: 400 });
+    }
     console.error("Error al transferir:", error);
     return NextResponse.json({ error: "Error al realizar la transferencia" }, { status: 500 });
   }

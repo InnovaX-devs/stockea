@@ -100,6 +100,17 @@ export async function DELETE(
       );
     }
 
+    const cantidadGastos = await prisma.gasto.count({ where: { proveedorId, empresaId } });
+    if (cantidadGastos > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "No se puede eliminar: el proveedor tiene gastos asociados. Si ya no lo usás, actualizá sus datos en vez de borrarlo.",
+        },
+        { status: 409 }
+      );
+    }
+
     await prisma.proveedor.delete({ where: { id: proveedorId } });
 
     return NextResponse.json({ ok: true });

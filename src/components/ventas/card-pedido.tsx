@@ -52,6 +52,8 @@ export function CardPedido({ pedido, onCambio }: Props) {
   }
 
   const estaPagado = pedido.estadoPago === "PAGADA";
+  // Cobro parcial: tiene plata cobrada pero no el total.
+  const cobradoParcial = !estaPagado && pedido.montoPagado > 0;
 
   return (
     <div
@@ -73,8 +75,13 @@ export function CardPedido({ pedido, onCambio }: Props) {
             className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
               estaPagado ? "bg-success/10 text-success" : "bg-amber/10 text-amber"
             }`}
+            title={cobradoParcial ? `Cobrado ${formatCurrency(pedido.montoPagado, "ARS")} de ${formatCurrency(pedido.totalARS, "ARS")}` : undefined}
           >
-            {estaPagado ? "Pagado" : "Sin cobrar"}
+            {estaPagado
+              ? "Pagado"
+              : cobradoParcial
+                ? `Parcial: ${formatCurrency(pedido.montoPagado, "ARS")}`
+                : "Sin cobrar"}
           </span>
         </div>
 

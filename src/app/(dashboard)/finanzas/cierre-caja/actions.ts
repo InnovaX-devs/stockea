@@ -131,7 +131,9 @@ async function calcularPeriodo(db: Db, empresaId: number, desdeMovimientoId: num
 async function ajustarSaldo(db: Db, empresaId: number, cuentaId: number, saldoActual: number, nuevoSaldo: number, detalle: string) {
   const diferencia = redondear(nuevoSaldo - saldoActual);
   if (diferencia === 0) return 0;
-  await db.cuenta.update({ where: { id: cuentaId }, data: { saldoActual: nuevoSaldo } });
+  // Se suma o resta la diferencia sobre el saldo de ESTE momento (no se pisa
+  // con un valor fijo): si entra una venta en el mismo instante, no se pierde.
+  const cuenta = await db.cuenta.update({ where: { id: cuentaId }, data: { saldoActual: { increment: diferencia } } });
   await db.movimientoCaja.create({
     data: {
       empresaId,
@@ -139,7 +141,7 @@ async function ajustarSaldo(db: Db, empresaId: number, cuentaId: number, saldoAc
       tipo: diferencia > 0 ? "INGRESO" : "EGRESO",
       concepto: "AJUSTE_SALDO",
       monto: Math.abs(diferencia),
-      saldoResultante: nuevoSaldo,
+      saldoResultante: cuenta.saldoActual,
       detalle,
     },
   });
@@ -347,11 +349,11 @@ export async function registrarCierre(input: {
         if (it.retiro! > 0) {
           if (it.destino === "RETIRO") {
             destinoNombre = "Retiro del dueño";
-            await tx.cuenta.update({ where: { id: it.id }, data: { saldoActual: it.queda! } });
+            const cajaTrasRetiro = await tx.cuenta.update({ where: { id: it.id }, data: { saldoActual: { decrement: it.retiro! } } });
             await tx.movimientoCaja.create({
               data: {
                 empresaId: usuario.empresaId, cuentaId: it.id, tipo: "EGRESO", concepto: "OTRO",
-                monto: it.retiro!, saldoResultante: it.queda!, detalle: `Retiro de caja al cierre (${usuarioNombre})`,
+                monto: it.retiro!, saldoResultante: cajaTrasRetiro.saldoActual, detalle: `Retiro de caja al cierre (${usuarioNombre})`,
               },
             });
           } else {
@@ -360,11 +362,11 @@ export async function registrarCierre(input: {
             if (monedaDe(destino.tipo) !== monedaDe(it.tipo)) throw new Error(`"${destino.nombre}" es de otra moneda que "${it.nombre}".`);
             destinoCuentaId = destino.id;
             destinoNombre = destino.nombre;
-            await tx.cuenta.update({ where: { id: it.id }, data: { saldoActual: it.queda! } });
+            const cajaTrasRetiro = await tx.cuenta.update({ where: { id: it.id }, data: { saldoActual: { decrement: it.retiro! } } });
             await tx.movimientoCaja.create({
               data: {
                 empresaId: usuario.empresaId, cuentaId: it.id, tipo: "EGRESO", concepto: "TRANSFERENCIA",
-                monto: it.retiro!, saldoResultante: it.queda!, detalle: `Retiro de caja a ${destino.nombre}`,
+                monto: it.retiro!, saldoResultante: cajaTrasRetiro.saldoActual, detalle: `Retiro de caja a ${destino.nombre}`,
               },
             });
             const cuentaDestino = await tx.cuenta.update({

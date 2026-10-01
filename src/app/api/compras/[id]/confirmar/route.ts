@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import {
@@ -11,6 +11,8 @@ import {
 } from "@/lib/calculos/actualizacion-precios";
 
 const TIPOS_CUENTA_USD = ["EFECTIVO_USD", "BANCO_USD"];
+
+class SaldoInsuficienteError extends Error {}
 
 type Moneda = "USD" | "ARS";
 
@@ -140,9 +142,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const totalARS = compra!.totalUSD * cotizacion;
     const cuentaEsUSD = TIPOS_CUENTA_USD.includes(compra!.cuenta.tipo);
     const montoADebitar = cuentaEsUSD ? compra!.totalUSD : totalARS;
-    const nuevoSaldoCuenta = compra!.cuenta.saldoActual - montoADebitar;
-
-    if (nuevoSaldoCuenta < 0) {
+    // Aviso temprano; el control definitivo se hace dentro de la transacción.
+    if (compra!.cuenta.saldoActual - montoADebitar < 0) {
       return NextResponse.json(
         { error: "La cuenta seleccionada no tiene saldo suficiente para pagar esta compra" },
         { status: 409 }
@@ -160,11 +161,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
       const grupos = agruparPorProducto(compra!.items, (id) => porId.get(id)!.monedaPrecio as Moneda, cotizacion);
 
+      // Se arma todo en memoria y se guarda en pocas consultas, sin importar
+      // cuántos productos tenga la compra (antes eran ~5 consultas por
+      // producto y las compras grandes vencían el tiempo de la transacción).
+      const cambios: { id: number; cantidad: number; costo: number | null; venta: number | null; mayorista: number | null }[] = [];
+      const historial: Prisma.HistorialPrecioCreateManyInput[] = [];
+
       for (const g of grupos) {
         const producto = porId.get(g.productoId)!;
         const moneda = producto.monedaPrecio as Moneda;
-        const dataUpdate: Prisma.ProductoUpdateInput = { stockActual: producto.stockActual + g.cantidad };
-        const historial: { campo: "COSTO" | "MINORISTA" | "MAYORISTA"; anterior: number | null; nuevo: number; detalle: string }[] = [];
+        const cambio = { id: producto.id, cantidad: g.cantidad, costo: null as number | null, venta: null as number | null, mayorista: null as number | null };
+        const registrar = (campo: "COSTO" | "MINORISTA" | "MAYORISTA", anterior: number | null, nuevo: number, detalle: string) =>
+          historial.push({ productoId: producto.id, empresaId, campo, valorAnterior: anterior, valorNuevo: nuevo, origen: "COMPRA_CONFIRMADA", detalle });
 
         // Sin decisiones (llamada vieja): lo de siempre, según Configuración.
         const decision: DecisionPrecio | undefined = decisiones
@@ -183,47 +191,51 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
                 })
               : g.costoCompra;
           if (nuevoCosto !== producto.precioCosto) {
-            dataUpdate.precioCosto = nuevoCosto;
-            historial.push({
-              campo: "COSTO", anterior: producto.precioCosto, nuevo: nuevoCosto,
-              detalle: `Compra #${compra!.id} confirmada (${decision.costo === "PONDERADO" ? "costo promedio ponderado" : "costo de la compra"})`,
-            });
+            cambio.costo = nuevoCosto;
+            registrar("COSTO", producto.precioCosto, nuevoCosto,
+              `Compra #${compra!.id} confirmada (${decision.costo === "PONDERADO" ? "costo promedio ponderado" : "costo de la compra"})`);
           }
         }
         if (decision?.precioVenta != null) {
           const nuevo = redondearPrecio(decision.precioVenta, moneda);
           if (nuevo !== producto.precioVenta) {
-            dataUpdate.precioVenta = nuevo;
-            historial.push({ campo: "MINORISTA", anterior: producto.precioVenta, nuevo, detalle: `Compra #${compra!.id} confirmada` });
+            cambio.venta = nuevo;
+            registrar("MINORISTA", producto.precioVenta, nuevo, `Compra #${compra!.id} confirmada`);
           }
         }
         if (decision?.precioMayorista != null) {
           const nuevo = redondearPrecio(decision.precioMayorista, moneda);
           if (nuevo !== producto.precioMayorista) {
-            dataUpdate.precioMayorista = nuevo;
-            historial.push({
-              campo: "MAYORISTA", anterior: producto.precioMayorista, nuevo, detalle: `Compra #${compra!.id} confirmada`,
-            });
+            cambio.mayorista = nuevo;
+            registrar("MAYORISTA", producto.precioMayorista, nuevo, `Compra #${compra!.id} confirmada`);
           }
         }
-
-        await tx.producto.update({ where: { id: producto.id }, data: dataUpdate });
-        for (const h of historial) {
-          await tx.historialPrecio.create({
-            data: {
-              productoId: producto.id, empresaId, campo: h.campo,
-              valorAnterior: h.anterior, valorNuevo: h.nuevo,
-              origen: "COMPRA_CONFIRMADA", detalle: h.detalle,
-            },
-          });
-        }
+        cambios.push(cambio);
       }
 
-      // Movimiento de caja: recién ahora sale la plata.
-      await tx.cuenta.update({
+      // 1) Stock (sumado, no pisado) y precios de todos los productos en una consulta.
+      const num = (v: number | null) => (v == null ? Prisma.sql`NULL::float8` : Prisma.sql`${v}::float8`);
+      await tx.$executeRaw`
+        UPDATE "Producto" AS p SET
+          "stockActual" = p."stockActual" + v.cantidad,
+          "precioCosto" = COALESCE(v.costo, p."precioCosto"),
+          "precioVenta" = COALESCE(v.venta, p."precioVenta"),
+          "precioMayorista" = COALESCE(v.mayorista, p."precioMayorista")
+        FROM (VALUES ${Prisma.join(
+          cambios.map((c) => Prisma.sql`(${c.id}::int, ${c.cantidad}::int, ${num(c.costo)}, ${num(c.venta)}, ${num(c.mayorista)})`)
+        )}) AS v(id, cantidad, costo, venta, mayorista)
+        WHERE p.id = v.id AND p."empresaId" = ${empresaId}`;
+
+      // 2) Historial de precios en una consulta.
+      if (historial.length > 0) await tx.historialPrecio.createMany({ data: historial });
+
+      // 3) Pago: se RESTA del saldo actual (no se pisa con uno calculado
+      //    antes) y se verifica que alcance con el saldo de este momento.
+      const cuenta = await tx.cuenta.update({
         where: { id: compra!.cuentaId },
-        data: { saldoActual: nuevoSaldoCuenta },
+        data: { saldoActual: { decrement: montoADebitar } },
       });
+      if (cuenta.saldoActual < 0) throw new SaldoInsuficienteError();
 
       await tx.movimientoCaja.create({
         data: {
@@ -232,10 +244,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           tipo: "EGRESO",
           concepto: "PAGO_A_PROVEEDOR",
           monto: montoADebitar,
-          saldoResultante: nuevoSaldoCuenta,
+          saldoResultante: cuenta.saldoActual,
           compraId: compra!.id,
         },
       });
+
+      // Guard atómico: si la confirmaron en otra pestaña, no se suma dos veces.
+      const marcada = await tx.compra.updateMany({
+        where: { id: compra!.id, empresaId, confirmada: false, cancelada: false },
+        data: { confirmada: true },
+      });
+      if (marcada.count === 0) throw new Error("La compra ya fue confirmada o cancelada");
 
       return tx.compra.update({
         where: { id: compra!.id },
@@ -252,6 +271,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json(compraActualizada);
   } catch (error: any) {
+    if (error instanceof SaldoInsuficienteError) {
+      return NextResponse.json(
+        { error: "La cuenta seleccionada no tiene saldo suficiente para pagar esta compra" },
+        { status: 409 }
+      );
+    }
     console.error("Error al confirmar compra:", error);
     return NextResponse.json(
       { error: error.message || "Error al confirmar la compra" },

@@ -142,7 +142,12 @@ export async function POST(request: NextRequest) {
 
       const nuevoGasto = await tx.gasto.create({ data: dataBase });
 
-      const saldoResultante = cuenta.saldoActual - montoADescontar;
+      // Se resta sobre el saldo de ESTE momento (no uno leído antes).
+      const cuentaActualizada = await tx.cuenta.update({
+        where: { id: cuentaId },
+        data: { saldoActual: { decrement: montoADescontar } },
+      });
+      if (cuentaActualizada.saldoActual < 0) throw new Error("SALDO_INSUFICIENTE");
 
       await tx.movimientoCaja.create({
         data: {
@@ -151,14 +156,9 @@ export async function POST(request: NextRequest) {
           tipo: "EGRESO",
           concepto: "GASTO",
           monto: montoADescontar,
-          saldoResultante,
+          saldoResultante: cuentaActualizada.saldoActual,
           gastoId: nuevoGasto.id,
         },
-      });
-
-      await tx.cuenta.update({
-        where: { id: cuentaId },
-        data: { saldoActual: saldoResultante },
       });
 
       return nuevoGasto;

@@ -112,7 +112,13 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
 
   async function handleCancelar() {
     setCancelando(true);
-    const resultado = await cancelarPedido(pedidoId);
+    let resultado = await cancelarPedido(pedidoId);
+    // Si devolver la plata deja una cuenta en negativo (por ejemplo, porque
+    // ya se transfirió o se retiró en un cierre), se avisa y se pide confirmar.
+    if (!resultado.success && resultado.codigo === "SALDO_NEGATIVO") {
+      const seguir = confirm(`${resultado.error} ¿Cancelar el pedido igual?`);
+      if (seguir) resultado = await cancelarPedido(pedidoId, { forzar: true });
+    }
     setCancelando(false);
     if (!resultado.success) {
       toast.error(resultado.error);
