@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
@@ -95,6 +96,21 @@ export async function PUT(
       ? Number(body.stockActual)
       : 0;
 
+    // Stock: el formulario manda también el stock que había cuando se abrió
+    // (stockOriginal). Se aplica SOLO la diferencia que cargó el usuario, así
+    // no se pisan las ventas o pedidos armados mientras el formulario estaba
+    // abierto. Si no cambió el stock, no se toca.
+    const stockOriginal =
+      body.stockOriginal !== undefined && body.stockOriginal !== null && !isNaN(Number(body.stockOriginal))
+        ? Number(body.stockOriginal)
+        : null;
+    const cambioDeStock: Prisma.ProductoUpdateInput["stockActual"] =
+      stockOriginal === null
+        ? stockActual
+        : stockActual !== stockOriginal
+          ? { increment: stockActual - stockOriginal }
+          : undefined;
+
     const stockMinimo = !isNaN(Number(body.stockMinimo))
       ? Number(body.stockMinimo)
       : 0;
@@ -170,7 +186,7 @@ export async function PUT(
           contenidoMl,
           marcaId,
           categoriaId,
-          stockActual,
+          stockActual: cambioDeStock,
           stockMinimo,
           destacado: Boolean(body.destacado),
           monedaPrecio: body.monedaPrecio || "USD",
@@ -185,6 +201,22 @@ export async function PUT(
         ? [prisma.historialPrecio.createMany({ data: registrosHistorial })]
         : []),
     ]);
+
+    // La foto vieja se borra recién ahora, con el producto ya guardado: si el
+    // guardado fallaba, el producto quedaba apuntando a una foto borrada.
+    const fotoAnterior = productoAnterior.fotoUrl;
+    if (
+      body.fotoUrl !== undefined &&
+      fotoAnterior &&
+      fotoAnterior !== body.fotoUrl &&
+      fotoAnterior.includes("public.blob.vercel-storage.com")
+    ) {
+      try {
+        await del(fotoAnterior);
+      } catch (err) {
+        console.warn("No se pudo eliminar la imagen anterior de Vercel Blob:", err);
+      }
+    }
 
     return NextResponse.json(productoActualizado);
   } catch (error: any) {

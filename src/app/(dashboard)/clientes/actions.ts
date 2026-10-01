@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getHistorialDeuda } from "@/lib/clientes";
@@ -181,6 +182,13 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
         );
       }
 
+      // Los cambios a pagos y ventas se juntan en memoria y se guardan al
+      // final en 2 consultas, sin importar cuántas ventas pendientes tenga el
+      // cliente (antes eran 2 consultas por venta y una deuda con muchas
+      // ventas podía vencer el tiempo de la transacción).
+      const pagosVenta: Prisma.PagoVentaCreateManyInput[] = [];
+      const ventasActualizadas = new Map<number, { montoPagado: number; estadoPago: "PAGADA" | "A_CUENTA" }>();
+
       for (const pago of pagosValidos) {
         const cuentaValida = await tx.cuenta.findFirst({ where: { id: pago.cuentaId, empresaId } });
         if (!cuentaValida) throw new Error("CUENTA_NO_ENCONTRADA");
@@ -203,16 +211,10 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
           const nuevoPendiente = pendiente - aplicado;
           const saldada = nuevoPendiente < 0.5;
 
-          await tx.pagoVenta.create({
-            data: { ventaId: venta.id, cuentaId: pago.cuentaId, monto: enCuenta(aplicado), montoARS: aplicado },
-          });
-
-          await tx.venta.update({
-            where: { id: venta.id },
-            data: {
-              montoPagado: redondearARS(venta.totalARS) - (saldada ? 0 : nuevoPendiente),
-              estadoPago: saldada ? "PAGADA" : "A_CUENTA",
-            },
+          pagosVenta.push({ ventaId: venta.id, cuentaId: pago.cuentaId, monto: enCuenta(aplicado), montoARS: aplicado });
+          ventasActualizadas.set(venta.id, {
+            montoPagado: redondearARS(venta.totalARS) - (saldada ? 0 : nuevoPendiente),
+            estadoPago: saldada ? "PAGADA" : "A_CUENTA",
           });
 
           pendientePorVenta.set(venta.id, nuevoPendiente);
@@ -239,6 +241,20 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
             },
           });
         }
+      }
+
+      if (pagosVenta.length > 0) await tx.pagoVenta.createMany({ data: pagosVenta });
+      if (ventasActualizadas.size > 0) {
+        const filas = Prisma.join(
+          [...ventasActualizadas.entries()].map(
+            ([id, v]) => Prisma.sql`(${id}::int, ${v.montoPagado}::float8, ${v.estadoPago}::text)`
+          )
+        );
+        await tx.$executeRaw`
+          UPDATE "Venta" AS v
+          SET "montoPagado" = x.monto, "estadoPago" = x.estado::"EstadoPago"
+          FROM (VALUES ${filas}) AS x(id, monto, estado)
+          WHERE v.id = x.id AND v."empresaId" = ${empresaId}`;
       }
     });
 

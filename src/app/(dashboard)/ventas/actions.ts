@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import type { EstadoPago, TipoPrecioVenta } from "@prisma/client";
 import { redondearARS, montoEnCuentaUSD, montoARSDePago } from "@/lib/currency";
 import { mensajeSiCajaCerrada } from "@/lib/caja";
+import { descontarStock, sumarStock } from "@/lib/stock";
 import { Prisma } from "@prisma/client";
 import { inicioDiaAR } from "@/lib/timezone";
 import type {
@@ -76,31 +77,7 @@ export async function descontarStockSinVenta(
 
     await prisma.$transaction(async (tx) => {
       // 1. Validar stock
-      for (const item of items) {
-        const unidades = item.cantidad;
-        if (unidades === 0) continue;
-
-        const producto = await tx.producto.findFirst({
-          where: { id: item.productoId, empresaId },
-          select: { stockActual: true, nombre: true },
-        });
-        if (!producto || producto.stockActual < unidades) {
-          throw new Error(
-            `Stock insuficiente para "${producto?.nombre ?? "producto"}" (disponible: ${producto?.stockActual ?? 0})`
-          );
-        }
-      }
-
-      // 2. Descontar. Nada más: no se crea venta, ni pedido, ni movimiento de caja.
-      for (const item of items) {
-        const unidades = item.cantidad;
-        if (unidades === 0) continue;
-
-        await tx.producto.update({
-          where: { id: item.productoId },
-          data: { stockActual: { decrement: unidades } },
-        });
-      }
+      await descontarStock(tx, empresaId, items);
     });
 
     revalidatePath("/", "layout");
@@ -153,8 +130,12 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
   // apagado), cotizacionUsada siempre es 1, sin importar qué haya quedado
   // cargado en el campo cotizacionUSD de Configuración.
   const configuracionActual = await obtenerConfiguracion();
-  const cotizacionUSDInput = configuracionActual.usaCotizacionUSD ? input.cotizacionUSD : 1;
-  const cotizacionUsada = cotizacionUSDInput > 0 ? cotizacionUSDInput : 1;
+  // Se usa la de Configuración, no la que manda la pantalla: si la venta se
+  // confirmaba antes de que la pantalla cargara la cotización, llegaba 0 y la
+  // venta quedaba guardada con el dólar a $1 (costos y ganancias mal para
+  // siempre en los reportes).
+  const cotizacionConfig = configuracionActual.usaCotizacionUSD ? configuracionActual.cotizacionUSD : 1;
+  const cotizacionUsada = cotizacionConfig > 0 ? cotizacionConfig : 1;
   const totalUSD = totalARS / cotizacionUsada;
 
   try {
@@ -195,30 +176,8 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
       }
 
       if (armado) {
-        for (const item of input.items) {
-          const unidadesADescontar = item.cantidad;
-          if (unidadesADescontar === 0) continue;
-
-          const producto = await tx.producto.findFirst({
-            where: { id: item.productoId, empresaId },
-            select: { stockActual: true, nombre: true },
-          });
-          if (!producto || producto.stockActual < unidadesADescontar) {
-            throw new Error(
-              `Stock insuficiente para "${producto?.nombre ?? "producto"}" (disponible: ${producto?.stockActual ?? 0})`
-            );
-          }
-        }
-
-        for (const item of input.items) {
-          const unidadesADescontar = item.cantidad;
-          if (unidadesADescontar === 0) continue;
-
-          await tx.producto.update({
-            where: { id: item.productoId },
-            data: { stockActual: { decrement: unidadesADescontar } },
-          });
-        }
+        // Una sola consulta para todos los productos, y solo si alcanza el stock.
+        await descontarStock(tx, empresaId, input.items);
       }
 
       // 1.5 Si viene con cliente, validar que sea de esta empresa.
@@ -547,7 +506,12 @@ export async function listarPedidos(filtros: FiltrosPedidos): Promise<ResultadoL
   return { pedidos };
 }
 
-type ResultadoAccionPedido = { success: true } | { success: false; error: string };
+type ResultadoAccionPedido =
+  | { success: true }
+  | { success: false; error: string; codigo?: "SALDO_NEGATIVO" };
+
+/** Error para cortar la transacción cuando una cuenta quedaría en negativo. */
+class SaldoNegativoError extends Error {}
 
 export async function marcarArmado(ventaId: number): Promise<ResultadoAccionPedido> {
   try {
@@ -558,34 +522,19 @@ export async function marcarArmado(ventaId: number): Promise<ResultadoAccionPedi
     });
     if (!venta) return { success: false, error: "El pedido no existe" };
     if (venta.armado) return { success: false, error: "El pedido ya está armado" };
+    if (venta.estadoPago === "CANCELADA" || venta.estadoPago === "ANULADA") {
+      return { success: false, error: "El pedido está cancelado" };
+    }
 
     await prisma.$transaction(async (tx) => {
-      for (const item of venta.items) {
-        const unidadesADescontar = item.cantidad;
-        if (unidadesADescontar === 0) continue;
+      await descontarStock(tx, empresaId, venta.items);
 
-        const producto = await tx.producto.findFirst({
-          where: { id: item.productoId!, empresaId },
-          select: { stockActual: true, nombre: true },
-        });
-        if (!producto || producto.stockActual < unidadesADescontar) {
-          throw new Error(
-            `Stock insuficiente para "${producto?.nombre ?? "producto"}" (disponible: ${producto?.stockActual ?? 0})`
-          );
-        }
-      }
-
-      for (const item of venta.items) {
-        const unidadesADescontar = item.cantidad;
-        if (unidadesADescontar === 0) continue;
-
-        await tx.producto.update({
-          where: { id: item.productoId! },
-          data: { stockActual: { decrement: unidadesADescontar } },
-        });
-      }
-
-      await tx.venta.update({ where: { id: ventaId }, data: { armado: true } });
+      // Guard atómico: si en otra pestaña lo armaron o cancelaron, no se descuenta dos veces.
+      const marcado = await tx.venta.updateMany({
+        where: { id: ventaId, empresaId, armado: false, estadoPago: { notIn: ["CANCELADA", "ANULADA"] } },
+        data: { armado: true },
+      });
+      if (marcado.count === 0) throw new Error("El pedido ya fue armado o cancelado en otra pantalla.");
     });
 
     revalidatePath("/ventas/pedidos");
@@ -603,7 +552,12 @@ export async function marcarEnviado(ventaId: number): Promise<ResultadoAccionPed
     if (!venta) return { success: false, error: "El pedido no existe" };
     if (!venta.armado) return { success: false, error: "El pedido todavía no fue armado" };
 
-    await prisma.venta.update({ where: { id: ventaId }, data: { enviado: true } });
+    // updateMany con el estado como filtro: si lo cancelaron en otra pestaña, no se marca.
+    const marcado = await prisma.venta.updateMany({
+      where: { id: ventaId, empresaId, estadoPago: { notIn: ["CANCELADA", "ANULADA"] } },
+      data: { enviado: true },
+    });
+    if (marcado.count === 0) return { success: false, error: "El pedido está cancelado" };
     revalidatePath("/ventas/pedidos");
     return { success: true };
   } catch (e) {
@@ -698,7 +652,12 @@ export async function marcarRetirado(ventaId: number): Promise<ResultadoAccionPe
     if (!venta) return { success: false, error: "El pedido no existe" };
     if (!venta.armado) return { success: false, error: "El pedido todavía no fue armado" };
 
-    await prisma.venta.update({ where: { id: ventaId }, data: { retirado: true } });
+    // updateMany con el estado como filtro: si lo cancelaron en otra pestaña, no se marca.
+    const marcado = await prisma.venta.updateMany({
+      where: { id: ventaId, empresaId, estadoPago: { notIn: ["CANCELADA", "ANULADA"] } },
+      data: { retirado: true },
+    });
+    if (marcado.count === 0) return { success: false, error: "El pedido está cancelado" };
     revalidatePath("/ventas/pedidos");
     return { success: true };
   } catch (e) {
@@ -724,6 +683,16 @@ export async function registrarCobroPedido(
   try {
     const empresaId = await obtenerEmpresaIdActual();
 
+    // La configuración se lee ANTES de abrir la transacción: obtenerConfiguracion
+    // usa su propia conexión, y adentro de la transacción esa consulta puede
+    // quedar esperando la misma conexión que tiene tomada la transacción (con
+    // el pooler de Supabase) hasta que vence ("Transaction not found").
+    // Mismo criterio que al crear la venta: si el negocio no opera con
+    // dólares (o la licencia no lo permite), la cotización es 1.
+    const configuracion = await obtenerConfiguracion();
+    const cotizacionRaw = configuracion.usaCotizacionUSD ? configuracion.cotizacionUSD : 1;
+    const cotizacion = cotizacionRaw > 0 ? cotizacionRaw : 1;
+
     await prisma.$transaction(async (tx) => {
       const venta = await tx.venta.findFirst({ where: { id: ventaId, empresaId } });
       if (!venta) throw new Error("El pedido no existe");
@@ -734,11 +703,6 @@ export async function registrarCobroPedido(
       // normalizamos acá antes de comparar.
       const totalARS = redondearARS(venta.totalARS);
 
-      // Mismo criterio que al crear la venta: si el negocio no opera con
-      // dólares (o la licencia no lo permite), la cotización es 1.
-      const configuracion = await obtenerConfiguracion();
-      const cotizacionRaw = configuracion.usaCotizacionUSD ? configuracion.cotizacionUSD : 1;
-      const cotizacion = cotizacionRaw > 0 ? cotizacionRaw : 1;
 
       const montoNuevo = pagosValidos.reduce((acc, p) => acc + p.monto, 0);
       const restante = totalARS - venta.montoPagado;
@@ -802,7 +766,10 @@ export async function registrarCobroPedido(
   }
 }
 
-export async function anularVenta(ventaId: number): Promise<ResultadoAccionPedido> {
+export async function anularVenta(
+  ventaId: number,
+  opciones: { forzar?: boolean } = {}
+): Promise<ResultadoAccionPedido> {
   await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
   try {
     const empresaId = await obtenerEmpresaIdActual();
@@ -830,15 +797,7 @@ export async function anularVenta(ventaId: number): Promise<ResultadoAccionPedid
 
       // 1. Devolver stock si ya se había descontado (armado=true)
       if (venta.armado) {
-        for (const item of venta.items) {
-          const unidadesADevolver = item.cantidad;
-          if (unidadesADevolver === 0) continue;
-
-          await tx.producto.update({
-            where: { id: item.productoId! },
-            data: { stockActual: { increment: unidadesADevolver } },
-          });
-        }
+        await sumarStock(tx, empresaId, venta.items);
       }
 
       // 2. Revertir cada pago: restar de la cuenta y dejar registro en movimientos de caja
@@ -847,6 +806,13 @@ export async function anularVenta(ventaId: number): Promise<ResultadoAccionPedid
           where: { id: pago.cuentaId },
           data: { saldoActual: { decrement: pago.monto } },
         });
+        // Si la plata ya se movió (transferencia, retiro), la cuenta puede
+        // quedar en negativo: se avisa y solo se sigue si el usuario confirma.
+        if (cuenta.saldoActual < 0 && !opciones.forzar) {
+          throw new SaldoNegativoError(
+            `"${cuenta.nombre}" quedaría en ${cuenta.saldoActual.toLocaleString("es-AR", { style: "currency", currency: cuenta.tipo.endsWith("USD") ? "USD" : "ARS" })}.`
+          );
+        }
 
         await tx.movimientoCaja.create({
           data: {
@@ -867,12 +833,18 @@ export async function anularVenta(ventaId: number): Promise<ResultadoAccionPedid
     revalidatePath("/", "layout");
     return { success: true };
   } catch (e) {
+    if (e instanceof SaldoNegativoError) {
+      return { success: false, error: e.message, codigo: "SALDO_NEGATIVO" };
+    }
     const mensaje = e instanceof Error ? e.message : "Error al anular la venta";
     return { success: false, error: mensaje };
   }
 }
 
-export async function cancelarPedido(ventaId: number): Promise<ResultadoAccionPedido> {
+export async function cancelarPedido(
+  ventaId: number,
+  opciones: { forzar?: boolean } = {}
+): Promise<ResultadoAccionPedido> {
   try {
     const empresaId = await obtenerEmpresaIdActual();
     const venta = await prisma.venta.findFirst({
@@ -896,15 +868,7 @@ export async function cancelarPedido(ventaId: number): Promise<ResultadoAccionPe
       }
 
       if (venta.armado) {
-        for (const item of venta.items) {
-          const unidadesADevolver = item.cantidad;
-          if (unidadesADevolver === 0) continue;
-
-          await tx.producto.update({
-            where: { id: item.productoId! },
-            data: { stockActual: { increment: unidadesADevolver } },
-          });
-        }
+        await sumarStock(tx, empresaId, venta.items);
       }
 
       // Antes esto bloqueaba la cancelación si había pagos; ahora se revierten solos.
@@ -913,6 +877,13 @@ export async function cancelarPedido(ventaId: number): Promise<ResultadoAccionPe
           where: { id: pago.cuentaId },
           data: { saldoActual: { decrement: pago.monto } },
         });
+        // Si la plata ya se movió (transferencia, retiro), la cuenta puede
+        // quedar en negativo: se avisa y solo se sigue si el usuario confirma.
+        if (cuenta.saldoActual < 0 && !opciones.forzar) {
+          throw new SaldoNegativoError(
+            `"${cuenta.nombre}" quedaría en ${cuenta.saldoActual.toLocaleString("es-AR", { style: "currency", currency: cuenta.tipo.endsWith("USD") ? "USD" : "ARS" })}.`
+          );
+        }
 
         await tx.movimientoCaja.create({
           data: {
@@ -932,6 +903,9 @@ export async function cancelarPedido(ventaId: number): Promise<ResultadoAccionPe
     revalidatePath("/ventas/pedidos");
     return { success: true };
   } catch (e) {
+    if (e instanceof SaldoNegativoError) {
+      return { success: false, error: e.message, codigo: "SALDO_NEGATIVO" };
+    }
     const mensaje = e instanceof Error ? e.message : "Error al cancelar el pedido";
     return { success: false, error: mensaje };
   }

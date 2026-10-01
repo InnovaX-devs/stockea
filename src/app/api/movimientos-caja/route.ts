@@ -53,7 +53,11 @@ export async function GET(request: NextRequest) {
   // para que las tarjetas no queden truncadas si hay más de 200 movimientos.
   const todosEnPeriodo = await prisma.movimientoCaja.findMany({
     where,
-    select: { tipo: true, monto: true,concepto: true, cuenta: { select: { tipo: true } } },
+    select: {
+      tipo: true, monto: true, concepto: true,
+      cuenta: { select: { tipo: true } },
+      venta: { select: { estadoPago: true } },
+    },
   });
 
   const cotizacion = configuracion.cotizacionUSD ?? 1000;
@@ -61,9 +65,20 @@ export async function GET(request: NextRequest) {
   // Ingresos/Egresos/Neto: sí dependen del período filtrado.
   let ingresos = 0;
   let egresos = 0;
+  // Ajustes de saldo (manuales, de cierre de caja y reversiones): no son
+  // plata que entró o salió del negocio, se informan aparte.
+  let ajustes = 0;
   for (const m of todosEnPeriodo) {
     if (m.concepto === "TRANSFERENCIA") continue; // no es dinero entrando/saliendo del negocio
     const montoEnArs = m.cuenta.tipo.endsWith("USD") ? m.monto * cotizacion : m.monto;
+    if (m.concepto === "AJUSTE_SALDO") {
+      ajustes += m.tipo === "INGRESO" ? montoEnArs : -montoEnArs;
+      continue;
+    }
+    // Venta anulada o pedido cancelado: el cobro original no cuenta como
+    // ingreso (su reversión es un ajuste). Antes se contaba la venta como
+    // ingreso y la reversión como egreso, e inflaba las dos tarjetas.
+    if (m.venta && (m.venta.estadoPago === "ANULADA" || m.venta.estadoPago === "CANCELADA")) continue;
     if (m.tipo === "INGRESO") ingresos += montoEnArs;
     else egresos += montoEnArs;
   }
@@ -103,6 +118,7 @@ export async function GET(request: NextRequest) {
       ingresosPeriodo: ingresos,
       egresosPeriodo: egresos,
       netoPeriodo: ingresos - egresos,
+      ajustesPeriodo: ajustes,
     },
   });
 }

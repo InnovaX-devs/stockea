@@ -27,6 +27,27 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Pasar una cuenta de pesos a dólares (o al revés) con plata o historial
+    // adentro convertiría $500.000 en US$ 500.000 sin ninguna conversión.
+    // Solo se permite si está vacía y sin movimientos.
+    const moneda = (tipo: string) => (tipo.endsWith("USD") ? "USD" : "ARS");
+    if (moneda(body.tipo) !== moneda(cuentaExistente.tipo)) {
+      const [movimientos, pagos, compras] = await Promise.all([
+        prisma.movimientoCaja.count({ where: { cuentaId } }),
+        prisma.pagoVenta.count({ where: { cuentaId } }),
+        prisma.compra.count({ where: { cuentaId } }),
+      ]);
+      if (cuentaExistente.saldoActual !== 0 || movimientos > 0 || pagos > 0 || compras > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "No se puede cambiar la moneda de una cuenta con saldo o movimientos. Creá una cuenta nueva en la otra moneda y transferí la plata.",
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const esBanco = body.tipo === "BANCO_ARS" || body.tipo === "BANCO_USD";
 
     const cuentaActualizada = await prisma.cuenta.update({
@@ -99,17 +120,19 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Cuenta no encontrada" }, { status: 404 });
     }
 
-    const [movimientos, pagos, cierres] = await Promise.all([
+    const [movimientos, pagos, cierres, compras] = await Promise.all([
       prisma.movimientoCaja.count({ where: { cuentaId } }),
       prisma.pagoVenta.count({ where: { cuentaId } }),
       prisma.cierreCajaCuenta.count({ where: { cuentaId } }),
+      // Una compra sin confirmar no genera movimientos pero sí apunta a la cuenta.
+      prisma.compra.count({ where: { cuentaId } }),
     ]);
 
-    if (movimientos > 0 || pagos > 0 || cierres > 0) {
+    if (movimientos > 0 || pagos > 0 || cierres > 0 || compras > 0) {
       return NextResponse.json(
         {
           error:
-            "No se puede eliminar: la cuenta tiene movimientos o pagos asociados. Desactivala en su lugar.",
+            "No se puede eliminar: la cuenta tiene movimientos, pagos o compras asociados. Desactivala en su lugar.",
         },
         { status: 409 }
       );

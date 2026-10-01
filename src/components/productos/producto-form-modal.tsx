@@ -423,6 +423,8 @@ export function ProductoFormModal({
         categoriaId: formData.categoriaId ? Number(formData.categoriaId) : null,
         contenidoMl: formData.contenidoMl === "" ? null : Number(formData.contenidoMl),
         stockActual: Number(formData.stockActual),
+        // Stock que había al abrir el formulario: el servidor aplica solo la diferencia.
+        stockOriginal: productoEditar ? productoEditar.stockActual ?? null : null,
         stockMinimo: formData.stockMinimo === "" ? 0 : Number(formData.stockMinimo),
         precioCosto: Number(formData.precioCosto),
         precioVenta: Number(formData.precioVenta),
