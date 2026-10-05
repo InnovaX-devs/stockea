@@ -200,6 +200,7 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
           montoPagado,
           estadoPago,
           armado,
+          retirado: armado,
           items: {
             create: input.items.map((item) => ({
               productoId: item.productoId,
