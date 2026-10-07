@@ -33,6 +33,7 @@ export interface ProductoFormData {
   precioVenta: number | "";
   precioMayorista: number | "";
   precioOferta: number | "";
+  alicuotaIva: number;
   fotoUrl?: string | null;
 }
 
@@ -80,6 +81,7 @@ export function ProductoFormModal({
     precioVenta: "",
     precioMayorista: "",
     precioOferta: "",
+    alicuotaIva: 21,
   });
 
   const [marcas, setMarcas] = useState<Marca[]>(marcasIniciales);
@@ -128,6 +130,15 @@ export function ProductoFormModal({
     }
   }, []);
 
+  // La alícuota de IVA solo se muestra si el negocio factura como Responsable Inscripto.
+  const [discriminaIva, setDiscriminaIva] = useState(false);
+  useEffect(() => {
+    fetch("/api/configuracion")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => setDiscriminaIva(Boolean(c?.discriminaIva)))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
       fetchAuxiliares();
@@ -149,6 +160,7 @@ export function ProductoFormModal({
           precioVenta: productoEditar.precioVenta ?? "",
           precioMayorista: productoEditar.precioMayorista ?? "",
           precioOferta: productoEditar.precioOferta ?? "",
+          alicuotaIva: (productoEditar as { alicuotaIva?: number }).alicuotaIva ?? 21,
           id: productoEditar.id,
           fotoUrl: productoEditar.fotoUrl ?? "",
         });
@@ -181,6 +193,7 @@ export function ProductoFormModal({
           precioVenta: "",
           precioMayorista: "",
           precioOferta: "",
+    alicuotaIva: 21,
           fotoUrl: "",
         });
         setPreviewUrl(null);
@@ -720,6 +733,23 @@ export function ProductoFormModal({
                   className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
                 />
               </div>
+
+              {discriminaIva && (
+                <div>
+                  <label className="block text-xs font-medium text-text-dim">IVA (para facturar)</label>
+                  <select
+                    value={formData.alicuotaIva}
+                    onChange={(e) => setFormData({ ...formData, alicuotaIva: Number(e.target.value) })}
+                    className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+                  >
+                    {[21, 10.5, 27, 5, 2.5, 0].map((a) => (
+                      <option key={a} value={a}>
+                        {a.toLocaleString("es-AR")}%
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-medium text-text-dim">

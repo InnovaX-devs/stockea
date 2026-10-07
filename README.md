@@ -42,6 +42,7 @@ Copiá `.env.example` a `.env` y completá:
 | `DATABASE_URL` | Conexión pooled (para la app en runtime) | Sí |
 | `DIRECT_URL` | Conexión directa (para migraciones) | Sí |
 | `AUTH_SECRET` | Firma las sesiones de NextAuth. Generar con `openssl rand -base64 32`, uno distinto por cliente | Sí |
+| `FACTURACION_CLAVE` | Cifra la clave privada de los certificados de ARCA. Generar con `openssl rand -base64 32`. **No cambiarla nunca** (ver `docs/FACTURACION-ARCA.md`) | Solo si se usa facturación |
 | `BLOB_READ_WRITE_TOKEN` | Storage de logos (Vercel Blob) | Solo si vas a subir logo |
 | `ADMIN_EMAIL` | Email del usuario admin inicial | No (default `admin@example.com`) |
 | `ADMIN_PASSWORD` | Contraseña del usuario admin inicial | No (default `changeme123`, **cambiarla después del primer login**) |

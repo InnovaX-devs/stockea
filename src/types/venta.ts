@@ -8,6 +8,8 @@ export type VentaListItem = {
   gananciaPorcentaje: number; // sobre el costo, no sobre el total
   fecha: string; // ISO
   estado: EstadoPago;
+  /** Factura electrónica de la venta, si se intentó emitir. */
+  factura: { estado: "PENDIENTE" | "AUTORIZADO" | "RECHAZADO"; letra: string; numero: string | null; error: string | null } | null;
 };
 
 export type FiltroEstado = "TODOS" | EstadoPago;

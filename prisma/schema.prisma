@@ -32,6 +32,7 @@ model Empresa {
   cuentas          Cuenta[]
   movimientosCaja  MovimientoCaja[]
   cierresCaja      CierreCaja[]
+  comprobantes     Comprobante[]
   sesionesCaja     SesionCaja[]
   categoriasGasto  CategoriaGasto[]
   gastos           Gasto[]
@@ -117,6 +118,9 @@ model Producto {
   precioMayorista Float?
   margenMayorista Float?
   precioOferta    Float?
+  // IVA del producto. Solo se usa si el negocio es Responsable Inscripto
+  // (Factura A/B discriminan IVA; la C no).
+  alicuotaIva     Float   @default(21)
 
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -177,6 +181,11 @@ model Cliente {
   esMayorista Boolean  @default(false)
   createdAt   DateTime @default(now())
 
+  // Facturación: sin documento se factura como Consumidor Final.
+  tipoDocumento   TipoDocumento?
+  numeroDocumento String?
+  condicionIva    CondicionIvaCliente?
+
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   empresaId Int
 
@@ -230,6 +239,7 @@ model Venta {
 
   items           ItemVenta[]
   pagos           PagoVenta[]
+  comprobantes    Comprobante[]
   movimientosCaja MovimientoCaja[]
 
   @@index([clienteId])
@@ -505,6 +515,26 @@ enum Licencia {
 model Configuracion {
   id              Int     @id @default(autoincrement())
   nombreNegocio   String
+
+  // --- Facturación electrónica ARCA (opcional, Básico y Premium) ---
+  // Lógica en src/lib/arca/. La clave privada se guarda cifrada (lib/cifrado.ts).
+  facturacionHabilitada Boolean        @default(false)
+  facturarPorDefecto    Boolean        @default(false)
+  cuit                  String?
+  razonSocial           String?
+  condicionIva          CondicionIva?
+  puntoVenta            Int?
+  domicilioFiscal       String?
+  ingresosBrutos        String?
+  inicioActividades     DateTime?
+  arcaEntorno           ArcaEntorno    @default(HOMOLOGACION)
+  arcaClavePrivada      String?        // cifrada
+  arcaCsr               String?        // solicitud de certificado (PEM) para subir a ARCA
+  arcaCertificado       String?        // certificado que devuelve ARCA (PEM)
+  arcaCertificadoVence  DateTime?
+  arcaToken             String?        // ticket de acceso de WSAA (vale ~12 h)
+  arcaSign              String?
+  arcaTokenVence        DateTime?
   logoUrl         String?
   telefono        String?
   email           String?
@@ -632,4 +662,78 @@ model SesionCaja {
   cierre CierreCaja?
 
   @@index([empresaId, cerradaFecha])
+}
+
+// --- Facturación electrónica ARCA ---
+
+enum CondicionIva {
+  MONOTRIBUTO
+  RESPONSABLE_INSCRIPTO
+  EXENTO
+}
+
+enum CondicionIvaCliente {
+  CONSUMIDOR_FINAL
+  MONOTRIBUTO
+  RESPONSABLE_INSCRIPTO
+  EXENTO
+}
+
+enum TipoDocumento {
+  CUIT
+  CUIL
+  DNI
+}
+
+enum ArcaEntorno {
+  HOMOLOGACION
+  PRODUCCION
+}
+
+// Comprobante electrónico emitido (o en proceso) ante ARCA. Se crea ANTES de
+// llamar a ARCA (PENDIENTE) y se actualiza con la respuesta: así, si ARCA no
+// responde, la venta no se pierde y se puede reintentar sin duplicar.
+// Lógica en src/lib/arca/factura.ts.
+enum EstadoComprobante {
+  PENDIENTE
+  AUTORIZADO
+  RECHAZADO
+}
+
+model Comprobante {
+  id        Int               @id @default(autoincrement())
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  estado    EstadoComprobante @default(PENDIENTE)
+  entorno   ArcaEntorno
+
+  tipo        Int     // código ARCA: 1 A, 6 B, 11 C (notas de crédito: 3, 8, 13)
+  puntoVenta  Int
+  numero      Int?    // se asigna al pedir el CAE
+  fecha       DateTime
+
+  // Receptor
+  docTipo              Int     // 80 CUIT, 86 CUIL, 96 DNI, 99 sin identificar
+  docNro               String  // "0" si no se identifica
+  receptorNombre       String?
+  condicionIvaReceptor Int     // código ARCA (5 = consumidor final)
+
+  importeTotal Float
+  importeNeto  Float
+  importeIva   Float
+  detalleIva   Json?   // [{ id, base, importe }] (Factura A/B)
+
+  cae            String?
+  caeVencimiento DateTime?
+  error          String?  // último error de ARCA (rechazo o falla de conexión)
+  intentos       Int      @default(0)
+
+  venta     Venta?  @relation(fields: [ventaId], references: [id])
+  ventaId   Int?
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  @@unique([empresaId, entorno, puntoVenta, tipo, numero])
+  @@index([ventaId])
+  @@index([empresaId, createdAt])
 }

@@ -7,6 +7,7 @@ import { getHistorialDeuda } from "@/lib/clientes";
 import { obtenerEmpresaIdActual, requerirAdmin } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { mensajeSiCajaCerrada } from "@/lib/caja";
+import { normalizarCuit } from "@/lib/arca/certificado";
 import { redondearARS, esCuentaUSD, montoEnCuentaUSD, redondearUSD } from "@/lib/currency";
 
 // Saldo pendiente de una venta en pesos enteros. El totalARS puede tener
@@ -61,12 +62,45 @@ export type ClienteInput = {
   direccion?: string;
   localidad?: string;
   esMayorista: boolean;
+  // Datos para facturar (opcionales). Sin documento → Consumidor Final.
+  tipoDocumento?: "CUIT" | "CUIL" | "DNI" | null;
+  numeroDocumento?: string | null;
+  condicionIva?: "CONSUMIDOR_FINAL" | "MONOTRIBUTO" | "RESPONSABLE_INSCRIPTO" | "EXENTO" | null;
 };
+
+/**
+ * Documento para facturar: CUIT/CUIL con dígito verificador válido, DNI de
+ * 7 u 8 números. Devuelve los campos listos para guardar, o un error.
+ * Si `data` no trae estos campos (pantallas viejas), no se tocan.
+ */
+function documentoParaGuardar(data: ClienteInput):
+  | { ok: true; campos: { tipoDocumento?: "CUIT" | "CUIL" | "DNI" | null; numeroDocumento?: string | null; condicionIva?: ClienteInput["condicionIva"] } }
+  | { ok: false; error: string } {
+  if (data.tipoDocumento === undefined && data.numeroDocumento === undefined && data.condicionIva === undefined) {
+    return { ok: true, campos: {} };
+  }
+  const numero = (data.numeroDocumento ?? "").replace(/[\s.-]/g, "");
+  if (!data.tipoDocumento || !numero) {
+    return { ok: true, campos: { tipoDocumento: null, numeroDocumento: null, condicionIva: "CONSUMIDOR_FINAL" } };
+  }
+  if (data.tipoDocumento === "DNI") {
+    if (!/^\d{7,8}$/.test(numero)) return { ok: false, error: "El DNI tiene que tener 7 u 8 números." };
+    return { ok: true, campos: { tipoDocumento: "DNI", numeroDocumento: numero, condicionIva: "CONSUMIDOR_FINAL" } };
+  }
+  const cuit = normalizarCuit(numero);
+  if (!cuit) return { ok: false, error: `El ${data.tipoDocumento} no es válido (revisá los 11 números).` };
+  return {
+    ok: true,
+    campos: { tipoDocumento: data.tipoDocumento, numeroDocumento: cuit, condicionIva: data.condicionIva ?? "CONSUMIDOR_FINAL" },
+  };
+}
 
 function validarCliente(data: ClienteInput) {
   if (!data.nombre?.trim()) {
     return "El nombre es obligatorio.";
   }
+  const doc = documentoParaGuardar(data);
+  if (!doc.ok) return doc.error;
   return null;
 }
 
@@ -88,6 +122,7 @@ export async function crearCliente(data: ClienteInput) {
         direccion: data.direccion?.trim() || null,
         localidad: data.localidad?.trim() || null,
         esMayorista: data.esMayorista,
+        ...(documentoParaGuardar(data) as { ok: true; campos: object }).campos,
       },
       select: { id: true, nombre: true, apellido: true, esMayorista: true },
     });
@@ -121,6 +156,7 @@ export async function actualizarCliente(id: number, data: ClienteInput) { // ant
         direccion: data.direccion?.trim() || null,
         localidad: data.localidad?.trim() || null,
         esMayorista: data.esMayorista,
+        ...(documentoParaGuardar(data) as { ok: true; campos: object }).campos,
       },
       select: { id: true, nombre: true, apellido: true, esMayorista: true },
     });

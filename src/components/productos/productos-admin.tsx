@@ -330,6 +330,7 @@ export default function ProductosAdmin() {
       precioVenta: producto.precioVenta ?? "",
       precioMayorista: producto.precioMayorista ?? "",
       precioOferta: producto.precioOferta ?? "",
+      alicuotaIva: (producto as { alicuotaIva?: number }).alicuotaIva ?? 21,
       fotoUrl: producto.fotoUrl ?? "",
     };
   }

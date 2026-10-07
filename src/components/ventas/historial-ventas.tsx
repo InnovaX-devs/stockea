@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { listarVentas } from "@/app/(dashboard)/ventas/actions"; // ajustá el path según donde queden las actions
+import { facturacionParaVenta, facturarVenta } from "@/app/(dashboard)/ventas/facturacion-actions";
+import { toast } from "sonner";
 import type { EstadoPago } from "@prisma/client";
 import type { FiltroEstado, VentaListItem } from "@/types/venta";
 import { Search, RefreshCw, Download, Loader2, X, Plus } from "lucide-react";
@@ -65,6 +67,25 @@ export function HistorialVentas() {
   const [orden, setOrden] = useState<"MAS_NUEVO" | "MAS_VIEJO">("MAS_NUEVO");
   const [page, setPage] = useState(1);
   const [descargando, setDescargando] = useState<number | null>(null);
+  // Facturación electrónica (si el negocio la tiene activada).
+  const [puedeFacturar, setPuedeFacturar] = useState(false);
+  const [facturando, setFacturando] = useState<number | null>(null);
+  useEffect(() => {
+    facturacionParaVenta().then((f) => setPuedeFacturar(f.disponible)).catch(() => {});
+  }, []);
+
+  async function facturar(ventaId: number) {
+    setFacturando(ventaId);
+    let r = await facturarVenta(ventaId);
+    if (!r.success && /identificar al comprador/.test(r.error)) {
+      const dni = window.prompt(`${r.error}\n\nDNI del comprador:`);
+      if (dni?.trim()) r = await facturarVenta(ventaId, { tipo: "DNI", numero: dni });
+    }
+    setFacturando(null);
+    if (r.success) toast.success(`${r.factura.nombre} ${r.factura.numero} emitida`);
+    else toast.error(r.error, { duration: 10000 });
+    await cargar(true);
+  }
 
   const hayFiltrosActivos =
     estado !== "TODOS" || clienteTexto !== "" || !!fechaDesde || !!fechaHasta;
@@ -294,6 +315,33 @@ export function HistorialVentas() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-2">
+                        {venta.factura?.estado === "AUTORIZADO" ? (
+                          <span
+                            className="rounded-full bg-success/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-success"
+                            title="Factura electrónica autorizada por ARCA"
+                          >
+                            {venta.factura.letra} {venta.factura.numero}
+                          </span>
+                        ) : (
+                          puedeFacturar &&
+                          venta.estado !== "ANULADA" &&
+                          venta.estado !== "CANCELADA" && (
+                            <button
+                              type="button"
+                              onClick={() => facturar(venta.id)}
+                              disabled={facturando === venta.id}
+                              title={venta.factura?.error ?? "Emitir factura electrónica"}
+                              className={cn(
+                                "inline-flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-medium disabled:opacity-50",
+                                venta.factura ? "border-danger/40 text-danger hover:bg-danger/5" : "border-border text-text hover:bg-surface-hover"
+                              )}
+                            >
+                              {facturando === venta.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                              {venta.factura ? "Reintentar factura" : "Facturar"}
+                            </button>
+                          )
+                        )}
                         <button
                           type="button"
                           onClick={() => descargarComprobante(venta.id)}
@@ -307,6 +355,7 @@ export function HistorialVentas() {
                             <Download className="h-4 w-4" />
                           )}
                         </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

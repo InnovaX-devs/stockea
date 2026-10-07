@@ -12,6 +12,9 @@ export type ClienteConDeuda = {
   direccion: string | null;
   localidad: string | null;
   esMayorista: boolean;
+  tipoDocumento: "CUIT" | "CUIL" | "DNI" | null;
+  numeroDocumento: string | null;
+  condicionIva: "CONSUMIDOR_FINAL" | "MONOTRIBUTO" | "RESPONSABLE_INSCRIPTO" | "EXENTO" | null;
   deuda: number;
 };
 
@@ -44,6 +47,9 @@ const SELECT_BASE = {
   direccion: true,
   localidad: true,
   esMayorista: true,
+  tipoDocumento: true,
+  numeroDocumento: true,
+  condicionIva: true,
 } satisfies Prisma.ClienteSelect;
 
 const ORDEN_NOMBRE_MAP: Record<string, Prisma.ClienteOrderByWithRelationInput> = {

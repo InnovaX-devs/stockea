@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, View, Text, StyleSheet, Image } from "@react-pdf/renderer";
 import { getPdfBrand, type PdfBrand } from "./brand";
 import { formatCurrency } from "@/lib/currency";
 import type { Configuracion, EstadoPago, TipoCuenta } from "@prisma/client";
@@ -33,6 +33,22 @@ export type ComprobanteVentaData = {
   montoPagado: number;
   estadoPago: EstadoPago;
   pagos: ComprobantePago[];
+  /** Si la venta tiene factura electrónica autorizada por ARCA. */
+  fiscal?: DatosFiscalesComprobante | null;
+};
+
+export type DatosFiscalesComprobante = {
+  letra: string; // A, B o C
+  codigo: number; // código ARCA (1, 6, 11)
+  numero: string; // 00001-00000012
+  cae: string;
+  caeVencimiento: Date;
+  qrDataUrl: string;
+  enPrueba: boolean;
+  emisor: { razonSocial: string; cuit: string; condicion: string; domicilio: string; ingresosBrutos: string | null; inicioActividades: Date | null };
+  receptor: { nombre: string; documento: string; condicion: string };
+  neto: number;
+  iva: number;
 };
 
 function getStyles(brand: PdfBrand) {
@@ -123,6 +139,15 @@ function getStyles(brand: PdfBrand) {
     pagoEstadoOk: { color: "#15803D" },
     pagoEstadoParcial: { color: "#B45309" },
 
+    fiscalBox: { marginTop: 14, borderWidth: 1, borderColor: brand.border ?? "#d4d4d8", borderRadius: 6, padding: 10, flexDirection: "row", gap: 12 },
+    fiscalCol: { flex: 1 },
+    fiscalTitulo: { fontSize: 8, fontFamily: "Helvetica-Bold", color: brand.textDim, marginBottom: 3, textTransform: "uppercase" },
+    fiscalTexto: { fontSize: 8, color: brand.text, marginBottom: 1.5 },
+    caeBox: { width: 150, alignItems: "center" },
+    qr: { width: 82, height: 82, marginBottom: 4 },
+    caeTexto: { fontSize: 8, fontFamily: "Helvetica-Bold", color: brand.text },
+    caeSub: { fontSize: 7, color: brand.textDim },
+    prueba: { marginTop: 10, padding: 6, backgroundColor: "#fef3c7", color: "#92400e", fontSize: 8, fontFamily: "Helvetica-Bold", textAlign: "center", borderRadius: 4 },
     footer: { marginTop: 30, textAlign: "center" },
     footerGracias: { fontSize: 9, fontFamily: "Helvetica-Bold", color: brand.text },
     footerNota: { fontSize: 7, color: brand.textDim, marginTop: 3 },
@@ -165,9 +190,19 @@ export function ComprobanteVentaDocument({
             {detalleNegocio && <Text style={s.businessDetail}>{detalleNegocio}</Text>}
           </View>
           <View>
-            <Text style={s.docTitle}>COMPROBANTE DE VENTA</Text>
-            <Text style={s.docNumero}>N° {numero}</Text>
-            <Text style={s.docAviso}>No válido como factura</Text>
+            {venta.fiscal ? (
+              <>
+                <Text style={s.docTitle}>FACTURA {venta.fiscal.letra}</Text>
+                <Text style={s.docNumero}>N° {venta.fiscal.numero}</Text>
+                <Text style={s.docAviso}>Cód. {String(venta.fiscal.codigo).padStart(2, "0")}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={s.docTitle}>COMPROBANTE DE VENTA</Text>
+                <Text style={s.docNumero}>N° {numero}</Text>
+                <Text style={s.docAviso}>No válido como factura</Text>
+              </>
+            )}
           </View>
         </View>
 
@@ -227,6 +262,44 @@ export function ComprobanteVentaDocument({
             {esPagoCompleto ? "PAGADO COMPLETO" : `PAGO PARCIAL — SALDO ${formatCurrencyConCentavos(saldoPendiente)}`}
           </Text>
         </View>
+
+        {venta.fiscal && (
+          <>
+            <View style={s.fiscalBox}>
+              <View style={s.fiscalCol}>
+                <Text style={s.fiscalTitulo}>Emisor</Text>
+                <Text style={s.fiscalTexto}>{venta.fiscal.emisor.razonSocial}</Text>
+                <Text style={s.fiscalTexto}>CUIT {venta.fiscal.emisor.cuit}</Text>
+                <Text style={s.fiscalTexto}>{venta.fiscal.emisor.condicion}</Text>
+                <Text style={s.fiscalTexto}>{venta.fiscal.emisor.domicilio}</Text>
+                {venta.fiscal.emisor.ingresosBrutos && <Text style={s.fiscalTexto}>IIBB {venta.fiscal.emisor.ingresosBrutos}</Text>}
+                {venta.fiscal.emisor.inicioActividades && (
+                  <Text style={s.fiscalTexto}>Inicio de actividades {venta.fiscal.emisor.inicioActividades.toLocaleDateString("es-AR")}</Text>
+                )}
+              </View>
+              <View style={s.fiscalCol}>
+                <Text style={s.fiscalTitulo}>Receptor</Text>
+                <Text style={s.fiscalTexto}>{venta.fiscal.receptor.nombre}</Text>
+                <Text style={s.fiscalTexto}>{venta.fiscal.receptor.documento}</Text>
+                <Text style={s.fiscalTexto}>{venta.fiscal.receptor.condicion}</Text>
+                {venta.fiscal.letra === "A" && (
+                  <>
+                    <Text style={[s.fiscalTexto, { marginTop: 4 }]}>Neto gravado {formatCurrencyConCentavos(venta.fiscal.neto)}</Text>
+                    <Text style={s.fiscalTexto}>IVA {formatCurrencyConCentavos(venta.fiscal.iva)}</Text>
+                  </>
+                )}
+              </View>
+              <View style={s.caeBox}>
+                {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                <Image src={venta.fiscal.qrDataUrl} style={s.qr} />
+                <Text style={s.caeTexto}>CAE {venta.fiscal.cae}</Text>
+                <Text style={s.caeSub}>Vto. CAE {venta.fiscal.caeVencimiento.toLocaleDateString("es-AR")}</Text>
+                <Text style={s.caeSub}>Comprobante autorizado por ARCA</Text>
+              </View>
+            </View>
+            {venta.fiscal.enPrueba && <Text style={s.prueba}>COMPROBANTE DE PRUEBA, SIN VALIDEZ FISCAL (homologación de ARCA)</Text>}
+          </>
+        )}
 
         <View style={s.footer}>
           <Text style={s.footerGracias}>Gracias por tu compra</Text>

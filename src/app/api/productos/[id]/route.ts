@@ -194,6 +194,8 @@ export async function PUT(
           precioVenta: nuevoVenta,
           precioMayorista: nuevoMayorista,
           precioOferta: nuevoOferta,
+          // Solo si viene (pantallas que no la muestran no la tocan).
+          ...([0, 2.5, 5, 10.5, 21, 27].includes(Number(body.alicuotaIva)) ? { alicuotaIva: Number(body.alicuotaIva) } : {}),
           fotoUrl: body.fotoUrl !== undefined ? body.fotoUrl : undefined,
         },
       }),

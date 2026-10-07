@@ -118,6 +118,9 @@ export default function ClientesContent({
                   direccion: clienteEditar.direccion ?? "",
                   localidad: clienteEditar.localidad ?? "",
                   esMayorista: clienteEditar.esMayorista,
+                  tipoDocumento: clienteEditar.tipoDocumento,
+                  numeroDocumento: clienteEditar.numeroDocumento ?? "",
+                  condicionIva: clienteEditar.condicionIva ?? "CONSUMIDOR_FINAL",
                 }
               : null
           }
