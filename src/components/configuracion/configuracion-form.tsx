@@ -67,11 +67,7 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
   }
 
   return (
-    <div className="space-y-4 p-4">
-      <div>
-        <h1 className="text-xl font-semibold text-text sm:text-2xl">Configuración</h1>
-        <p className="text-sm text-text-dim">Datos generales del negocio</p>
-      </div>
+    <div className="space-y-4">
 
       <form
         onSubmit={(e) => {

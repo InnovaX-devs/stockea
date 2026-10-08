@@ -33,6 +33,9 @@ export default function ClienteForm({
     direccion: clienteInicial?.direccion ?? "",
     localidad: clienteInicial?.localidad ?? "",
     esMayorista: clienteInicial?.esMayorista ?? false,
+    tipoDocumento: clienteInicial?.tipoDocumento ?? null,
+    numeroDocumento: clienteInicial?.numeroDocumento ?? "",
+    condicionIva: clienteInicial?.condicionIva ?? "CONSUMIDOR_FINAL",
   });
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -139,6 +142,54 @@ export default function ClienteForm({
           className="mt-1 w-full border border-border rounded-lg px-3 py-2 text-sm"
         />
       </div>
+
+      {/* Datos para facturar (opcionales): sin documento se factura como Consumidor Final. */}
+      <fieldset className="space-y-3 rounded-lg border border-border p-3">
+        <legend className="px-1 text-[11px] font-bold uppercase tracking-wider text-text-dim">
+          Datos para facturar (opcional)
+        </legend>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[140px_1fr]">
+          <select
+            value={values.tipoDocumento ?? ""}
+            onChange={(e) =>
+              update("tipoDocumento", (e.target.value || null) as ClienteInput["tipoDocumento"])
+            }
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm"
+            aria-label="Tipo de documento"
+          >
+            <option value="">Sin documento</option>
+            <option value="DNI">DNI</option>
+            <option value="CUIT">CUIT</option>
+            <option value="CUIL">CUIL</option>
+          </select>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={values.numeroDocumento ?? ""}
+            onChange={(e) => update("numeroDocumento", e.target.value)}
+            disabled={!values.tipoDocumento}
+            placeholder={values.tipoDocumento === "DNI" ? "Ej. 30123456" : values.tipoDocumento ? "Ej. 20-30123456-7" : "Elegí el tipo de documento"}
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm disabled:opacity-50"
+            aria-label="Número de documento"
+          />
+        </div>
+        {(values.tipoDocumento === "CUIT" || values.tipoDocumento === "CUIL") && (
+          <select
+            value={values.condicionIva ?? "CONSUMIDOR_FINAL"}
+            onChange={(e) => update("condicionIva", e.target.value as ClienteInput["condicionIva"])}
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm"
+            aria-label="Condición frente al IVA"
+          >
+            <option value="CONSUMIDOR_FINAL">Consumidor final</option>
+            <option value="MONOTRIBUTO">Monotributista</option>
+            <option value="RESPONSABLE_INSCRIPTO">Responsable inscripto</option>
+            <option value="EXENTO">Exento</option>
+          </select>
+        )}
+        <p className="text-xs text-text-dim">
+          Sin documento, el cliente se factura como Consumidor Final.
+        </p>
+      </fieldset>
 
       <label className="flex items-center gap-2 text-sm cursor-pointer text-text">
         <input

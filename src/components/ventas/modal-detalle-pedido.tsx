@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 import type { EstadoPago } from "@prisma/client";
 import type { PedidoDetalle } from "@/types/venta";
 import { ModalCobrarPedido } from "./modal-cobrar-pedido";
+import { facturacionParaVenta, facturaDeVenta, facturarVenta, type ResumenFactura } from "@/app/(dashboard)/ventas/facturacion-actions";
 
 const ESTADO_STYLE: Record<EstadoPago, string> = {
   PAGADA: "bg-success/10 text-success",
@@ -43,9 +44,11 @@ interface Props {
   pedidoId: number;
   onClose: () => void;
   onCambio?: () => void;
+  /** "Venta" cuando se abre desde fuera de Pedidos (por ejemplo, el historial de deuda). */
+  titulo?: "Pedido" | "Venta";
 }
 
-export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
+export function ModalDetallePedido({ pedidoId, onClose, onCambio, titulo = "Pedido" }: Props) {
   const [pedido, setPedido] = useState<PedidoDetalle | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +57,28 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
   const [cancelando, setCancelando] = useState(false);
   const [usaCotizacionUSD, setUsaCotizacionUSD] = useState(false);
+
+  // Facturación electrónica: un pedido se puede facturar antes de cobrarlo.
+  const [factura, setFactura] = useState<ResumenFactura | null>(null);
+  const [puedeFacturar, setPuedeFacturar] = useState(false);
+  const [facturando, setFacturando] = useState(false);
+  useEffect(() => {
+    facturacionParaVenta().then((f) => setPuedeFacturar(f.disponible)).catch(() => {});
+    facturaDeVenta(pedidoId).then(setFactura).catch(() => {});
+  }, [pedidoId]);
+
+  async function handleFacturar() {
+    setFacturando(true);
+    let r = await facturarVenta(pedidoId);
+    if (!r.success && /identificar al comprador/.test(r.error)) {
+      const dni = window.prompt(`${r.error}\n\nDNI del comprador:`);
+      if (dni?.trim()) r = await facturarVenta(pedidoId, { tipo: "DNI", numero: dni });
+    }
+    setFacturando(false);
+    if (r.factura) setFactura(r.factura);
+    if (r.success) toast.success(`${r.factura.nombre} ${r.factura.numero} emitida`);
+    else toast.error(r.error, { duration: 10000 });
+  }
 
   useEffect(() => {
     fetch("/api/configuracion")
@@ -126,6 +151,11 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
       return;
     }
     toast.success(`Pedido #${pedidoId} cancelado`);
+    // Si tenía factura: resultado de la nota de crédito.
+    if (resultado.notaCredito) {
+      if (resultado.notaCredito.ok) toast.success(resultado.notaCredito.mensaje);
+      else toast.error(resultado.notaCredito.mensaje, { duration: 10000 });
+    }
     onCambio?.();
     onClose();
   }
@@ -149,7 +179,9 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
         <div className="flex items-start justify-between border-b border-border p-5">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-text">Pedido #{pedidoId}</h2>
+              <h2 className="text-lg font-semibold text-text">
+                {titulo} #{pedidoId}
+              </h2>
               {pedido && (
                 <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", ESTADO_STYLE[pedido.estadoPago])}>
                   {ESTADO_LABEL[pedido.estadoPago]}
@@ -333,6 +365,29 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio }: Props) {
             </div>
           )}
             <div className="flex items-center justify-end gap-2">
+              {factura?.estado === "AUTORIZADO" ? (
+                <span className="mr-auto rounded-full bg-success/10 px-2.5 py-1 font-mono text-xs font-semibold text-success" title={`CAE ${factura.cae}`}>
+                  {factura.letra} {factura.numero}
+                </span>
+              ) : (
+                puedeFacturar &&
+                pedido?.estadoPago !== "CANCELADA" &&
+                pedido?.estadoPago !== "ANULADA" && (
+                  <button
+                    type="button"
+                    onClick={handleFacturar}
+                    disabled={facturando}
+                    title={factura?.error ?? "Emitir factura electrónica"}
+                    className={cn(
+                      "mr-auto flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium disabled:opacity-50",
+                      factura ? "border-danger/40 text-danger hover:bg-danger/5" : "border-border text-text hover:bg-surface-hover"
+                    )}
+                  >
+                    {facturando && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {factura ? "Reintentar factura" : "Facturar"}
+                  </button>
+                )
+              )}
               <button
                 type="button"
                 onClick={descargarComprobante}

@@ -12,6 +12,9 @@ export type ClienteConDeuda = {
   direccion: string | null;
   localidad: string | null;
   esMayorista: boolean;
+  tipoDocumento: "CUIT" | "CUIL" | "DNI" | null;
+  numeroDocumento: string | null;
+  condicionIva: "CONSUMIDOR_FINAL" | "MONOTRIBUTO" | "RESPONSABLE_INSCRIPTO" | "EXENTO" | null;
   deuda: number;
 };
 
@@ -44,6 +47,9 @@ const SELECT_BASE = {
   direccion: true,
   localidad: true,
   esMayorista: true,
+  tipoDocumento: true,
+  numeroDocumento: true,
+  condicionIva: true,
 } satisfies Prisma.ClienteSelect;
 
 const ORDEN_NOMBRE_MAP: Record<string, Prisma.ClienteOrderByWithRelationInput> = {
@@ -210,6 +216,10 @@ export type EventoHistorialDeuda = {
   ventaId: number;
   saldoAntes: number;
   saldoDespues: number;
+  /** Ajuste manual de deuda (no es una venta real: sin detalle ni factura). */
+  esAjuste: boolean;
+  /** Factura electrónica autorizada de la venta (solo en eventos "venta"). */
+  factura: { letra: string; numero: string } | null;
 };
 
 function labelMedioPago(tipoCuenta: string) {
@@ -229,6 +239,12 @@ export async function getHistorialDeuda(clienteId: number): Promise<EventoHistor
     include: {
       items: { select: { descripcionLibre: true } },
       pagos: { include: { cuenta: { select: { tipo: true } } } },
+      comprobantes: {
+        where: { estado: "AUTORIZADO", tipo: { in: [1, 6, 11] } },
+        orderBy: { id: "desc" },
+        take: 1,
+        select: { tipo: true, puntoVenta: true, numero: true },
+      },
     },
     orderBy: { fecha: "asc" },
   });
@@ -240,6 +256,7 @@ export async function getHistorialDeuda(clienteId: number): Promise<EventoHistor
     const esAjuste =
       venta.items.length === 1 && venta.items[0].descripcionLibre === "Ajuste manual de deuda";
 
+    const f = venta.comprobantes[0];
     eventos.push({
       fecha: venta.fecha,
       monto: Math.round(venta.totalARS),
@@ -247,6 +264,14 @@ export async function getHistorialDeuda(clienteId: number): Promise<EventoHistor
       label: esAjuste ? "Ajuste manual" : "Venta a cuenta",
       sublabel: esAjuste ? "Aumento de deuda" : `Venta #${venta.id}`,
       ventaId: venta.id,
+      esAjuste,
+      factura:
+        f && f.numero != null
+          ? {
+              letra: ({ 1: "A", 6: "B", 11: "C" } as Record<number, string>)[f.tipo] ?? "",
+              numero: `${String(f.puntoVenta).padStart(5, "0")}-${String(f.numero).padStart(8, "0")}`,
+            }
+          : null,
     });
 
     for (const pago of venta.pagos) {
@@ -258,6 +283,8 @@ export async function getHistorialDeuda(clienteId: number): Promise<EventoHistor
         label: "Pago recibido",
         sublabel: labelMedioPago(pago.cuenta.tipo),
         ventaId: venta.id,
+        esAjuste,
+        factura: null,
       });
     }
   }

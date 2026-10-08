@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { listarVentas } from "@/app/(dashboard)/ventas/actions"; // ajustá el path según donde queden las actions
+import { emitirNotaCredito, facturacionParaVenta, facturarVenta } from "@/app/(dashboard)/ventas/facturacion-actions";
+import { anularVenta } from "@/app/(dashboard)/ventas/actions";
+import { useEsAdmin } from "@/components/layout/rol-context";
+import { toast } from "sonner";
 import type { EstadoPago } from "@prisma/client";
 import type { FiltroEstado, VentaListItem } from "@/types/venta";
 import { Search, RefreshCw, Download, Loader2, X, Plus } from "lucide-react";
@@ -65,6 +69,57 @@ export function HistorialVentas() {
   const [orden, setOrden] = useState<"MAS_NUEVO" | "MAS_VIEJO">("MAS_NUEVO");
   const [page, setPage] = useState(1);
   const [descargando, setDescargando] = useState<number | null>(null);
+  // Facturación electrónica (si el negocio la tiene activada).
+  const [puedeFacturar, setPuedeFacturar] = useState(false);
+  const [facturando, setFacturando] = useState<number | null>(null);
+  useEffect(() => {
+    facturacionParaVenta().then((f) => setPuedeFacturar(f.disponible)).catch(() => {});
+  }, []);
+
+  async function facturar(ventaId: number) {
+    setFacturando(ventaId);
+    let r = await facturarVenta(ventaId);
+    if (!r.success && /identificar al comprador/.test(r.error)) {
+      const dni = window.prompt(`${r.error}\n\nDNI del comprador:`);
+      if (dni?.trim()) r = await facturarVenta(ventaId, { tipo: "DNI", numero: dni });
+    }
+    setFacturando(null);
+    if (r.success) toast.success(`${r.factura.nombre} ${r.factura.numero} emitida`);
+    else toast.error(r.error, { duration: 10000 });
+    await cargar(true);
+  }
+
+  // Anular (solo admin): devuelve plata y stock; si tenía factura, nota de crédito.
+  const esAdmin = useEsAdmin();
+  async function anular(venta: VentaListItem) {
+    const conFactura = venta.factura?.estado === "AUTORIZADO";
+    if (!confirm(`¿Anular la venta #${venta.id}? Se devuelve la plata a la cuenta y los productos al stock.${conFactura ? " Como tiene factura, se va a emitir una nota de crédito." : ""}`)) return;
+    setFacturando(venta.id);
+    let r = await anularVenta(venta.id);
+    if (!r.success && r.codigo === "SALDO_NEGATIVO") {
+      if (confirm(`${r.error} ¿Anular igual?`)) r = await anularVenta(venta.id, { forzar: true });
+    }
+    setFacturando(null);
+    if (!r.success) {
+      if (r.codigo !== "SALDO_NEGATIVO") toast.error(r.error);
+    } else {
+      toast.success(`Venta #${venta.id} anulada`);
+      if (r.notaCredito) {
+        if (r.notaCredito.ok) toast.success(r.notaCredito.mensaje);
+        else toast.error(r.notaCredito.mensaje, { duration: 10000 });
+      }
+    }
+    await cargar(true);
+  }
+
+  async function notaCredito(ventaId: number) {
+    setFacturando(ventaId);
+    const r = await emitirNotaCredito(ventaId);
+    setFacturando(null);
+    if (r.success) toast.success(r.mensaje);
+    else toast.error(r.mensaje, { duration: 10000 });
+    await cargar(true);
+  }
 
   const hayFiltrosActivos =
     estado !== "TODOS" || clienteTexto !== "" || !!fechaDesde || !!fechaHasta;
@@ -294,6 +349,15 @@ export function HistorialVentas() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-2">
+                        <AccionesFactura
+                          venta={venta}
+                          puedeFacturar={puedeFacturar}
+                          ocupado={facturando === venta.id}
+                          onFacturar={() => facturar(venta.id)}
+                          onNotaCredito={() => notaCredito(venta.id)}
+                          onAnular={esAdmin ? () => anular(venta) : undefined}
+                        />
                         <button
                           type="button"
                           onClick={() => descargarComprobante(venta.id)}
@@ -307,6 +371,7 @@ export function HistorialVentas() {
                             <Download className="h-4 w-4" />
                           )}
                         </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -354,6 +419,15 @@ export function HistorialVentas() {
                     <p className="text-xs text-text-dim">{formatoFecha.format(new Date(venta.fecha))}</p>
                   </div>
 
+                  <div className="mt-2 flex items-center justify-end gap-2">
+                  <AccionesFactura
+                    venta={venta}
+                    puedeFacturar={puedeFacturar}
+                    ocupado={facturando === venta.id}
+                    onFacturar={() => facturar(venta.id)}
+                    onNotaCredito={() => notaCredito(venta.id)}
+                    onAnular={esAdmin ? () => anular(venta) : undefined}
+                  />
                   <button
                     type="button"
                     onClick={() => descargarComprobante(venta.id)}
@@ -367,6 +441,7 @@ export function HistorialVentas() {
                     )}
                     Comprobante
                   </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -402,5 +477,85 @@ export function HistorialVentas() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Factura / nota de crédito de una venta en el historial (escritorio y celular). */
+function AccionesFactura({
+  venta,
+  puedeFacturar,
+  ocupado,
+  onFacturar,
+  onNotaCredito,
+  onAnular,
+}: {
+  venta: VentaListItem;
+  puedeFacturar: boolean;
+  ocupado: boolean;
+  onFacturar: () => void;
+  onNotaCredito: () => void;
+  /** Solo admin. */
+  onAnular?: () => void;
+}) {
+  const anulada = venta.estado === "ANULADA" || venta.estado === "CANCELADA";
+  const botonAnular =
+    onAnular && !anulada ? (
+      <button
+        type="button"
+        onClick={onAnular}
+        disabled={ocupado}
+        title="Anular venta"
+        className="inline-flex h-8 items-center rounded-lg border border-border px-2.5 text-xs font-medium text-text-dim hover:border-danger/40 hover:text-danger disabled:opacity-50"
+      >
+        Anular
+      </button>
+    ) : null;
+  const f = venta.factura;
+  const nc = venta.notaCredito;
+  const etiqueta = "rounded-full px-2 py-0.5 font-mono text-[11px] font-semibold";
+  const boton = "inline-flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-medium disabled:opacity-50";
+
+  if (f?.estado === "AUTORIZADO") {
+    return (
+      <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
+        <span className={cn(etiqueta, anulada ? "bg-surface-hover text-text-dim line-through" : "bg-success/10 text-success")} title="Factura electrónica">
+          {f.letra} {f.numero}
+        </span>
+        {anulada &&
+          (nc?.estado === "AUTORIZADO" ? (
+            <span className={cn(etiqueta, "bg-warning/10 text-warning")} title="Nota de crédito emitida">
+              NC {nc.numero}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={onNotaCredito}
+              disabled={ocupado}
+              title={nc?.error ?? "La venta se anuló pero falta la nota de crédito en ARCA"}
+              className={cn(boton, "border-danger/40 text-danger hover:bg-danger/5")}
+            >
+              {ocupado && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Emitir nota de crédito
+            </button>
+          ))}
+        {botonAnular}
+      </span>
+    );
+  }
+  if (!puedeFacturar || anulada) return botonAnular;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+    {botonAnular}
+    <button
+      type="button"
+      onClick={onFacturar}
+      disabled={ocupado}
+      title={f?.error ?? "Emitir factura electrónica"}
+      className={cn(boton, f ? "border-danger/40 text-danger hover:bg-danger/5" : "border-border text-text hover:bg-surface-hover")}
+    >
+      {ocupado && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+      {f ? "Reintentar factura" : "Facturar"}
+    </button>
+    </span>
   );
 }

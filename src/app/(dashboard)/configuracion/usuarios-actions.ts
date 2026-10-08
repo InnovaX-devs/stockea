@@ -74,7 +74,7 @@ export async function crearEmpleado(input: { nombre: string; email: string; pass
       },
     });
 
-    revalidatePath("/configuracion");
+    revalidatePath("/configuracion", "layout");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "No se pudo crear el empleado." };
@@ -109,7 +109,7 @@ export async function eliminarEmpleado(): Promise<Resultado> {
     // no afecta ningún dato. Su sesión se corta sola en el próximo request
     // (ver obtenerUsuarioActualOpcional).
     await prisma.usuario.deleteMany({ where: { empresaId: admin.empresaId, rol: "EMPLEADO" } });
-    revalidatePath("/configuracion");
+    revalidatePath("/configuracion", "layout");
     return { success: true };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "No se pudo eliminar el empleado." };

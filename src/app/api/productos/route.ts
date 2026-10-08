@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
       precioVenta: true,
       precioMayorista: true,
       precioOferta: true,
+      alicuotaIva: true,
       activo: true,
       marcaId: true,
       categoriaId: true,
@@ -172,6 +173,8 @@ export async function POST(request: NextRequest) {
       ? Number(body.precioMayorista) 
       : null;
 
+    // IVA del producto (Factura A/B). Si no viene o no es válido, 21%.
+    const alicuotaIva = [0, 2.5, 5, 10.5, 21, 27].includes(Number(body.alicuotaIva)) ? Number(body.alicuotaIva) : 21;
     const precioOferta = body.precioOferta !== undefined && body.precioOferta !== "" && body.precioOferta !== null
       ? Number(body.precioOferta) 
       : null;
@@ -252,6 +255,7 @@ export async function POST(request: NextRequest) {
         precioVenta,
         precioMayorista,
         precioOferta,
+        alicuotaIva,
         fotoUrl: body.fotoUrl || null,
         activo: true,
       },
