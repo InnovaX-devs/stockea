@@ -3,11 +3,9 @@
 Documentación interna (Innovax). Cómo está armada la facturación electrónica de
 Stockea, cómo probarla y qué cuidar.
 
-> **Estado:** etapas 1, 2 y 3 terminadas. Conexión probada contra ARCA homologación
-> (CUIT 20460353492, punto de venta 1). La emisión (etapa 3) está probada contra un ARCA
-> simulado; falta la primera factura real en homologación.
-> Las notas de crédito (etapa 4) todavía no están: mientras tanto, **una venta facturada no
-> se puede anular ni cancelar** desde Stockea.
+> **Estado:** etapas 1 a 4 terminadas. Conexión y primera Factura C probadas contra ARCA
+> homologación (CUIT 20460353492, punto de venta 1, CAE 86400963581228). Las notas de
+> crédito (etapa 4) están probadas contra un ARCA simulado; falta la primera NC real.
 
 ---
 
@@ -161,12 +159,25 @@ Flujo: la venta se guarda → `facturarVenta(ventaId)` → `prepararFacturaDeVen
   `https://www.afip.gob.ar/fe/qr/`.
 - **PDF:** `/api/ventas/[id]/comprobante` agrega emisor, receptor, CAE, vencimiento y QR si
   la venta tiene factura AUTORIZADA. En homologación dice "SIN VALIDEZ FISCAL".
-- **Anular:** bloqueado para ventas facturadas hasta la etapa 4.
+- **Anular:** ver §9 (nota de crédito).
 
-## 9. Lo que falta
+## 9. Notas de crédito y comprobantes (etapa 4)
 
-- **Primera factura real en homologación** (activar en el paso 4, vender con "Emitir
-  factura" y revisar el PDF; el QR se puede verificar escaneándolo).
-- **Etapa 4:** notas de crédito automáticas al anular una venta facturada y listado de
-  comprobantes emitidos.
-- **Aviso de vencimiento** del certificado (unos 30 días antes).
+- Al **anular una venta** o **cancelar un pedido** con factura autorizada: primero se anula
+  (transacción normal, con el aviso de saldo negativo) y **después**, fuera de la
+  transacción, `notaCreditoTrasAnular` emite la NC (3/8/13 según la letra) con
+  `CbtesAsoc` apuntando a la factura. Mismo receptor e importes que la factura.
+- Si la NC falla, la venta queda anulada y el historial muestra **"Emitir nota de
+  crédito"** (`emitirNotaCredito`). Misma protección que las facturas: si se cortó la
+  conexión, al reintentar consulta a ARCA antes de pedir otro número.
+- Factura de **homologación** y negocio ya en **producción**: se anula sin NC (nunca fue real).
+- **Comprobantes** (Ventas → Comprobantes, solo admin): facturas y NC por período, NC en
+  negativo, totales y exportación CSV (separador `;`, para Excel en español).
+- **Vencimiento del certificado:** aviso desde 30 días antes en Configuración y en Nueva
+  venta; vencido, no deja facturar.
+
+## 10. Lo que falta
+
+- Primera **nota de crédito real** en homologación (anular la venta de la Factura C N.º 1).
+- Pasar a **producción** con el primer cliente y actualizar los nombres de los menús de ARCA
+  en esta guía y en `guia-arca.tsx`.

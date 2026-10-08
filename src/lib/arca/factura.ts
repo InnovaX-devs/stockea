@@ -201,6 +201,13 @@ export async function emitirComprobante(empresaId: number, comprobanteId: number
   if (comp.estado === "AUTORIZADO") return comp;
 
   const { auth, entorno } = await obtenerAuth(empresaId);
+  // Nota de crédito: datos de la factura que anula.
+  let asociado: { tipo: number; puntoVenta: number; numero: number; cuit: string; fecha: string } | null = null;
+  if (comp.comprobanteAsociadoId) {
+    const factura = await prisma.comprobante.findUniqueOrThrow({ where: { id: comp.comprobanteAsociadoId } });
+    if (factura.numero == null) throw new FacturaError("La factura asociada no tiene número.");
+    asociado = { tipo: factura.tipo, puntoVenta: factura.puntoVenta, numero: factura.numero, cuit: auth.cuit, fecha: fechaArca(factura.fecha) };
+  }
   if (comp.entorno !== entorno) {
     throw new FacturaError("El comprobante es de otro entorno (prueba/producción). Volvé a facturar la venta.");
   }
@@ -239,6 +246,7 @@ export async function emitirComprobante(empresaId: number, comprobanteId: number
         importeNeto: comp.importeNeto,
         importeIva: comp.importeIva,
         alicuotas: (comp.detalleIva as AlicuotaIva[] | null) ?? [],
+        asociado,
       });
     } catch (e) {
       // Sin respuesta: queda PENDIENTE con su número para consultarlo al reintentar.
@@ -262,6 +270,94 @@ export async function emitirComprobante(empresaId: number, comprobanteId: number
     });
   }
   return prisma.comprobante.findUniqueOrThrow({ where: { id: comp.id } });
+}
+
+/** Nota de crédito que corresponde a cada factura. */
+const NC_DE: Record<number, number> = {
+  [TIPO_COMPROBANTE.FACTURA_A]: TIPO_COMPROBANTE.NOTA_CREDITO_A,
+  [TIPO_COMPROBANTE.FACTURA_B]: TIPO_COMPROBANTE.NOTA_CREDITO_B,
+  [TIPO_COMPROBANTE.FACTURA_C]: TIPO_COMPROBANTE.NOTA_CREDITO_C,
+};
+export const TIPOS_FACTURA = [1, 6, 11];
+export const TIPOS_NOTA_CREDITO = [3, 8, 13];
+
+type NotaPreparada = { omitida: true; motivo: string } | { omitida: false; comprobanteId: number; yaAutorizada: boolean };
+
+/**
+ * Prepara la nota de crédito de una venta anulada que tenía factura.
+ * - Sin factura autorizada: no hace falta (null).
+ * - Factura de PRUEBA y el negocio ya está en PRODUCCIÓN: se omite (esa factura nunca fue real).
+ * - Si ya hay una nota de crédito autorizada para esa factura, se devuelve esa (no se duplica).
+ * No requiere tener la facturación "activada": anular siempre tiene que poder hacerse.
+ */
+export async function prepararNotaCreditoDeVenta(empresaId: number, ventaId: number): Promise<NotaPreparada | null> {
+  const factura = await prisma.comprobante.findFirst({
+    where: { ventaId, empresaId, estado: "AUTORIZADO", tipo: { in: TIPOS_FACTURA } },
+    orderBy: { id: "desc" },
+    include: { notasCredito: true },
+  });
+  if (!factura) return null;
+
+  const config = await prisma.configuracion.findUniqueOrThrow({ where: { empresaId } });
+  if (factura.entorno === "HOMOLOGACION" && config.arcaEntorno === "PRODUCCION") {
+    return { omitida: true, motivo: "La factura era de prueba: no necesita nota de crédito." };
+  }
+  if (factura.entorno !== config.arcaEntorno) {
+    throw new FacturaError("La factura se emitió en producción: volvé a ese entorno para emitir la nota de crédito.");
+  }
+  if (!config.arcaCertificado) throw new FacturaError("Falta el certificado de ARCA para emitir la nota de crédito.");
+
+  const autorizada = factura.notasCredito.find((n) => n.estado === "AUTORIZADO");
+  if (autorizada) return { omitida: false, comprobanteId: autorizada.id, yaAutorizada: true };
+  const pendienteConNumero = factura.notasCredito.find((n) => n.estado === "PENDIENTE" && n.numero != null);
+  if (pendienteConNumero) return { omitida: false, comprobanteId: pendienteConNumero.id, yaAutorizada: false };
+
+  const datos = {
+    estado: "PENDIENTE" as const,
+    entorno: factura.entorno,
+    tipo: NC_DE[factura.tipo],
+    puntoVenta: factura.puntoVenta,
+    fecha: new Date(),
+    docTipo: factura.docTipo,
+    docNro: factura.docNro,
+    receptorNombre: factura.receptorNombre,
+    condicionIvaReceptor: factura.condicionIvaReceptor,
+    importeTotal: factura.importeTotal,
+    importeNeto: factura.importeNeto,
+    importeIva: factura.importeIva,
+    detalleIva: factura.detalleIva ?? undefined,
+    comprobanteAsociadoId: factura.id,
+    error: null,
+  };
+  const reutilizable = factura.notasCredito.find((n) => n.estado !== "AUTORIZADO");
+  const nc = reutilizable
+    ? await prisma.comprobante.update({ where: { id: reutilizable.id }, data: { ...datos, numero: null } })
+    : await prisma.comprobante.create({ data: { ...datos, empresaId, ventaId } });
+  return { omitida: false, comprobanteId: nc.id, yaAutorizada: false };
+}
+
+/**
+ * Después de anular una venta: emite su nota de crédito si tenía factura.
+ * Nunca lanza: devuelve un mensaje para mostrar (éxito o motivo del fallo).
+ */
+export async function notaCreditoTrasAnular(empresaId: number, ventaId: number): Promise<{ ok: boolean; mensaje: string } | null> {
+  try {
+    const preparada = await prepararNotaCreditoDeVenta(empresaId, ventaId);
+    if (!preparada) return null;
+    if (preparada.omitida) return { ok: true, mensaje: preparada.motivo };
+    const nc = preparada.yaAutorizada
+      ? await prisma.comprobante.findUniqueOrThrow({ where: { id: preparada.comprobanteId } })
+      : await emitirComprobante(empresaId, preparada.comprobanteId);
+    if (nc.estado === "AUTORIZADO" && nc.numero != null) {
+      return { ok: true, mensaje: `${NOMBRE_TIPO[nc.tipo] ?? "Nota de crédito"} ${numeroFormateado(nc.puntoVenta, nc.numero)} emitida.` };
+    }
+    return { ok: false, mensaje: `ARCA rechazó la nota de crédito: ${nc.error ?? "sin motivo"}. Reintentala desde el historial.` };
+  } catch (e) {
+    return {
+      ok: false,
+      mensaje: `No se pudo emitir la nota de crédito (${e instanceof Error ? e.message : "error"}). Reintentala desde el historial.`,
+    };
+  }
 }
 
 /** Contenido del QR que exige ARCA (especificación del QR de comprobantes). */

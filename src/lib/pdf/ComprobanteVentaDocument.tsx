@@ -279,7 +279,7 @@ export function ComprobanteVentaDocument({
               </View>
               <View style={s.fiscalCol}>
                 <Text style={s.fiscalTitulo}>Receptor</Text>
-                <Text style={s.fiscalTexto}>{venta.fiscal.receptor.nombre}</Text>
+                {venta.fiscal.receptor.nombre ? <Text style={s.fiscalTexto}>{venta.fiscal.receptor.nombre}</Text> : null}
                 <Text style={s.fiscalTexto}>{venta.fiscal.receptor.documento}</Text>
                 <Text style={s.fiscalTexto}>{venta.fiscal.receptor.condicion}</Text>
                 {venta.fiscal.letra === "A" && (

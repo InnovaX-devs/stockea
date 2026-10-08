@@ -82,6 +82,8 @@ export type PedidoCae = {
   importeNeto: number;
   importeIva: number;
   alicuotas: AlicuotaIva[]; // vacío en Factura C
+  /** Nota de crédito: la factura que anula. */
+  asociado?: { tipo: number; puntoVenta: number; numero: number; cuit: string; fecha: string } | null;
 };
 
 export type RespuestaCae =
@@ -107,6 +109,11 @@ export async function solicitarCae(entorno: Entorno, auth: Auth, p: PedidoCae): 
     `<ar:ImpTrib>0.00</ar:ImpTrib><ar:ImpIVA>${n2(p.importeIva)}</ar:ImpIVA>` +
     `<ar:MonId>PES</ar:MonId><ar:MonCotiz>1</ar:MonCotiz>` +
     `<ar:CondicionIVAReceptorId>${p.condicionIvaReceptor}</ar:CondicionIVAReceptorId>` +
+    // El orden lo fija ARCA: CbtesAsoc va después de la condición y antes del IVA.
+    (p.asociado
+      ? `<ar:CbtesAsoc><ar:CbteAsoc><ar:Tipo>${p.asociado.tipo}</ar:Tipo><ar:PtoVta>${p.asociado.puntoVenta}</ar:PtoVta>` +
+        `<ar:Nro>${p.asociado.numero}</ar:Nro><ar:Cuit>${p.asociado.cuit}</ar:Cuit><ar:CbteFch>${p.asociado.fecha}</ar:CbteFch></ar:CbteAsoc></ar:CbtesAsoc>`
+      : "") +
     iva;
   const r = await llamar(
     entorno,

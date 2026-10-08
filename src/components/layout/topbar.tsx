@@ -4,12 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { ChevronDown, Check, X as XIcon, Settings, House, Menu, X } from "lucide-react";
+import { ChevronDown, Check, X as XIcon, House, Menu, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
 import { NAV_ITEMS, esGrupo, type NavGroup } from "@/lib/nav-items";
 import { actualizarCotizacionRapida } from "@/app/(dashboard)/configuracion/actions";
 import { MenuUsuario } from "@/components/layout/menu-usuario";
+import { MenuConfiguracion } from "@/components/layout/menu-configuracion";
 import { INICIO_EMPLEADO, puedeVerEnMenu, type Rol } from "@/lib/permisos";
 
 // Clases compartidas por los ítems de nav, pensadas para la topbar oscura
@@ -103,9 +104,6 @@ export function Topbar({
   const [editando, setEditando] = useState(false);
   const [valor, setValor] = useState(String(cotizacionUSD));
   const [pendiente, startTransition] = useTransition();
-
-  const configuracionActiva =
-    pathname === "/configuracion" || pathname?.startsWith("/configuracion/");
 
   const cotizacionFormateada = new Intl.NumberFormat("es-AR", {
     minimumFractionDigits: 0,
@@ -286,21 +284,7 @@ export function Topbar({
           </button>
         ))}
 
-        {esAdmin && (
-        <Link
-          href="/configuracion"
-          className={
-            configuracionActiva
-              ? "flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border border-primary-soft bg-primary-soft/15 text-primary-soft"
-              : "flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border border-white/10 bg-white/[0.04] text-white hover:text-white"
-          }
-          title="Configuración"
-          aria-label="Configuración"
-          aria-current={configuracionActiva ? "page" : undefined}
-        >
-          <Settings className="h-4 w-4" />
-        </Link>
-        )}
+        {esAdmin && <MenuConfiguracion />}
 
         {/* Quién está usando el sistema: cambio de usuario, contraseña y salir. */}
         <MenuUsuario nombre={usuarioNombre} rol={rol} otroUsuario={otroUsuario} />

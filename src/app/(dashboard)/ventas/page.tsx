@@ -249,7 +249,7 @@ function NuevaVentaContenido() {
 
   // Facturación electrónica (opcional): el interruptor aparece solo si el
   // negocio la tiene activada. La factura se pide DESPUÉS de guardar la venta.
-  const [facturacion, setFacturacion] = useState<{ disponible: boolean; enPrueba: boolean } | null>(null);
+  const [facturacion, setFacturacion] = useState<{ disponible: boolean; enPrueba: boolean; diasCertificado: number | null } | null>(null);
   const [emitirFactura, setEmitirFactura] = useState(false);
   useEffect(() => {
     facturacionParaVenta()
@@ -361,6 +361,14 @@ function NuevaVentaContenido() {
               onAbrirDescuento={() => setModalDescuentoAbierto(true)}
             />
             <div className="flex flex-col justify-end gap-2">
+              {facturacion?.diasCertificado != null && facturacion.diasCertificado <= 30 && (
+                <p className="rounded-lg bg-warning/10 px-3 py-2 text-xs text-text">
+                  {facturacion.diasCertificado < 0
+                    ? "El certificado de ARCA venció: no se pueden emitir facturas."
+                    : `El certificado de ARCA vence en ${facturacion.diasCertificado} día${facturacion.diasCertificado === 1 ? "" : "s"}.`}{" "}
+                  {esAdmin ? "Renovalo en Configuración → Facturación." : "Avisale al administrador."}
+                </p>
+              )}
               {facturacion?.disponible && (
                 <label className="flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm text-text">
                   <span>

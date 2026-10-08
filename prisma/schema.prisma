@@ -728,6 +728,11 @@ model Comprobante {
   error          String?  // último error de ARCA (rechazo o falla de conexión)
   intentos       Int      @default(0)
 
+  // Nota de crédito → factura que anula.
+  comprobanteAsociado   Comprobante?  @relation("NotaCredito", fields: [comprobanteAsociadoId], references: [id])
+  comprobanteAsociadoId Int?
+  notasCredito          Comprobante[] @relation("NotaCredito")
+
   venta     Venta?  @relation(fields: [ventaId], references: [id])
   ventaId   Int?
   empresa   Empresa @relation(fields: [empresaId], references: [id])
@@ -736,4 +741,5 @@ model Comprobante {
   @@unique([empresaId, entorno, puntoVenta, tipo, numero])
   @@index([ventaId])
   @@index([empresaId, createdAt])
+  @@index([comprobanteAsociadoId])
 }

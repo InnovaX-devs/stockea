@@ -215,6 +215,18 @@ export function FacturacionSection({ estado }: { estado: EstadoFacturacion }) {
               <button type="button" onClick={generarCsr} disabled={pendiente} className={BOTON_SEC}>
                 Reemplazar certificado
               </button>
+              {estado.certificadoVence && (() => {
+                const dias = Math.floor((new Date(estado.certificadoVence).getTime() - Date.now()) / 864e5);
+                if (dias > 30) return null;
+                return (
+                  <p className="w-full rounded-lg bg-warning/10 px-3 py-2 text-xs text-text">
+                    {dias < 0
+                      ? "El certificado venció: no se pueden emitir facturas hasta cargar uno nuevo."
+                      : `El certificado vence en ${dias} día${dias === 1 ? "" : "s"}.`}{" "}
+                    Tocá &quot;Reemplazar certificado&quot; y repetí el paso en ARCA (la guía de arriba explica cómo).
+                  </p>
+                );
+              })()}
             </div>
           ) : (
             <div className="space-y-3">

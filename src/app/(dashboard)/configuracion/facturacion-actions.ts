@@ -107,7 +107,7 @@ export async function guardarDatosFiscales(input: {
           : {}),
       },
     });
-    revalidatePath("/configuracion");
+    revalidatePath("/configuracion", "layout");
     return { success: true };
   } catch (e) {
     return { success: false, error: mensaje(e, "No se pudieron guardar los datos fiscales.") };
@@ -134,7 +134,7 @@ export async function generarSolicitudCertificado(): Promise<{ success: true; cs
         facturacionHabilitada: false,
       },
     });
-    revalidatePath("/configuracion");
+    revalidatePath("/configuracion", "layout");
     return { success: true, csr: csrPem };
   } catch (e) {
     return { success: false, error: mensaje(e, "No se pudo generar la solicitud de certificado.") };
@@ -155,7 +155,7 @@ export async function guardarCertificado(certificadoPem: string): Promise<Result
       where: { empresaId: admin.empresaId },
       data: { arcaCertificado: certificadoPem.trim(), arcaCertificadoVence: vence, arcaToken: null, arcaSign: null, arcaTokenVence: null },
     });
-    revalidatePath("/configuracion");
+    revalidatePath("/configuracion", "layout");
     return { success: true };
   } catch (e) {
     return { success: false, error: mensaje(e, "No se pudo guardar el certificado.") };
@@ -175,7 +175,7 @@ export async function cambiarEntorno(entorno: Entorno): Promise<Resultado> {
       where: { empresaId: admin.empresaId },
       data: { arcaEntorno: entorno, arcaCertificado: null, arcaCertificadoVence: null, arcaToken: null, arcaSign: null, arcaTokenVence: null, facturacionHabilitada: false },
     });
-    revalidatePath("/configuracion");
+    revalidatePath("/configuracion", "layout");
     return { success: true };
   } catch (e) {
     return { success: false, error: mensaje(e, "No se pudo cambiar el entorno.") };
@@ -240,7 +240,7 @@ export async function cambiarHabilitacion(params: { habilitada?: boolean; factur
         ...(params.facturarPorDefecto !== undefined ? { facturarPorDefecto: params.facturarPorDefecto } : {}),
       },
     });
-    revalidatePath("/configuracion");
+    revalidatePath("/configuracion", "layout");
     return { success: true };
   } catch (e) {
     return { success: false, error: mensaje(e, "No se pudo guardar.") };

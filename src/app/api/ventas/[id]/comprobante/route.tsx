@@ -40,7 +40,7 @@ async function datosFiscales(
       inicioActividades: config.inicioActividades,
     },
     receptor: {
-      nombre: c.receptorNombre ?? "Consumidor Final",
+      nombre: c.receptorNombre ?? "", // sin cliente: solo se muestra la condición
       documento: c.docTipo === DOC_TIPO.SIN_IDENTIFICAR ? "Sin identificar" : `${NOMBRE_DOC[c.docTipo] ?? "Doc."} ${c.docNro}`,
       condicion: CONDICION_RECEPTOR[c.condicionIvaReceptor] ?? "Consumidor Final",
     },

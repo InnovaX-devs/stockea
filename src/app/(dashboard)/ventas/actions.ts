@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import type { EstadoPago, TipoPrecioVenta } from "@prisma/client";
 import { redondearARS, montoEnCuentaUSD, montoARSDePago } from "@/lib/currency";
 import { mensajeSiCajaCerrada } from "@/lib/caja";
+import { notaCreditoTrasAnular } from "@/lib/arca/factura";
 import { descontarStock, sumarStock } from "@/lib/stock";
 import { Prisma } from "@prisma/client";
 import { inicioDiaAR } from "@/lib/timezone";
@@ -353,9 +354,7 @@ export async function listarVentas(filtros: FiltrosVentas): Promise<ResultadoLis
           },
         },
         comprobantes: {
-          where: { tipo: { in: [1, 6, 11] } },
           orderBy: { id: "desc" },
-          take: 1,
           select: { estado: true, tipo: true, puntoVenta: true, numero: true, error: true },
         },
       },
@@ -388,17 +387,18 @@ export async function listarVentas(filtros: FiltrosVentas): Promise<ResultadoLis
       gananciaPorcentaje,
       fecha: venta.fecha.toISOString(),
       estado: venta.estadoPago,
-      factura: venta.comprobantes[0]
-        ? {
-            estado: venta.comprobantes[0].estado,
-            letra: ({ 1: "A", 6: "B", 11: "C" } as Record<number, string>)[venta.comprobantes[0].tipo] ?? "",
-            numero:
-              venta.comprobantes[0].numero != null
-                ? `${String(venta.comprobantes[0].puntoVenta).padStart(5, "0")}-${String(venta.comprobantes[0].numero).padStart(8, "0")}`
-                : null,
-            error: venta.comprobantes[0].error,
-          }
-        : null,
+      ...(() => {
+        const num = (c: { puntoVenta: number; numero: number | null }) =>
+          c.numero != null ? `${String(c.puntoVenta).padStart(5, "0")}-${String(c.numero).padStart(8, "0")}` : null;
+        const f = venta.comprobantes.find((c) => [1, 6, 11].includes(c.tipo));
+        const nc = venta.comprobantes.find((c) => [3, 8, 13].includes(c.tipo));
+        return {
+          factura: f
+            ? { estado: f.estado, letra: ({ 1: "A", 6: "B", 11: "C" } as Record<number, string>)[f.tipo] ?? "", numero: num(f), error: f.error }
+            : null,
+          notaCredito: nc ? { estado: nc.estado, numero: num(nc), error: nc.error } : null,
+        };
+      })(),
     };
   });
 
@@ -525,7 +525,8 @@ export async function listarPedidos(filtros: FiltrosPedidos): Promise<ResultadoL
 }
 
 type ResultadoAccionPedido =
-  | { success: true }
+  // notaCredito: resultado de la nota de crédito si la venta tenía factura.
+  | { success: true; notaCredito?: { ok: boolean; mensaje: string } }
   | { success: false; error: string; codigo?: "SALDO_NEGATIVO" };
 
 /** Error para cortar la transacción cuando una cuenta quedaría en negativo. */
@@ -801,15 +802,6 @@ export async function anularVenta(
       return { success: false, error: "La venta ya está anulada" };
     }
 
-    // Una venta con factura electrónica autorizada no se puede anular sin
-    // nota de crédito (etapa 4): si no, Stockea y ARCA quedarían distintos.
-    const facturada = await prisma.comprobante.count({
-      where: { ventaId: venta.id, empresaId, estado: "AUTORIZADO", tipo: { in: [1, 6, 11] } },
-    });
-    if (facturada > 0) {
-      return { success: false, error: "Esta venta tiene factura electrónica emitida. Para anularla hay que emitir una nota de crédito (próximamente en Stockea; mientras tanto, hacela desde ARCA)." };
-    }
-
     await prisma.$transaction(async (tx) => {
       // Guard atómico: si el estado cambió entre el findUnique de arriba y
       // este punto (doble click, dos pestañas, otro usuario), este update
@@ -858,7 +850,9 @@ export async function anularVenta(
 
     revalidatePath("/ventas/historial");
     revalidatePath("/", "layout");
-    return { success: true };
+    // Fuera de la transacción: si la venta tenía factura, nota de crédito.
+    const notaCredito = (await notaCreditoTrasAnular(empresaId, ventaId)) ?? undefined;
+    return { success: true, notaCredito };
   } catch (e) {
     if (e instanceof SaldoNegativoError) {
       return { success: false, error: e.message, codigo: "SALDO_NEGATIVO" };
@@ -882,15 +876,6 @@ export async function cancelarPedido(
 
     if (venta.estadoPago === "CANCELADA" || venta.estadoPago === "ANULADA") {
       return { success: false, error: "El pedido ya está cancelado" };
-    }
-
-    // Una venta con factura electrónica autorizada no se puede anular sin
-    // nota de crédito (etapa 4): si no, Stockea y ARCA quedarían distintos.
-    const facturada = await prisma.comprobante.count({
-      where: { ventaId: venta.id, empresaId, estado: "AUTORIZADO", tipo: { in: [1, 6, 11] } },
-    });
-    if (facturada > 0) {
-      return { success: false, error: "Esta venta tiene factura electrónica emitida. Para anularla hay que emitir una nota de crédito (próximamente en Stockea; mientras tanto, hacela desde ARCA)." };
     }
 
     await prisma.$transaction(async (tx) => {
@@ -937,7 +922,9 @@ export async function cancelarPedido(
     });
 
     revalidatePath("/ventas/pedidos");
-    return { success: true };
+    // Fuera de la transacción: si el pedido tenía factura, nota de crédito.
+    const notaCredito = (await notaCreditoTrasAnular(empresaId, ventaId)) ?? undefined;
+    return { success: true, notaCredito };
   } catch (e) {
     if (e instanceof SaldoNegativoError) {
       return { success: false, error: e.message, codigo: "SALDO_NEGATIVO" };

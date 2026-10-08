@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { X, Download, Loader2, ChevronRight } from "lucide-react";
+import { ModalDetallePedido } from "@/components/ventas/modal-detalle-pedido";
 import { obtenerHistorialDeuda } from "@/app/(dashboard)/clientes/actions";
 import { formatFechaHoraAR } from "@/lib/timezone";
 
@@ -15,6 +16,8 @@ type EventoHistorial = {
   ventaId: number;
   saldoAntes: number;
   saldoDespues: number;
+  esAjuste: boolean;
+  factura: { letra: string; numero: string } | null;
 };
 
 function formatARS(n: number) {
@@ -32,11 +35,33 @@ export default function HistorialDeudaModal({
   const [eventos, setEventos] = useState<EventoHistorial[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Detalle de una venta (se abre al tocarla) y descarga del comprobante.
+  const [ventaAbierta, setVentaAbierta] = useState<number | null>(null);
+  const [descargando, setDescargando] = useState<number | null>(null);
+  async function descargar(ventaId: number) {
+    setDescargando(ventaId);
+    try {
+      const res = await fetch(`/api/ventas/${ventaId}/comprobante`);
+      if (!res.ok) throw new Error();
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `comprobante-venta-${String(ventaId).padStart(6, "0")}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("No se pudo descargar el comprobante.");
+    } finally {
+      setDescargando(null);
+    }
+  }
+
+  function cargar() {
     obtenerHistorialDeuda(cliente.id)
       .then(setEventos)
       .catch(() => setError("No se pudo cargar el historial."));
-  }, [cliente.id]);
+  }
+  useEffect(cargar, [cliente.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -64,12 +89,19 @@ export default function HistorialDeudaModal({
             </p>
           )}
 
-          {eventos?.map((e) => (
+          {eventos?.map((e) => {
+            const esVenta = e.tipo === "venta" && !e.esAjuste;
+            return (
             <div
               key={e.id}
+              onClick={esVenta ? () => setVentaAbierta(e.ventaId) : undefined}
+              role={esVenta ? "button" : undefined}
+              tabIndex={esVenta ? 0 : undefined}
+              onKeyDown={esVenta ? (ev) => ev.key === "Enter" && setVentaAbierta(e.ventaId) : undefined}
+              title={esVenta ? "Ver la venta" : undefined}
               className={`rounded-xl px-4 py-3 ${
                 e.tipo === "pago" ? "bg-[#e8f7ef]" : "bg-danger/10"
-              }`}
+              } ${esVenta ? "cursor-pointer transition hover:ring-1 hover:ring-danger/40" : ""}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-2">
@@ -97,8 +129,36 @@ export default function HistorialDeudaModal({
                   {formatARS(e.saldoAntes)} → {formatARS(e.saldoDespues)}
                 {e.tipo === "venta" ? ` · Venta #${e.ventaId}` : ""}
               </p>
+              {esVenta && (
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  {e.factura ? (
+                    <span className="rounded-full bg-success/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-success">
+                      Factura {e.factura.letra} {e.factura.numero}
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-medium text-text-dim">Sin factura</span>
+                  )}
+                  <span className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        descargar(e.ventaId);
+                      }}
+                      disabled={descargando === e.ventaId}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/70 text-text-dim hover:text-text disabled:opacity-50"
+                      aria-label={`Descargar comprobante de la venta #${e.ventaId}`}
+                      title={e.factura ? "Descargar factura" : "Descargar comprobante"}
+                    >
+                      {descargando === e.ventaId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                    </button>
+                    <ChevronRight className="h-4 w-4 text-text-dim" />
+                  </span>
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="p-4 border-t border-border">
@@ -110,6 +170,17 @@ export default function HistorialDeudaModal({
           </button>
         </div>
       </div>
+
+      {/* Detalle de la venta tocada (encima del historial). Si se cobra,
+          factura o cancela desde ahí, el historial se actualiza. */}
+      {ventaAbierta != null && (
+        <ModalDetallePedido
+          pedidoId={ventaAbierta}
+          titulo="Venta"
+          onClose={() => setVentaAbierta(null)}
+          onCambio={cargar}
+        />
+      )}
     </div>
   );
 }
