@@ -11,6 +11,8 @@ export async function GET() {
       habilitarPresupuestos: config.habilitarPresupuestos,
       habilitarReportesAvanzados: config.habilitarReportesAvanzados,
       habilitarGastosFlujoCaja: config.habilitarGastosFlujoCaja,
+      habilitarGastos: config.habilitarGastos,
+      habilitarFlujoCaja: config.habilitarFlujoCaja,
       // Facturación: solo un Responsable Inscripto discrimina IVA por producto.
       discriminaIva: config.facturacionHabilitada && config.condicionIva === "RESPONSABLE_INSCRIPTO",
     });

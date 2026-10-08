@@ -74,7 +74,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Cuentas Financieras", href: "/finanzas", icon: Calculator },
       { label: "Cierre de caja", href: "/finanzas/cierre-caja", icon: ClipboardCheck },
       { label: "Flujo de Caja", href: "/finanzas/flujo-caja", icon: ArrowLeftRight, premium: true },
-      { label: "Gastos", href: "/finanzas/gastos", icon: Wallet, premium: true },
+      { label: "Gastos", href: "/finanzas/gastos", icon: Wallet },
     ],
   },
   { label: "Reportes", href: "/reportes", icon: BarChart3, premium: true },

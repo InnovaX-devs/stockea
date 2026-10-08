@@ -14,7 +14,7 @@ interface AcumuladorCategoria {
 
 export async function GET(request: NextRequest) {
   const configuracion = await obtenerConfiguracion();
-  if (!configuracion.habilitarGastosFlujoCaja) {
+  if (!configuracion.habilitarFlujoCaja) {
     return NextResponse.json({ error: "Los gastos no están disponibles en tu plan actual." }, { status: 403 });
   }
 

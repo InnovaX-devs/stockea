@@ -7,7 +7,7 @@ import { obtenerConfiguracion } from "@/lib/configuracion";
 
 export async function GET(request: NextRequest) {
   const configuracion = await obtenerConfiguracion();
-  if (!configuracion.habilitarGastosFlujoCaja) {
+  if (!configuracion.habilitarFlujoCaja) {
     return NextResponse.json({ error: "El flujo de caja no está disponible en tu plan actual." }, { status: 403 });
   }
 

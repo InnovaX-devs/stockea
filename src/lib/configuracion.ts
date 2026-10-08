@@ -25,6 +25,12 @@ function conFlagsDeLicencia<T extends Pick<Configuracion, "licencia" | "usaCotiz
     usaCotizacionUSD: esPremium && configuracion.usaCotizacionUSD,
     habilitarPresupuestos: esPremium,
     habilitarReportesAvanzados: esPremium,
+    // Gastos (cargar, agendar y pagar) está en los dos planes: sin eso, la
+    // caja del plan Básico no refleja los pagos y el cierre da faltantes.
+    habilitarGastos: true,
+    // Flujo de caja y análisis de gastos: Premium.
+    habilitarFlujoCaja: esPremium,
+    /** @deprecated usar habilitarFlujoCaja (Flujo de caja + análisis de gastos). */
     habilitarGastosFlujoCaja: esPremium,
   };
 }
