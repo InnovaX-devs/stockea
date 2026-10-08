@@ -243,7 +243,7 @@ function NuevaVentaContenido() {
       toast.error(resultado.error);
       return;
     }
-    toast.success(`Pedido #${resultado.ventaId} registrado`);
+    toast.success(`Pedido #${resultado.numero} registrado`);
     limpiarVenta();
   }
 
@@ -293,7 +293,7 @@ function NuevaVentaContenido() {
       toast.error(resultado.error);
       return;
     }
-    toast.success(`Venta #${resultado.ventaId} confirmada`);
+    toast.success(`Venta #${resultado.numero} confirmada`);
     limpiarVenta();
     if (facturacion?.disponible && emitirFactura) await facturarLaVenta(resultado.ventaId);
   }

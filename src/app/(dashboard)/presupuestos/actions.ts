@@ -7,6 +7,7 @@ import type { ProductoBusqueda, ClienteBusqueda, ItemPresupuestoLocal } from "..
 import type { ProductoBusquedaDTO } from "@/types/producto";
 import type { ClienteBusquedaResult } from "@/lib/clientes-busqueda";
 import { obtenerEmpresaIdActual, requerirAdmin } from "@/lib/empresa";
+import { siguienteNumero } from "@/lib/numeracion";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 
 export async function buscarClientes(query: string): Promise<ClienteBusqueda[]> {
@@ -32,7 +33,7 @@ export type CrearPresupuestoInput = {
 
 export async function crearPresupuesto(
   input: CrearPresupuestoInput
-): Promise<{ success: true; id: number } | { success: false; error: string }> {
+): Promise<{ success: true; id: number; numero: number } | { success: false; error: string }> {
   await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
   if (input.items.length === 0) {
     return { success: false, error: "Agregá al menos un ítem al presupuesto." };
@@ -70,9 +71,13 @@ export async function crearPresupuesto(
     input.descuentoPorcentaje
   );
 
-  const presupuesto = await prisma.presupuesto.create({
+  // Número propio de la empresa, en la misma transacción que el presupuesto.
+  const presupuesto = await prisma.$transaction(async (tx) => {
+    const numero = await siguienteNumero(tx, empresaId, "presupuesto");
+    return tx.presupuesto.create({
     data: {
       empresaId,
+      numero,
       clienteId: input.clienteId,
       fecha,
       vigenciaDias: input.vigenciaDias,
@@ -92,9 +97,10 @@ export async function crearPresupuesto(
         })),
       },
     },
+    });
   });
 
-  return { success: true, id: presupuesto.id };
+  return { success: true, id: presupuesto.id, numero: presupuesto.numero };
 }
 
 // --- Conversión a Venta ---
@@ -219,6 +225,7 @@ export type DetalleItemPresupuesto = {
 
 export type DetallePresupuesto = {
   id: number;
+  numero: number;
   estado: "BORRADOR" | "VENCIDO" | "CONVERTIDO";
   puedeConvertir: boolean;
   fecha: Date;
@@ -255,6 +262,7 @@ export async function obtenerDetallePresupuesto(id: number): Promise<ResultadoDe
     success: true,
     data: {
       id: presupuesto.id,
+      numero: presupuesto.numero,
       estado,
       puedeConvertir: estado === "BORRADOR",
       fecha: presupuesto.fecha,

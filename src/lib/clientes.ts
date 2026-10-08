@@ -214,6 +214,8 @@ export type EventoHistorialDeuda = {
   label: string;
   sublabel: string;
   ventaId: number;
+  /** Número visible de la venta (null en ajustes manuales). */
+  ventaNumero: number | null;
   saldoAntes: number;
   saldoDespues: number;
   /** Ajuste manual de deuda (no es una venta real: sin detalle ni factura). */
@@ -262,8 +264,9 @@ export async function getHistorialDeuda(clienteId: number): Promise<EventoHistor
       monto: Math.round(venta.totalARS),
       tipo: "venta",
       label: esAjuste ? "Ajuste manual" : "Venta a cuenta",
-      sublabel: esAjuste ? "Aumento de deuda" : `Venta #${venta.id}`,
+      sublabel: esAjuste ? "Aumento de deuda" : `Venta #${venta.numero ?? venta.id}`,
       ventaId: venta.id,
+      ventaNumero: venta.numero,
       esAjuste,
       factura:
         f && f.numero != null
@@ -283,6 +286,7 @@ export async function getHistorialDeuda(clienteId: number): Promise<EventoHistor
         label: "Pago recibido",
         sublabel: labelMedioPago(pago.cuenta.tipo),
         ventaId: venta.id,
+        ventaNumero: venta.numero,
         esAjuste,
         factura: null,
       });

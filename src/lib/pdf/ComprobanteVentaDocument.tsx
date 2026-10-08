@@ -26,6 +26,8 @@ export type ComprobantePago = {
 
 export type ComprobanteVentaData = {
   id: number;
+  /** Número visible de la venta en la empresa. */
+  numero: number | null;
   fecha: Date;
   clienteNombre: string | null;
   items: ComprobanteItem[];
@@ -168,7 +170,7 @@ export function ComprobanteVentaDocument({
   venta: ComprobanteVentaData;
   configuracion: Configuracion;
 }) {
-  const numero = String(venta.id).padStart(6, "0");
+  const numero = String(venta.numero ?? venta.id).padStart(6, "0");
   const s = getStyles(getPdfBrand(configuracion));
 
   const detalleNegocio = [configuracion.instagram || null, configuracion.telefono]

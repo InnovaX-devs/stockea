@@ -5,6 +5,7 @@ import { X, Download, Loader2, ChevronRight } from "lucide-react";
 import { ModalDetallePedido } from "@/components/ventas/modal-detalle-pedido";
 import { obtenerHistorialDeuda } from "@/app/(dashboard)/clientes/actions";
 import { formatFechaHoraAR } from "@/lib/timezone";
+import { etiquetaVenta, archivoComprobanteVenta } from "@/lib/numeracion";
 
 type EventoHistorial = {
   id: string;
@@ -14,6 +15,7 @@ type EventoHistorial = {
   label: string;
   sublabel: string;
   ventaId: number;
+  ventaNumero: number | null;
   saldoAntes: number;
   saldoDespues: number;
   esAjuste: boolean;
@@ -38,7 +40,7 @@ export default function HistorialDeudaModal({
   // Detalle de una venta (se abre al tocarla) y descarga del comprobante.
   const [ventaAbierta, setVentaAbierta] = useState<number | null>(null);
   const [descargando, setDescargando] = useState<number | null>(null);
-  async function descargar(ventaId: number) {
+  async function descargar(ventaId: number, numero: number | null) {
     setDescargando(ventaId);
     try {
       const res = await fetch(`/api/ventas/${ventaId}/comprobante`);
@@ -46,7 +48,7 @@ export default function HistorialDeudaModal({
       const url = URL.createObjectURL(await res.blob());
       const a = document.createElement("a");
       a.href = url;
-      a.download = `comprobante-venta-${String(ventaId).padStart(6, "0")}.pdf`;
+      a.download = archivoComprobanteVenta(numero, ventaId);
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -127,7 +129,7 @@ export default function HistorialDeudaModal({
               <p className="text-xs text-text-dim mt-2">
                 {formatFechaHoraAR(new Date(e.fecha))} · Saldo:{" "}
                   {formatARS(e.saldoAntes)} → {formatARS(e.saldoDespues)}
-                {e.tipo === "venta" ? ` · Venta #${e.ventaId}` : ""}
+                {e.tipo === "venta" ? ` · Venta ${etiquetaVenta(e.ventaNumero)}` : ""}
               </p>
               {esVenta && (
                 <div className="mt-2 flex items-center justify-between gap-2">
@@ -143,11 +145,11 @@ export default function HistorialDeudaModal({
                       type="button"
                       onClick={(ev) => {
                         ev.stopPropagation();
-                        descargar(e.ventaId);
+                        descargar(e.ventaId, e.ventaNumero);
                       }}
                       disabled={descargando === e.ventaId}
                       className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/70 text-text-dim hover:text-text disabled:opacity-50"
-                      aria-label={`Descargar comprobante de la venta #${e.ventaId}`}
+                      aria-label={`Descargar comprobante de la venta ${etiquetaVenta(e.ventaNumero)}`}
                       title={e.factura ? "Descargar factura" : "Descargar comprobante"}
                     >
                       {descargando === e.ventaId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}

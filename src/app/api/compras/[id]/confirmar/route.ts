@@ -87,6 +87,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const grupos = agruparPorProducto(compra!.items, (id) => (porId.get(id)?.monedaPrecio ?? "USD") as Moneda, cotizacion);
 
     return NextResponse.json({
+      numero: compra!.numero,
       modoPorDefecto,
       productos: grupos
         .filter((g) => porId.has(g.productoId))
@@ -193,21 +194,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           if (nuevoCosto !== producto.precioCosto) {
             cambio.costo = nuevoCosto;
             registrar("COSTO", producto.precioCosto, nuevoCosto,
-              `Compra #${compra!.id} confirmada (${decision.costo === "PONDERADO" ? "costo promedio ponderado" : "costo de la compra"})`);
+              `Compra #${compra!.numero} confirmada (${decision.costo === "PONDERADO" ? "costo promedio ponderado" : "costo de la compra"})`);
           }
         }
         if (decision?.precioVenta != null) {
           const nuevo = redondearPrecio(decision.precioVenta, moneda);
           if (nuevo !== producto.precioVenta) {
             cambio.venta = nuevo;
-            registrar("MINORISTA", producto.precioVenta, nuevo, `Compra #${compra!.id} confirmada`);
+            registrar("MINORISTA", producto.precioVenta, nuevo, `Compra #${compra!.numero} confirmada`);
           }
         }
         if (decision?.precioMayorista != null) {
           const nuevo = redondearPrecio(decision.precioMayorista, moneda);
           if (nuevo !== producto.precioMayorista) {
             cambio.mayorista = nuevo;
-            registrar("MAYORISTA", producto.precioMayorista, nuevo, `Compra #${compra!.id} confirmada`);
+            registrar("MAYORISTA", producto.precioMayorista, nuevo, `Compra #${compra!.numero} confirmada`);
           }
         }
         cambios.push(cambio);

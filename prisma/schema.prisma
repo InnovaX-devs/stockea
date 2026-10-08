@@ -18,6 +18,12 @@ model Empresa {
   activa    Boolean  @default(true)
   createdAt DateTime @default(now())
 
+  // Contadores de numeración propia por empresa (ventas, compras y
+  // presupuestos empiezan en 1 en cada negocio). Ver src/lib/numeracion.ts.
+  ultimoNumeroVenta       Int @default(0)
+  ultimoNumeroCompra      Int @default(0)
+  ultimoNumeroPresupuesto Int @default(0)
+
   usuarios         Usuario[]
   configuracion    Configuracion?
   marcas           Marca[]
@@ -211,6 +217,9 @@ enum TipoPrecioVenta {
 
 model Venta {
   id         Int @id @default(autoincrement())
+  // Número visible, propio de cada empresa (1, 2, 3…). Los ajustes manuales
+  // de deuda no llevan número (null). El id es interno.
+  numero     Int?
   cliente   Cliente? @relation(fields: [clienteId], references: [id])
   clienteId Int?
 
@@ -249,6 +258,7 @@ model Venta {
   @@index([retirado, estadoPago]) // la pantalla de Pedidos siempre filtra por estos dos
   @@index([armado])
   @@index([enviado])
+  @@unique([empresaId, numero])
   @@index([empresaId])
 }
 
@@ -291,6 +301,7 @@ enum EstadoPresupuesto {
 
 model Presupuesto {
   id        Int @id @default(autoincrement())
+  numero    Int // número visible, propio de cada empresa
   cliente   Cliente? @relation(fields: [clienteId], references: [id])
   clienteId Int?
 
@@ -311,6 +322,7 @@ model Presupuesto {
   items           PresupuestoItem[]
   ventaConvertida Venta?
 
+  @@unique([empresaId, numero])
   @@index([empresaId])
 }
 
@@ -349,6 +361,7 @@ model Proveedor {
 
 model Compra {
   id          Int @id @default(autoincrement())
+  numero      Int // número visible, propio de cada empresa
   proveedor   Proveedor? @relation(fields: [proveedorId], references: [id])
   proveedorId Int?
 
@@ -374,6 +387,7 @@ model Compra {
   @@index([proveedorId])
   @@index([cuentaId])
   @@index([fecha])
+  @@unique([empresaId, numero])
   @@index([empresaId])
 }
 

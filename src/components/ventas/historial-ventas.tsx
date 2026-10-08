@@ -13,6 +13,7 @@ import type { FiltroEstado, VentaListItem } from "@/types/venta";
 import { Search, RefreshCw, Download, Loader2, X, Plus } from "lucide-react";
 import Select from "@/components/ui/select";
 import { RangoFechas } from "@/components/ui/rango-fechas";
+import { etiquetaVenta, archivoComprobanteVenta } from "@/lib/numeracion";
 
 const PAGE_SIZE = 15;
 
@@ -93,7 +94,7 @@ export function HistorialVentas() {
   const esAdmin = useEsAdmin();
   async function anular(venta: VentaListItem) {
     const conFactura = venta.factura?.estado === "AUTORIZADO";
-    if (!confirm(`¿Anular la venta #${venta.id}? Se devuelve la plata a la cuenta y los productos al stock.${conFactura ? " Como tiene factura, se va a emitir una nota de crédito." : ""}`)) return;
+    if (!confirm(`¿Anular la venta ${etiquetaVenta(venta.numero)}? Se devuelve la plata a la cuenta y los productos al stock.${conFactura ? " Como tiene factura, se va a emitir una nota de crédito." : ""}`)) return;
     setFacturando(venta.id);
     let r = await anularVenta(venta.id);
     if (!r.success && r.codigo === "SALDO_NEGATIVO") {
@@ -103,7 +104,7 @@ export function HistorialVentas() {
     if (!r.success) {
       if (r.codigo !== "SALDO_NEGATIVO") toast.error(r.error);
     } else {
-      toast.success(`Venta #${venta.id} anulada`);
+      toast.success(`Venta ${etiquetaVenta(venta.numero)} anulada`);
       if (r.notaCredito) {
         if (r.notaCredito.ok) toast.success(r.notaCredito.mensaje);
         else toast.error(r.notaCredito.mensaje, { duration: 10000 });
@@ -139,7 +140,7 @@ export function HistorialVentas() {
     setPage(1);
   }
 
-  async function descargarComprobante(ventaId: number) {
+  async function descargarComprobante(ventaId: number, numero: number | null) {
     setDescargando(ventaId);
     try {
       const res = await fetch(`/api/ventas/${ventaId}/comprobante`);
@@ -150,7 +151,7 @@ export function HistorialVentas() {
 
       const link = document.createElement("a");
       link.href = blobUrl;
-      link.download = `comprobante-venta-${String(ventaId).padStart(6, "0")}.pdf`;
+      link.download = archivoComprobanteVenta(numero, ventaId);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -316,7 +317,7 @@ export function HistorialVentas() {
                 <tbody>
                   {ventas.map((venta) => (
                     <tr key={venta.id} className="border-t border-border">
-                      <td className="px-4 py-3 font-mono text-xs text-text-dim">#{venta.id}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-text-dim">{etiquetaVenta(venta.numero)}</td>
                       <td className="px-4 py-3">
                         {venta.clienteNombre ? (
                           <span className="font-medium text-text">{venta.clienteNombre}</span>
@@ -360,10 +361,10 @@ export function HistorialVentas() {
                         />
                         <button
                           type="button"
-                          onClick={() => descargarComprobante(venta.id)}
+                          onClick={() => descargarComprobante(venta.id, venta.numero)}
                           disabled={descargando === venta.id}
                           className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-border text-text-dim hover:bg-surface-hover disabled:opacity-50"
-                          aria-label={`Descargar comprobante de la venta #${venta.id}`}
+                          aria-label={`Descargar comprobante de la venta ${etiquetaVenta(venta.numero)}`}
                         >
                           {descargando === venta.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -390,7 +391,7 @@ export function HistorialVentas() {
                 <div key={venta.id} className="p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-mono text-xs text-text-dim">#{venta.id}</p>
+                      <p className="font-mono text-xs text-text-dim">{etiquetaVenta(venta.numero)}</p>
                       {venta.clienteNombre ? (
                         <p className="truncate font-medium text-text">{venta.clienteNombre}</p>
                       ) : (
@@ -430,7 +431,7 @@ export function HistorialVentas() {
                   />
                   <button
                     type="button"
-                    onClick={() => descargarComprobante(venta.id)}
+                    onClick={() => descargarComprobante(venta.id, venta.numero)}
                     disabled={descargando === venta.id}
                     className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-border py-2 text-sm font-medium text-text-dim hover:bg-surface-hover disabled:opacity-50"
                   >

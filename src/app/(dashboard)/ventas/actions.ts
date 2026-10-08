@@ -8,6 +8,7 @@ import type { EstadoPago, TipoPrecioVenta } from "@prisma/client";
 import { redondearARS, montoEnCuentaUSD, montoARSDePago } from "@/lib/currency";
 import { mensajeSiCajaCerrada } from "@/lib/caja";
 import { notaCreditoTrasAnular } from "@/lib/arca/factura";
+import { siguienteNumero } from "@/lib/numeracion";
 import { descontarStock, sumarStock } from "@/lib/stock";
 import { Prisma } from "@prisma/client";
 import { inicioDiaAR } from "@/lib/timezone";
@@ -49,7 +50,8 @@ type VentaInput = {
 };
 
 type ResultadoVenta =
-  | { success: true; ventaId: number }
+  // ventaId = id interno; numero = el que ve el negocio (1, 2, 3…)
+  | { success: true; ventaId: number; numero: number }
   | { success: false; error: string };
 
   type DescontarStockItemInput = {
@@ -140,7 +142,7 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
   const totalUSD = totalARS / cotizacionUsada;
 
   try {
-    const ventaId = await prisma.$transaction(async (tx) => {
+    const { ventaId, numero } = await prisma.$transaction(async (tx) => {
       // 0. Si viene de un presupuesto, revalidar que siga siendo convertible
       //    (nadie lo convirtió en otra pestaña, y no venció mientras el
       //    usuario armaba el cobro).
@@ -187,10 +189,13 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
         if (!cliente) throw new Error("El cliente seleccionado no existe");
       }
 
-      // 2. Crear la venta + ítems
-            const venta = await tx.venta.create({
+      // 2. Crear la venta + ítems, con el número propio de la empresa
+      //    (dentro de esta transacción: si algo falla, el número no se gasta).
+      const numeroVenta = await siguienteNumero(tx, empresaId, "venta");
+      const venta = await tx.venta.create({
         data: {
           empresaId,
+          numero: numeroVenta,
           clienteId: input.clienteId,
           presupuestoId: input.presupuestoId ?? null,
           cotizacionUsada,
@@ -261,12 +266,12 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
         }
       }
 
-      return venta.id;
+      return { ventaId: venta.id, numero: numeroVenta };
     });
 
     revalidatePath("/", "layout");
 
-    return { success: true, ventaId };
+    return { success: true, ventaId, numero };
   } catch (e) {
     console.error(e);
     const mensaje = e instanceof Error ? e.message : "Ocurrió un error al procesar la venta.";
@@ -311,7 +316,8 @@ export async function listarVentas(filtros: FiltrosVentas): Promise<ResultadoLis
     const esNumero = /^\d+$/.test(soloNumeros);
 
     if (esNumero) {
-      where.id = Number(soloNumeros);
+      // Se busca por el número que ve el negocio, no por el id interno.
+      where.numero = Number(soloNumeros);
     } else if (texto.toLowerCase() === "sin cliente") {
       where.clienteId = null;
     } else {
@@ -379,6 +385,7 @@ export async function listarVentas(filtros: FiltrosVentas): Promise<ResultadoLis
 
     return {
       id: venta.id,
+      numero: venta.numero,
       clienteNombre: venta.cliente
         ? `${venta.cliente.nombre}${venta.cliente.apellido ? " " + venta.cliente.apellido : ""}`
         : null,
@@ -471,7 +478,8 @@ export async function listarPedidos(filtros: FiltrosPedidos): Promise<ResultadoL
     const esNumero = /^\d+$/.test(soloNumeros);
 
     if (esNumero) {
-      where.id = Number(soloNumeros);
+      // Se busca por el número que ve el negocio, no por el id interno.
+      where.numero = Number(soloNumeros);
     } else if (texto.toLowerCase() === "sin cliente") {
       where.clienteId = null;
     } else {
@@ -509,6 +517,7 @@ export async function listarPedidos(filtros: FiltrosPedidos): Promise<ResultadoL
 
   const pedidos: PedidoListItem[] = ventas.map((venta) => ({
     id: venta.id,
+    numero: venta.numero,
     clienteNombre: venta.cliente
       ? `${venta.cliente.nombre}${venta.cliente.apellido ? " " + venta.cliente.apellido : ""}`
       : null,
@@ -628,6 +637,7 @@ export async function obtenerDetallePedido(ventaId: number): Promise<ResultadoDe
 
     const pedido: PedidoDetalle = {
       id: venta.id,
+      numero: venta.numero,
       fecha: venta.fecha.toISOString(),
       clienteNombre: venta.cliente
         ? `${venta.cliente.nombre}${venta.cliente.apellido ? " " + venta.cliente.apellido : ""}`
@@ -841,7 +851,7 @@ export async function anularVenta(
             concepto: "AJUSTE_SALDO",
             monto: pago.monto,
             saldoResultante: cuenta.saldoActual,
-            detalle: `Reversión por anulación de venta #${venta.id}`,
+            detalle: `Reversión por anulación de venta #${venta.numero ?? venta.id}`,
             ventaId: venta.id,
           },
         });
@@ -914,7 +924,7 @@ export async function cancelarPedido(
             concepto: "AJUSTE_SALDO",
             monto: pago.monto,
             saldoResultante: cuenta.saldoActual,
-            detalle: `Reversión por cancelación de pedido #${venta.id}`,
+            detalle: `Reversión por cancelación de pedido #${venta.numero ?? venta.id}`,
             ventaId: venta.id,
           },
         });
