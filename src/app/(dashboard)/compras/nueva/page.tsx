@@ -81,7 +81,7 @@ export default function NuevaCompraPage() {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [compraCreada, setCompraCreada] = useState<{ id: number } | null>(null);
+  const [compraCreada, setCompraCreada] = useState<{ id: number; numero: number } | null>(null);
   const [confirmando, setConfirmando] = useState(false);
   const [errorConfirmar, setErrorConfirmar] = useState<string | null>(null);
 
@@ -283,7 +283,7 @@ export default function NuevaCompraPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error al crear la compra");
-      setCompraCreada({ id: data.id });
+      setCompraCreada({ id: data.id, numero: data.numero });
     } catch (err: any) {
       setError(err.message || "Ocurrió un error al guardar la compra");
     } finally {
@@ -302,7 +302,7 @@ export default function NuevaCompraPage() {
     return (
       <div className="mx-auto max-w-md space-y-4 p-4 text-center">
         <div className="rounded-2xl border border-border bg-white p-8">
-          <p className="text-lg font-semibold text-text">Compra #{compraCreada.id} guardada</p>
+          <p className="text-lg font-semibold text-text">Compra #{compraCreada.numero} guardada</p>
           <p className="mt-2 text-sm text-text-dim">
             Todavía no impactó en stock, costo ni caja. Confirmala para actualizar el
             inventario y descontar el saldo de la cuenta, o hacelo más tarde desde el listado.

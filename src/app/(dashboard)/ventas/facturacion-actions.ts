@@ -159,6 +159,7 @@ export type FilaComprobante = {
   estado: "PENDIENTE" | "AUTORIZADO" | "RECHAZADO";
   error: string | null;
   ventaId: number | null;
+  ventaNumero: number | null;
   entorno: "HOMOLOGACION" | "PRODUCCION";
 };
 
@@ -171,6 +172,7 @@ export async function listarComprobantes(filtros: { desde: string; hasta: string
     where: { empresaId: admin.empresaId, entorno: filtros.entorno, fecha: { gte: desde, lt: hasta } },
     orderBy: [{ fecha: "desc" }, { id: "desc" }],
     take: 2000,
+    include: { venta: { select: { numero: true } } },
   });
   const nombreDoc: Record<number, string> = { 80: "CUIT", 86: "CUIL", 96: "DNI" };
   return filas.map((c) => {
@@ -189,6 +191,7 @@ export async function listarComprobantes(filtros: { desde: string; hasta: string
       estado: c.estado,
       error: c.error,
       ventaId: c.ventaId,
+      ventaNumero: c.venta?.numero ?? null,
       entorno: c.entorno,
     };
   });

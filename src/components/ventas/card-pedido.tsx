@@ -8,6 +8,7 @@ import { marcarArmado, marcarRetirado } from "@/app/(dashboard)/ventas/actions";
 import { ModalCobrarPedido } from "./modal-cobrar-pedido";
 import { ModalDetallePedido } from "./modal-detalle-pedido";
 import type { PedidoListItem } from "@/types/venta";
+import { etiquetaVenta } from "@/lib/numeracion";
 
 const formatoFecha = new Intl.DateTimeFormat("es-AR", {
   day: "2-digit",
@@ -34,7 +35,7 @@ export function CardPedido({ pedido, onCambio }: Props) {
       toast.error(resultado.error);
       return;
     }
-    toast.success(`Pedido #${pedido.id} armado`);
+    toast.success(`Pedido ${etiquetaVenta(pedido.numero)} armado`);
     onCambio();
   }
 
@@ -47,7 +48,7 @@ export function CardPedido({ pedido, onCambio }: Props) {
       toast.error(resultado.error);
       return;
     }
-    toast.success(`Pedido #${pedido.id} retirado`);
+    toast.success(`Pedido ${etiquetaVenta(pedido.numero)} retirado`);
     onCambio();
   }
 
@@ -62,7 +63,7 @@ export function CardPedido({ pedido, onCambio }: Props) {
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs font-mono text-text-dim">#{pedido.id}</p>
+          <p className="text-xs font-mono text-text-dim">{etiquetaVenta(pedido.numero)}</p>
           <p className="truncate text-sm font-semibold text-text">{pedido.clienteNombre ?? "Sin cliente"}</p>
         </div>
         <p className="shrink-0 text-xs text-text-dim">{formatoFecha.format(new Date(pedido.fecha))}</p>

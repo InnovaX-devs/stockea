@@ -26,7 +26,7 @@ export default async function DetallePresupuestoPage({
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-6 py-4">
         <div>
-          <h1 className="text-2xl font-bold text-text">Presupuesto #{presupuesto.id}</h1>
+          <h1 className="text-2xl font-bold text-text">Presupuesto #{presupuesto.numero}</h1>
           <EstadoBadge estado={estadoEfectivo} />
         </div>
         <div className="flex items-center gap-3">

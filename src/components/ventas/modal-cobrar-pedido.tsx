@@ -7,6 +7,7 @@ import { registrarCobroPedido } from "@/app/(dashboard)/ventas/actions";
 import { formatCurrency, redondearARS } from "@/lib/currency";
 import type { ModoCobro, PagoLinea } from "@/types/pago";
 import type { PedidoListItem } from "@/types/venta";
+import { etiquetaVenta } from "@/lib/numeracion";
 
 interface Props {
   pedido: PedidoListItem;
@@ -50,7 +51,7 @@ export function ModalCobrarPedido({ pedido, tieneCliente, onClose, onCobrado }: 
       toast.error(resultado.error);
       return;
     }
-    toast.success(`Pedido #${pedido.id} cobrado`);
+    toast.success(`Pedido ${etiquetaVenta(pedido.numero)} cobrado`);
     onCobrado();
     onClose();
   }

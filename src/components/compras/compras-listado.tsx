@@ -9,6 +9,7 @@ import { ConfirmarCompraModal } from "@/components/compras/confirmar-compra-moda
 
 interface Compra {
   id: number;
+  numero: number; // número visible de la empresa
   proveedor: { nombre: string } | null;
   cuenta: { nombre: string; tipo: string } | null;
   totalUSD: number;
@@ -231,7 +232,7 @@ export function ComprasListado() {
                     const cargandoFila = accionandoId === compra.id;
                     return (
                       <tr key={compra.id} className="border-t border-border">
-                        <td className="px-4 py-4 font-mono text-xs text-text-dim">#{compra.id}</td>
+                        <td className="px-4 py-4 font-mono text-xs text-text-dim">#{compra.numero}</td>
                         <td className="px-4 py-4 font-medium text-text">
                           {compra.proveedor?.nombre ?? "Sin especificar"}
                         </td>
@@ -323,7 +324,7 @@ export function ComprasListado() {
                   <div key={compra.id} className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="font-mono text-xs text-text-dim">#{compra.id}</p>
+                        <p className="font-mono text-xs text-text-dim">#{compra.numero}</p>
                         <p className="truncate font-medium text-text">
                           {compra.proveedor?.nombre ?? "Sin especificar"}
                         </p>

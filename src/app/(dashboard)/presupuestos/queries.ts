@@ -5,6 +5,7 @@ import { obtenerEmpresaIdActual } from "@/lib/empresa";
 
 export type PresupuestoListado = {
   id: number;
+  numero: number; // número visible de la empresa
   clienteNombre: string | null;
   total: number;
   fecha: Date;
@@ -51,6 +52,7 @@ export async function obtenerPresupuestos(
     where,
     select: {
       id: true,
+      numero: true,
       total: true,
       fecha: true,
       fechaVencimiento: true,
@@ -64,6 +66,7 @@ export async function obtenerPresupuestos(
   // (decisión: ver comentario en el issue — evita inconsistencia de cron).
   const conEstadoEfectivo: PresupuestoListado[] = presupuestos.map((p) => ({
     id: p.id,
+    numero: p.numero,
     clienteNombre: p.cliente ? `${p.cliente.nombre} ${p.cliente.apellido ?? ""}`.trim() : null,
     total: p.total,
     fecha: p.fecha,

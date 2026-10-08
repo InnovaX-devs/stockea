@@ -50,6 +50,7 @@ async function datosFiscales(
 }
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { ComprobanteVentaDocument, type ComprobanteVentaData } from "@/lib/pdf/ComprobanteVentaDocument";
+import { archivoComprobanteVenta } from "@/lib/numeracion";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,6 +91,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const data: ComprobanteVentaData = {
     id: venta.id,
+    numero: venta.numero,
     fecha: venta.fecha,
     clienteNombre: venta.cliente
       ? `${venta.cliente.nombre}${venta.cliente.apellido ? " " + venta.cliente.apellido : ""}`
@@ -109,7 +111,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const buffer = await renderToBuffer(<ComprobanteVentaDocument venta={data} configuracion={configuracion} />);
 
-  const filename = `comprobante-venta-${String(venta.id).padStart(6, "0")}.pdf`;
+  const filename = archivoComprobanteVenta(venta.numero, venta.id);
 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {

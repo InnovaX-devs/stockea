@@ -2,6 +2,8 @@ import type { EstadoPago } from "@prisma/client";
 
 export type VentaListItem = {
   id: number;
+  /** Número visible de la empresa (null = ajuste manual de deuda). */
+  numero: number | null;
   clienteNombre: string | null; // null => "Sin cliente"
   totalARS: number;
   gananciaARS: number;
@@ -33,6 +35,8 @@ export type ResultadoListadoVentas = {
 
 export type PedidoListItem = {
   id: number;
+  /** Número visible de la empresa (null = ajuste manual de deuda). */
+  numero: number | null;
   clienteNombre: string | null;
   totalARS: number;
   montoPagado: number;
@@ -69,6 +73,8 @@ export type PedidoDetalleItem = {
 
 export type PedidoDetalle = {
   id: number;
+  /** Número visible de la empresa (null = ajuste manual de deuda). */
+  numero: number | null;
   fecha: string;
   clienteNombre: string | null;
   estadoPago: EstadoPago;

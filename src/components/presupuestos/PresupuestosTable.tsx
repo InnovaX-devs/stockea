@@ -47,7 +47,7 @@ export default function PresupuestosTable({ presupuestos }: { presupuestos: Pres
                 <tbody>
                   {presupuestos.map((p) => (
                     <tr key={p.id} className="border-t border-border">
-                      <td className="px-4 py-3 font-mono text-xs text-text-dim">#{p.id}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-text-dim">#{p.numero}</td>
                       <td className="px-4 py-3 font-medium text-text">{p.clienteNombre ?? "—"}</td>
                       <td className="px-4 py-3 text-right font-mono font-medium text-text">
                         ${p.total.toFixed(2)}
@@ -96,7 +96,7 @@ export default function PresupuestosTable({ presupuestos }: { presupuestos: Pres
                 <div key={p.id} className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-mono text-xs text-text-dim">#{p.id}</p>
+                      <p className="font-mono text-xs text-text-dim">#{p.numero}</p>
                       <p className="truncate font-medium text-text">{p.clienteNombre ?? "—"}</p>
                     </div>
                     <span

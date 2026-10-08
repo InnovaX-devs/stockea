@@ -28,7 +28,7 @@ function csv(filas: FilaComprobante[]) {
     return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
   const lineas = filas.map((f) =>
-    [new Date(f.fecha).toLocaleDateString("es-AR"), f.nombre, f.numero, f.receptor, f.documento, f.neto, f.iva, f.total, f.cae, ESTADO[f.estado].texto, f.ventaId]
+    [new Date(f.fecha).toLocaleDateString("es-AR"), f.nombre, f.numero, f.receptor, f.documento, f.neto, f.iva, f.total, f.cae, ESTADO[f.estado].texto, f.ventaNumero ?? f.ventaId]
       .map(celda)
       .join(";")
   );
@@ -140,7 +140,7 @@ export function ListadoComprobantes({ entornoInicial, habilitada }: { entornoIni
                       <>
                         {" · "}
                         <Link href="/ventas/historial" className="hover:text-primary hover:underline">
-                          venta #{f.ventaId}
+                          venta #{f.ventaNumero ?? f.ventaId}
                         </Link>
                       </>
                     )}

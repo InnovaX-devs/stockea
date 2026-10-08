@@ -65,6 +65,8 @@ export function ConfirmarCompraModal({
   onCerrar: () => void;
   onConfirmada: () => void;
 }) {
+  // Número visible de la compra en la empresa (llega con la vista previa).
+  const [numero, setNumero] = useState<number | null>(null);
   const [productos, setProductos] = useState<ProductoPreview[] | null>(null);
   const [modo, setModo] = useState<ModoCosto>("PONDERADO");
   const [filas, setFilas] = useState<Record<number, Fila>>({});
@@ -98,6 +100,7 @@ export function ConfirmarCompraModal({
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || "No se pudo preparar la confirmación");
         setModo(data.modoPorDefecto);
+        setNumero(data.numero ?? null);
         setProductos(data.productos);
         setFilas(filasIniciales(data.productos, data.modoPorDefecto));
       })
@@ -178,7 +181,7 @@ export function ConfirmarCompraModal({
       >
         <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-text">Confirmar compra #{compraId}</h2>
+            <h2 className="text-lg font-semibold text-text">Confirmar compra {numero != null ? `#${numero}` : ""}</h2>
             <p className="text-sm text-text-dim">Se suma el stock y se descuenta el pago de la cuenta.</p>
           </div>
           <button type="button" onClick={onCerrar} disabled={confirmando} className="rounded p-1 text-text/60 hover:bg-surface-hover" aria-label="Cerrar">

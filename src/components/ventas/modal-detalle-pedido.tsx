@@ -10,6 +10,7 @@ import type { EstadoPago } from "@prisma/client";
 import type { PedidoDetalle } from "@/types/venta";
 import { ModalCobrarPedido } from "./modal-cobrar-pedido";
 import { facturacionParaVenta, facturaDeVenta, facturarVenta, type ResumenFactura } from "@/app/(dashboard)/ventas/facturacion-actions";
+import { etiquetaVenta, archivoComprobanteVenta } from "@/lib/numeracion";
 
 const ESTADO_STYLE: Record<EstadoPago, string> = {
   PAGADA: "bg-success/10 text-success",
@@ -122,7 +123,7 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio, titulo = "Pedi
 
       const link = document.createElement("a");
       link.href = blobUrl;
-      link.download = `comprobante-venta-${String(pedidoId).padStart(6, "0")}.pdf`;
+      link.download = archivoComprobanteVenta(pedido?.numero, pedidoId);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -150,7 +151,7 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio, titulo = "Pedi
       setConfirmandoCancelar(false);
       return;
     }
-    toast.success(`Pedido #${pedidoId} cancelado`);
+    toast.success(`Pedido ${etiquetaVenta(pedido?.numero)} cancelado`);
     // Si tenía factura: resultado de la nota de crédito.
     if (resultado.notaCredito) {
       if (resultado.notaCredito.ok) toast.success(resultado.notaCredito.mensaje);
@@ -180,7 +181,7 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio, titulo = "Pedi
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold text-text">
-                {titulo} #{pedidoId}
+                {titulo} {pedido ? etiquetaVenta(pedido.numero) : ""}
               </h2>
               {pedido && (
                 <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", ESTADO_STYLE[pedido.estadoPago])}>
@@ -414,6 +415,7 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio, titulo = "Pedi
           <ModalCobrarPedido
             pedido={{
               id: pedido.id,
+              numero: pedido.numero,
               clienteNombre: pedido.clienteNombre,
               totalARS: pedido.totalARS,
               montoPagado: pedido.montoPagado,

@@ -10,12 +10,13 @@ export const dynamic = "force-dynamic";
 function descripcionMovimiento(m: {
   concepto: string;
   ventaId: number | null;
+  venta: { numero: number | null } | null;
   gasto: { concepto: string } | null;
   detalle: string | null;
 }) {
   switch (m.concepto) {
     case "VENTA_COBRADA":
-      return `Venta #${m.ventaId}`;
+      return `Venta #${m.venta?.numero ?? m.ventaId}`;
     case "PAGO_DEUDA_CLIENTE":
       return "Pago de deuda";
     case "PAGO_A_PROVEEDOR":
@@ -50,6 +51,7 @@ export async function GET() {
       include: {
         gasto: { select: { concepto: true } },
         cuenta: { select: { tipo: true } },
+        venta: { select: { numero: true } },
       },
       orderBy: { fecha: "desc" },
     }),

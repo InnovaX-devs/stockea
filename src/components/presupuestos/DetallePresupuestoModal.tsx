@@ -54,7 +54,7 @@ export default function DetallePresupuestoModal({
         <div className="bg-primary text-white px-6 py-4 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold">Presupuesto #{presupuestoId}</h2>
+              <h2 className="text-lg font-bold">Presupuesto {detalle ? `#${detalle.numero}` : ""}</h2>
               {detalle && (
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${ESTADO_STYLES[detalle.estado]}`}>
                   {ESTADO_LABEL[detalle.estado]}

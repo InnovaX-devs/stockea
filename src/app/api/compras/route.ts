@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { siguienteNumero } from "@/lib/numeracion";
 
 const FILTROS_VALIDOS = ["pendientes", "confirmadas", "canceladas"] as const;
 type Filtro = (typeof FILTROS_VALIDOS)[number];
@@ -155,9 +156,13 @@ export async function POST(request: NextRequest) {
 
     const totalUSD = items.reduce((acc, it) => acc + it.cantidad * it.costoUnitarioUSD, 0);
 
-    const compra = await prisma.compra.create({
+    // Número propio de la empresa, en la misma transacción que la compra.
+    const compra = await prisma.$transaction(async (tx) => {
+      const numero = await siguienteNumero(tx, empresaId, "compra");
+      return tx.compra.create({
       data: {
         empresaId,
+        numero,
         proveedorId,
         cuentaId,
         totalUSD,
@@ -174,6 +179,7 @@ export async function POST(request: NextRequest) {
         },
       },
       include: { items: true },
+      });
     });
 
     return NextResponse.json(compra, { status: 201 });
