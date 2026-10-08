@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
-import { obtenerConfiguracion } from "@/lib/configuracion";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const configuracion = await obtenerConfiguracion();
-    if (!configuracion.habilitarGastosFlujoCaja) {
-      return NextResponse.json({ error: "Los gastos no están disponibles en tu plan actual." }, { status: 403 });
-    }
+  // Gastos: disponible en los dos planes (ver lib/configuracion.ts).
 
     const empresaId = await obtenerEmpresaIdActual();
     const { id } = await params;

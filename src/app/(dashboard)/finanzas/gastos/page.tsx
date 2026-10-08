@@ -20,6 +20,14 @@ export default function GastosPage() {
   const [q, setQ] = useState("");
   const [cargando, setCargando] = useState(true);
   const [modalFormAbierto, setModalFormAbierto] = useState(false);
+  // El análisis de gastos es Premium; el listado está en los dos planes.
+  const [conAnalisis, setConAnalisis] = useState(false);
+  useEffect(() => {
+    fetch("/api/configuracion")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => setConAnalisis(Boolean(c?.habilitarFlujoCaja)))
+      .catch(() => {});
+  }, []);
 
   const cargarGastos = useCallback(async () => {
     setCargando(true);
@@ -60,7 +68,7 @@ export default function GastosPage() {
       </div>
 
       <div className="flex gap-1 border-b border-border">
-        {(["listado", "analisis"] as const).map((tab) => (
+        {(conAnalisis ? (["listado", "analisis"] as const) : (["listado"] as const)).map((tab) => (
           <button
             key={tab}
             onClick={() => setPestana(tab)}

@@ -5,10 +5,8 @@ import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 
 export async function GET(request: NextRequest) {
+  // Gastos: disponible en los dos planes (ver lib/configuracion.ts).
   const configuracion = await obtenerConfiguracion();
-  if (!configuracion.habilitarGastosFlujoCaja) {
-    return NextResponse.json({ error: "Los gastos no están disponibles en tu plan actual." }, { status: 403 });
-  }
 
   const empresaId = await obtenerEmpresaIdActual();
   const searchParams = request.nextUrl.searchParams;
@@ -74,10 +72,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const configuracion = await obtenerConfiguracion();
-    if (!configuracion.habilitarGastosFlujoCaja) {
-      return NextResponse.json({ error: "Los gastos no están disponibles en tu plan actual." }, { status: 403 });
-    }
+    // Gastos: disponible en los dos planes (ver lib/configuracion.ts).
 
     const empresaId = await obtenerEmpresaIdActual();
     const body = await request.json();
