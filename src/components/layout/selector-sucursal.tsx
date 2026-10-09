@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Check, ChevronDown, Layers, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
@@ -22,7 +21,6 @@ const CHIP =
  * de una sucursal: el admin la puede cambiar; el empleado solo la ve.
  */
 export function SelectorSucursal({ sucursales, actualId, puedeElegir }: SucursalBarra) {
-  const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [pendiente, startTransition] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
@@ -40,7 +38,7 @@ export function SelectorSucursal({ sucursales, actualId, puedeElegir }: Sucursal
 
   if (!puedeElegir) {
     return (
-      <span className={cn(CHIP, "max-w-[150px]")} title={`Sucursal: ${etiqueta}`}>
+      <span className={cn(CHIP, "max-w-[120px]")} title={`Sucursal: ${etiqueta}`}>
         <MapPin className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} />
         <span className="hidden truncate lg:inline">{etiqueta}</span>
       </span>
@@ -53,7 +51,9 @@ export function SelectorSucursal({ sucursales, actualId, puedeElegir }: Sucursal
     startTransition(async () => {
       const r = await elegirSucursal(valor);
       if (!r.success) return void toast.error(r.error);
-      router.refresh();
+      // Recarga completa: varias pantallas (productos, carrito, buscadores)
+      // traen el stock del lado del navegador y tienen que volver a pedirlo.
+      window.location.reload();
     });
   }
 
@@ -73,7 +73,7 @@ export function SelectorSucursal({ sucursales, actualId, puedeElegir }: Sucursal
         aria-expanded={abierto}
         className={cn(
           CHIP,
-          "max-w-[150px] cursor-pointer px-2.5 transition-colors hover:border-primary-soft/50 disabled:opacity-60"
+          "max-w-[120px] cursor-pointer px-2.5 transition-colors hover:border-primary-soft/50 disabled:opacity-60"
         )}
         title={`Sucursal: ${etiqueta} (cambiar)`}
       >

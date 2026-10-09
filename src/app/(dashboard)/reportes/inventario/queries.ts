@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { toArs } from "@/lib/currency";
+import { conStockDeSucursal, sucursalParaMostrarStock } from "@/lib/stock-sucursal";
 
 export type ProductoInventarioItem = {
   id: number;
@@ -29,7 +30,9 @@ export async function obtenerInventario(diasSinMovimiento = 60): Promise<Inventa
   const configuracion = await obtenerConfiguracion();
   const cotizacion = configuracion.cotizacionUSD || 1;
 
-  const productos = await prisma.producto.findMany({
+  // Inventario de la sucursal actual; en "Todas", el de toda la empresa.
+  const sucursalId = await sucursalParaMostrarStock();
+  const productosBase = await prisma.producto.findMany({
     where: { empresaId, activo: true },
     select: {
       id: true,
@@ -42,12 +45,16 @@ export async function obtenerInventario(diasSinMovimiento = 60): Promise<Inventa
       marca: { select: { nombre: true } },
     },
   });
+  const productos = await conStockDeSucursal(productosBase, sucursalId);
 
   // Última venta por producto: un groupBy alcanza, no hace falta traer cada
   // ItemVenta — sólo nos interesa la fecha más reciente por producto.
   const ultimasVentas = await prisma.itemVenta.groupBy({
     by: ["productoId"],
-    where: { productoId: { not: null }, venta: { empresaId, estadoPago: { notIn: ["ANULADA", "CANCELADA"] } } },
+    where: {
+      productoId: { not: null },
+      venta: { empresaId, ...(sucursalId != null ? { sucursalId } : {}), estadoPago: { notIn: ["ANULADA", "CANCELADA"] } },
+    },
     _max: { id: true },
   });
 

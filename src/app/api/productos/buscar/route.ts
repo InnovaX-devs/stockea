@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { obtenerUsuarioActual } from "@/lib/empresa";
+import { conStockDeSucursal } from "@/lib/stock-sucursal";
 
 export async function GET(request: NextRequest) {
   const { empresaId, rol } = await obtenerUsuarioActual();
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     ],
   };
 
-  const items = await prisma.producto.findMany({
+  const encontrados = await prisma.producto.findMany({
     where,
     orderBy: { nombre: "asc" },
     take: 10,
@@ -37,6 +38,8 @@ export async function GET(request: NextRequest) {
       marca: { select: { nombre: true } },
     },
   });
+  // Stock de la sucursal en la que se está vendiendo (ver src/lib/stock-sucursal.ts).
+  const items = await conStockDeSucursal(encontrados);
 
   if (rol === "EMPLEADO") {
     // El empleado no ve costos: se saca del lado del servidor.

@@ -4,7 +4,8 @@ import { toArs } from "@/lib/currency";
 import type { Prisma } from "@prisma/client";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { obtenerEmpresaIdActual, obtenerUsuarioActual } from "@/lib/empresa";
-import { requerirSucursalId } from "@/lib/sucursal";
+import { obtenerSucursalIdActual } from "@/lib/sucursal";
+import { conStockDeSucursal, sucursalParaMostrarStock } from "@/lib/stock-sucursal";
 
 export const dynamic = "force-dynamic";
 
@@ -53,12 +54,18 @@ export async function GET(request: NextRequest) {
       categoria: { select: { id: true, nombre: true } },
     };
 
+    // Stock de la sucursal actual, o el total en "Todas" (src/lib/stock-sucursal.ts).
+    const sucursalStock = await sucursalParaMostrarStock();
+
     if (fetchAll) {
-      const items = await prisma.producto.findMany({
-        where,
-        orderBy: { nombre: "asc" },
-        select: selectFields,
-      });
+      const items = await conStockDeSucursal(
+        await prisma.producto.findMany({
+          where,
+          orderBy: { nombre: "asc" },
+          select: selectFields,
+        }),
+        sucursalStock
+      );
 
       return NextResponse.json({
         items: esEmpleado ? items.map(sinCosto) : items,
@@ -68,7 +75,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-        const [items, total, aggregateBase] = await Promise.all([
+    const [itemsBase, total, aggregateTotal] = await Promise.all([
       prisma.producto.findMany({
         where,
         orderBy: { nombre: "asc" },
@@ -80,12 +87,18 @@ export async function GET(request: NextRequest) {
       prisma.producto.findMany({
         where: { empresaId, activo: true },
         select: {
+          id: true,
           stockActual: true,
           precioCosto: true,
           precioVenta: true,
           monedaPrecio: true,
         },
       }),
+    ]);
+
+    const [items, aggregateBase] = await Promise.all([
+      conStockDeSucursal(itemsBase, sucursalStock),
+      conStockDeSucursal(aggregateTotal, sucursalStock),
     ]);
 
     const config = await obtenerConfiguracion(); 
@@ -239,17 +252,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // El stock inicial entra en la sucursal actual.
-    let sucursalId: number | null = null;
-    if (stockActual !== 0) {
-      try {
-        sucursalId = await requerirSucursalId();
-      } catch (e) {
-        return NextResponse.json(
-          { error: e instanceof Error ? e.message : "Elegí una sucursal para cargar el stock." },
-          { status: 400 }
-        );
-      }
+    // El stock inicial y el mínimo van a la sucursal actual. En "Todas" solo
+    // se puede crear el producto sin stock.
+    const sucursalId = await obtenerSucursalIdActual();
+    if (sucursalId == null && stockActual !== 0) {
+      return NextResponse.json(
+        { error: "Elegí una sucursal en la barra superior para cargar el stock." },
+        { status: 400 }
+      );
     }
 
     const nuevoProducto = await prisma.producto.create({
