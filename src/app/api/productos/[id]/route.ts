@@ -3,7 +3,7 @@ import { del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
-import { requerirSucursalId } from "@/lib/sucursal";
+import { obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
 import { ajustarStock } from "@/lib/stock";
 
 export async function PUT(
@@ -127,6 +127,18 @@ export async function PUT(
       ? Number(body.stockMinimo)
       : 0;
 
+    // El stock mínimo también es por sucursal. Con una sola sucursal se
+    // guarda en la principal; en "Todas" (donde se ve la suma) no se puede
+    // cambiar, hay que elegir una sucursal.
+    const sucursalMinimo = await obtenerSucursalIdActual();
+    const cambiaMinimo = body.stockMinimo !== undefined && stockMinimo !== productoAnterior.stockMinimo;
+    if (sucursalMinimo == null && cambiaMinimo) {
+      return NextResponse.json(
+        { error: "Elegí una sucursal en la barra superior para cambiar el stock mínimo." },
+        { status: 400 }
+      );
+    }
+
     // Auditoría e historial de precios.
     // Se arma ANTES del update para comparar contra los valores previos.
     const registrosHistorial: Prisma.HistorialPrecioCreateManyInput[] = [];
@@ -193,6 +205,17 @@ export async function PUT(
       if (sucursalId != null) {
         await ajustarStock(tx, empresaId, sucursalId, productoId, diferenciaStock);
       }
+      // Mínimo de la sucursal; en "Producto" queda la suma de todas.
+      let minimoTotal = productoAnterior.stockMinimo;
+      if (sucursalMinimo != null && body.stockMinimo !== undefined) {
+        await tx.stockSucursal.upsert({
+          where: { productoId_sucursalId: { productoId, sucursalId: sucursalMinimo } },
+          create: { productoId, sucursalId: sucursalMinimo, stockMinimo },
+          update: { stockMinimo },
+        });
+        const suma = await tx.stockSucursal.aggregate({ where: { productoId }, _sum: { stockMinimo: true } });
+        minimoTotal = suma._sum.stockMinimo ?? 0;
+      }
       const actualizado = await tx.producto.update({
         where: { id: productoId },
         data: {
@@ -202,7 +225,7 @@ export async function PUT(
           contenidoMl,
           marcaId,
           categoriaId,
-          stockMinimo,
+          stockMinimo: minimoTotal,
           destacado: Boolean(body.destacado),
           monedaPrecio: body.monedaPrecio || "USD",
           precioCosto: nuevoCosto,

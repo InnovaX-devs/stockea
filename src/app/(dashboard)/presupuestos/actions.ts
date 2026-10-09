@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { conStockDeSucursal } from "@/lib/stock-sucursal";
 import type { TipoPrecioVenta } from "@prisma/client";
 import { calcularFechaVencimiento, calcularTotalPresupuesto, calcularEstadoEfectivo } from "@/lib/presupuestos";
 import type { ProductoBusqueda, ClienteBusqueda, ItemPresupuestoLocal } from "../../../types/presupuesto";
@@ -162,7 +163,8 @@ export async function obtenerPresupuestoParaConvertir(id: number): Promise<Resul
   }
 
   const productoIds = presupuesto.items.map((item) => item.productoId as number);
-    const productos = await prisma.producto.findMany({
+  // Stock de la sucursal donde se va a vender (src/lib/stock-sucursal.ts).
+  const productos = await conStockDeSucursal(await prisma.producto.findMany({
     where: { id: { in: productoIds }, empresaId },
     select: {
       id: true,
@@ -176,7 +178,7 @@ export async function obtenerPresupuestoParaConvertir(id: number): Promise<Resul
       contenidoMl: true,
       marca: { select: { nombre: true } },
     },
-  });
+  }));
 
   const productoPorId = new Map<number, (typeof productos)[number]>(
     productos.map((p) => [p.id, p])

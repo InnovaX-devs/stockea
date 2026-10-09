@@ -3,6 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { prisma } from "@/lib/prisma";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { conStockDeSucursal } from "@/lib/stock-sucursal";
 import { ListaPreciosDocument } from "@/lib/pdf/ListaPreciosDocument";
 import { CatalogoDocument } from "@/lib/pdf/CatalogoDocument";
 import type { Prisma } from "@prisma/client";
@@ -136,7 +137,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const productos = await resolverImagenes(productosRaw);
+  // "Con stock / sin stock" según la sucursal actual (o el total en "Todas").
+  const productos = await resolverImagenes(await conStockDeSucursal(productosRaw));
 
   // Blindaje: el query param "moneda" lo arma el cliente, pero la decisión
   // final es del servidor. Si el negocio no opera con dólares, el PDF
