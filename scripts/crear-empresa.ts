@@ -47,6 +47,10 @@ async function main() {
     data: { empresaId: empresa.id, nombreNegocio, cotizacionUSD, licencia },
   });
 
+  // Toda empresa arranca con una sucursal. Las adicionales (solo PREMIUM)
+  // se agregan con scripts/crear-sucursal.ts.
+  await prisma.sucursal.create({ data: { empresaId: empresa.id, nombre: "Principal" } });
+
   const admin = await prisma.usuario.create({
     data: {
       nombre: "Administrador",

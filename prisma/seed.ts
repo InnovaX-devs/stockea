@@ -52,6 +52,11 @@ async function main() {
     },
   });
 
+  const tieneSucursal = await prisma.sucursal.count({ where: { empresaId: empresa.id } });
+  if (!tieneSucursal) {
+    await prisma.sucursal.create({ data: { empresaId: empresa.id, nombre: "Principal" } });
+  }
+
   console.log("Empresa creada/verificada:", empresa.nombre, `(id ${empresa.id})`);
   console.log("Usuario admin creado/verificado:", admin.email);
   console.log("Configuración inicial:", { nombreNegocio, cotizacionUSD, licencia });

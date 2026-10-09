@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { obtenerUsuarioActual } from "@/lib/empresa";
 import { crearPaseCambioUsuario } from "@/lib/cambio-usuario";
 import { INICIO_EMPLEADO } from "@/lib/permisos";
+import { obtenerContextoSucursal } from "@/lib/sucursal";
 
 /**
  * Cambio rápido de usuario sin cerrar sesión (licencia PREMIUM):
@@ -36,11 +37,31 @@ export async function cambiarAEmpleado(): Promise<Resultado> {
   const actual = await obtenerUsuarioActual();
   if (actual.rol !== "ADMIN") return { success: false, error: "Solo el administrador puede hacer este cambio." };
 
+  // Con varias sucursales hay un empleado por sucursal: se pasa al de la
+  // sucursal que el admin está mirando.
+  const { actual: sucursal, multisucursal } = await obtenerContextoSucursal();
+  if (multisucursal && !sucursal) {
+    return { success: false, error: "Elegí una sucursal en la barra superior para pasar a su empleado." };
+  }
+
   const empleado = await prisma.usuario.findFirst({
-    where: { empresaId: actual.empresaId, rol: "EMPLEADO", activo: true },
+    where: {
+      empresaId: actual.empresaId,
+      rol: "EMPLEADO",
+      activo: true,
+      ...(multisucursal ? { sucursalId: sucursal!.id } : {}),
+    },
+    orderBy: { id: "asc" },
     select: { id: true },
   });
-  if (!empleado) return { success: false, error: "No hay un usuario empleado. Crealo en Configuración." };
+  if (!empleado) {
+    return {
+      success: false,
+      error: multisucursal
+        ? `La sucursal ${sucursal!.nombre} no tiene empleado. Crealo en Configuración › Usuarios.`
+        : "No hay un usuario empleado. Crealo en Configuración.",
+    };
+  }
 
   // Si la empresa no es Premium, el provider rechaza al empleado.
   return abrirSesion(empleado.id, INICIO_EMPLEADO);
