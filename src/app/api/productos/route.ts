@@ -4,6 +4,7 @@ import { toArs } from "@/lib/currency";
 import type { Prisma } from "@prisma/client";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { obtenerEmpresaIdActual, obtenerUsuarioActual } from "@/lib/empresa";
+import { requerirSucursalId } from "@/lib/sucursal";
 
 export const dynamic = "force-dynamic";
 
@@ -238,9 +239,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // El stock inicial entra en la sucursal actual.
+    let sucursalId: number | null = null;
+    if (stockActual !== 0) {
+      try {
+        sucursalId = await requerirSucursalId();
+      } catch (e) {
+        return NextResponse.json(
+          { error: e instanceof Error ? e.message : "Elegí una sucursal para cargar el stock." },
+          { status: 400 }
+        );
+      }
+    }
+
     const nuevoProducto = await prisma.producto.create({
       data: {
         empresaId,
+        ...(sucursalId != null ? { stocks: { create: { sucursalId, cantidad: stockActual, stockMinimo } } } : {}),
         nombre: body.nombre.trim(),
         codigoBarras,
         ubicacionDeposito,

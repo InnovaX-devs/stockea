@@ -3,6 +3,8 @@ import { del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { requerirSucursalId } from "@/lib/sucursal";
+import { ajustarStock } from "@/lib/stock";
 
 export async function PUT(
   request: NextRequest,
@@ -104,12 +106,22 @@ export async function PUT(
       body.stockOriginal !== undefined && body.stockOriginal !== null && !isNaN(Number(body.stockOriginal))
         ? Number(body.stockOriginal)
         : null;
-    const cambioDeStock: Prisma.ProductoUpdateInput["stockActual"] =
-      stockOriginal === null
-        ? stockActual
-        : stockActual !== stockOriginal
-          ? { increment: stockActual - stockOriginal }
-          : undefined;
+    // La diferencia se aplica en la sucursal actual (src/lib/stock.ts mantiene
+    // el total del producto). Sin stockOriginal (pantallas viejas), la
+    // diferencia es contra el total guardado.
+    const diferenciaStock =
+      stockOriginal === null ? stockActual - productoAnterior.stockActual : stockActual - stockOriginal;
+    let sucursalId: number | null = null;
+    if (diferenciaStock !== 0) {
+      try {
+        sucursalId = await requerirSucursalId();
+      } catch (e) {
+        return NextResponse.json(
+          { error: e instanceof Error ? e.message : "Elegí una sucursal para cambiar el stock." },
+          { status: 400 }
+        );
+      }
+    }
 
     const stockMinimo = !isNaN(Number(body.stockMinimo))
       ? Number(body.stockMinimo)
@@ -176,8 +188,12 @@ export async function PUT(
     // El where solo usa "id" porque la pertenencia a la empresa ya se validó
     // arriba (productoAnterior); Prisma.update no acepta un where compuesto
     // sobre una FK no-única.
-    const [productoActualizado] = await prisma.$transaction([
-      prisma.producto.update({
+    const productoActualizado = await prisma.$transaction(async (tx) => {
+      // Stock primero (orden de bloqueo de src/lib/stock.ts).
+      if (sucursalId != null) {
+        await ajustarStock(tx, empresaId, sucursalId, productoId, diferenciaStock);
+      }
+      const actualizado = await tx.producto.update({
         where: { id: productoId },
         data: {
           nombre: String(body.nombre || "").trim(),
@@ -186,7 +202,6 @@ export async function PUT(
           contenidoMl,
           marcaId,
           categoriaId,
-          stockActual: cambioDeStock,
           stockMinimo,
           destacado: Boolean(body.destacado),
           monedaPrecio: body.monedaPrecio || "USD",
@@ -198,11 +213,12 @@ export async function PUT(
           ...([0, 2.5, 5, 10.5, 21, 27].includes(Number(body.alicuotaIva)) ? { alicuotaIva: Number(body.alicuotaIva) } : {}),
           fotoUrl: body.fotoUrl !== undefined ? body.fotoUrl : undefined,
         },
-      }),
-      ...(registrosHistorial.length > 0
-        ? [prisma.historialPrecio.createMany({ data: registrosHistorial })]
-        : []),
-    ]);
+      });
+      if (registrosHistorial.length > 0) {
+        await tx.historialPrecio.createMany({ data: registrosHistorial });
+      }
+      return actualizado;
+    });
 
     // La foto vieja se borra recién ahora, con el producto ya guardado: si el
     // guardado fallaba, el producto quedaba apuntando a una foto borrada.
