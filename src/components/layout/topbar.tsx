@@ -11,6 +11,7 @@ import { NAV_ITEMS, esGrupo, type NavGroup } from "@/lib/nav-items";
 import { actualizarCotizacionRapida } from "@/app/(dashboard)/configuracion/actions";
 import { MenuUsuario } from "@/components/layout/menu-usuario";
 import { MenuConfiguracion } from "@/components/layout/menu-configuracion";
+import { SelectorSucursal, type SucursalBarra } from "@/components/layout/selector-sucursal";
 import { INICIO_EMPLEADO, puedeVerEnMenu, type Rol } from "@/lib/permisos";
 
 // Clases compartidas por los ítems de nav, pensadas para la topbar oscura
@@ -50,6 +51,7 @@ export function Topbar({
   rol,
   usuarioNombre,
   otroUsuario,
+  sucursal,
 }: {
   logoUrl: string | null;
   nombreNegocio: string;
@@ -61,6 +63,8 @@ export function Topbar({
   usuarioNombre: string;
   /** Usuario al que se puede pasar (admin ⇄ empleado), o null si no hay. */
   otroUsuario: { nombre: string; rol: Rol } | null;
+  /** Sucursal activa; null si la empresa tiene una sola (no se muestra nada). */
+  sucursal: SucursalBarra | null;
 }) {
   const pathname = usePathname();
   const esAdmin = rol === "ADMIN";
@@ -283,6 +287,8 @@ export function Topbar({
             <span className="font-mono text-sm font-medium text-white">${cotizacionFormateada}</span>
           </button>
         ))}
+
+        {sucursal && <SelectorSucursal {...sucursal} />}
 
         {esAdmin && <MenuConfiguracion />}
 

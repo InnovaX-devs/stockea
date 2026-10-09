@@ -25,6 +25,7 @@ model Empresa {
   ultimoNumeroPresupuesto Int @default(0)
 
   usuarios         Usuario[]
+  sucursales       Sucursal[]
   configuracion    Configuracion?
   marcas           Marca[]
   categorias       Categoria[]
@@ -65,6 +66,32 @@ model Usuario {
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   empresaId Int
 
+  // Sucursal del empleado: solo ve y vende en esa. El admin no tiene
+  // sucursal fija (null) y elige cuál mirar desde la barra superior.
+  sucursal   Sucursal? @relation(fields: [sucursalId], references: [id])
+  sucursalId Int?
+
+  @@index([empresaId])
+  @@index([sucursalId])
+}
+
+// Local físico de la empresa. Toda empresa tiene al menos una ("Principal").
+// Con licencia BASICO se usa una sola; con PREMIUM puede tener varias, pero
+// las adicionales las da de alta InnovaX (scripts/crear-sucursal.ts), no el
+// cliente. Lógica en src/lib/sucursal.ts.
+model Sucursal {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  direccion String?
+  activa    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  usuarios Usuario[]
+
+  @@unique([empresaId, nombre])
   @@index([empresaId])
 }
 
