@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { requerirSucursalId } from "@/lib/sucursal";
+import { sumarStockSucursal } from "@/lib/stock";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import {
   agruparPorProducto,
@@ -139,6 +141,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const invalida = validarCompra(compra);
     if (invalida) return NextResponse.json({ error: invalida.error }, { status: invalida.status });
 
+    // La mercadería entra en la sucursal donde se confirma la compra.
+    let sucursalId: number;
+    try {
+      sucursalId = await requerirSucursalId();
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Elegí una sucursal." }, { status: 400 });
+    }
+
     const { cotizacion, modoPorDefecto } = await contexto();
     const totalARS = compra!.totalUSD * cotizacion;
     const cuentaEsUSD = TIPOS_CUENTA_USD.includes(compra!.cuenta.tipo);
@@ -214,7 +224,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         cambios.push(cambio);
       }
 
-      // 1) Stock (sumado, no pisado) y precios de todos los productos en una consulta.
+      // 1) Stock de la sucursal (primero, por el orden de bloqueo de src/lib/stock.ts)…
+      await sumarStockSucursal(tx, empresaId, sucursalId, cambios.map((c) => ({ productoId: c.id, cantidad: c.cantidad })));
+
+      // …y stock total (sumado, no pisado) y precios de todos los productos en una consulta.
       const num = (v: number | null) => (v == null ? Prisma.sql`NULL::float8` : Prisma.sql`${v}::float8`);
       await tx.$executeRaw`
         UPDATE "Producto" AS p SET

@@ -9,7 +9,8 @@ import { redondearARS, montoEnCuentaUSD, montoARSDePago } from "@/lib/currency";
 import { mensajeSiCajaCerrada } from "@/lib/caja";
 import { notaCreditoTrasAnular } from "@/lib/arca/factura";
 import { siguienteNumero } from "@/lib/numeracion";
-import { descontarStock, sumarStock } from "@/lib/stock";
+import { descontarStock, sumarStock, sucursalDeVenta, stockEnSucursal } from "@/lib/stock";
+import { obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
 import { Prisma } from "@prisma/client";
 import { inicioDiaAR } from "@/lib/timezone";
 import type {
@@ -77,10 +78,11 @@ export async function descontarStockSinVenta(
 
   try {
     const empresaId = await obtenerEmpresaIdActual();
+    const sucursalId = await requerirSucursalId();
 
     await prisma.$transaction(async (tx) => {
       // 1. Validar stock
-      await descontarStock(tx, empresaId, items);
+      await descontarStock(tx, empresaId, sucursalId, items);
     });
 
     revalidatePath("/", "layout");
@@ -98,6 +100,14 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
   }
 
   const empresaId = await obtenerEmpresaIdActual();
+
+  // Se vende siempre en una sucursal concreta: de ahí sale el stock.
+  let sucursalId: number;
+  try {
+    sucursalId = await requerirSucursalId();
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Elegí una sucursal." };
+  }
 
   // Con la caja cerrada no se vende (ver src/lib/caja.ts).
   const cajaCerrada = await mensajeSiCajaCerrada(empresaId);
@@ -180,7 +190,7 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
 
       if (armado) {
         // Una sola consulta para todos los productos, y solo si alcanza el stock.
-        await descontarStock(tx, empresaId, input.items);
+        await descontarStock(tx, empresaId, sucursalId, input.items);
       }
 
       // 1.5 Si viene con cliente, validar que sea de esta empresa.
@@ -195,6 +205,7 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
       const venta = await tx.venta.create({
         data: {
           empresaId,
+          sucursalId,
           numero: numeroVenta,
           clienteId: input.clienteId,
           presupuestoId: input.presupuestoId ?? null,
@@ -424,20 +435,27 @@ export async function verificarStockDisponible(
   unidadesRequeridas: number
 ): Promise<StockDisponibilidad> {
   const empresaId = await obtenerEmpresaIdActual();
+  // Stock y reservas de la sucursal actual; con "Todas" (solo consulta), el total.
+  const sucursalId = await obtenerSucursalIdActual();
 
   const producto = await prisma.producto.findFirst({
     where: { id: productoId, empresaId },
     select: { stockActual: true },
   });
-  const stockFisico = producto?.stockActual ?? 0;
+  const stockFisico = !producto
+    ? 0
+    : sucursalId == null
+      ? producto.stockActual
+      : await stockEnSucursal(prisma, productoId, sucursalId);
 
   // Reservado = suma de unidades comprometidas en pedidos sin armar (armado=false)
-  // que siguen activos (ni cancelados ni anulados).
+  // que siguen activos (ni cancelados ni anulados), de esta sucursal.
   const itemsPendientes = await prisma.itemVenta.findMany({
     where: {
       productoId,
       venta: {
         empresaId,
+        ...(sucursalId != null ? { sucursalId } : {}),
         armado: false,
         estadoPago: { notIn: ["CANCELADA", "ANULADA"] },
       },
@@ -555,7 +573,8 @@ export async function marcarArmado(ventaId: number): Promise<ResultadoAccionPedi
     }
 
     await prisma.$transaction(async (tx) => {
-      await descontarStock(tx, empresaId, venta.items);
+      // El pedido se arma con stock de la sucursal donde se registró.
+      await descontarStock(tx, empresaId, await sucursalDeVenta(tx, venta), venta.items);
 
       // Guard atómico: si en otra pestaña lo armaron o cancelaron, no se descuenta dos veces.
       const marcado = await tx.venta.updateMany({
@@ -826,7 +845,7 @@ export async function anularVenta(
 
       // 1. Devolver stock si ya se había descontado (armado=true)
       if (venta.armado) {
-        await sumarStock(tx, empresaId, venta.items);
+        await sumarStock(tx, empresaId, await sucursalDeVenta(tx, venta), venta.items);
       }
 
       // 2. Revertir cada pago: restar de la cuenta y dejar registro en movimientos de caja
@@ -899,7 +918,7 @@ export async function cancelarPedido(
       }
 
       if (venta.armado) {
-        await sumarStock(tx, empresaId, venta.items);
+        await sumarStock(tx, empresaId, await sucursalDeVenta(tx, venta), venta.items);
       }
 
       // Antes esto bloqueaba la cancelación si había pagos; ahora se revierten solos.

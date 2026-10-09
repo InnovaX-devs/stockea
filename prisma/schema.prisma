@@ -90,6 +90,8 @@ model Sucursal {
   empresaId Int
 
   usuarios Usuario[]
+  stocks   StockSucursal[]
+  ventas   Venta[]
 
   @@unique([empresaId, nombre])
   @@index([empresaId])
@@ -139,6 +141,9 @@ model Producto {
   categoria   Categoria? @relation(fields: [categoriaId], references: [id])
   categoriaId Int?
 
+  // Stock TOTAL de todas las sucursales. Se mantiene sincronizado con
+  // StockSucursal en src/lib/stock.ts (nunca escribirlo a mano). El stock de
+  // cada sucursal está en StockSucursal.
   stockActual Int     @default(0)
   stockMinimo Int     @default(0)
   destacado   Boolean @default(false)
@@ -165,6 +170,7 @@ model Producto {
   itemsVenta       ItemVenta[]
   itemsCompra      ItemCompra[]
   historialPrecios HistorialPrecio[]
+  stocks           StockSucursal[]
 
   @@unique([empresaId, codigoBarras])
   @@index([nombre])
@@ -273,6 +279,12 @@ model Venta {
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   empresaId Int
 
+  // Sucursal donde se hizo la venta: de ahí sale el stock y ahí vuelve si se
+  // anula. Puede ser null en ventas creadas entre la migración y el deploy;
+  // en ese caso se usa la principal (ver sucursalDeVenta en src/lib/stock.ts).
+  sucursal   Sucursal? @relation(fields: [sucursalId], references: [id])
+  sucursalId Int?
+
   items           ItemVenta[]
   pagos           PagoVenta[]
   comprobantes    Comprobante[]
@@ -287,6 +299,7 @@ model Venta {
   @@index([enviado])
   @@unique([empresaId, numero])
   @@index([empresaId])
+  @@index([sucursalId])
 }
 
 model ItemVenta {
@@ -783,4 +796,22 @@ model Comprobante {
   @@index([ventaId])
   @@index([empresaId, createdAt])
   @@index([comprobanteAsociadoId])
+}
+
+// Stock de un producto en una sucursal (issue #31). Si no hay fila, la
+// cantidad es 0. Toda escritura pasa por src/lib/stock.ts, que también
+// mantiene Producto.stockActual como total.
+model StockSucursal {
+  id          Int      @id @default(autoincrement())
+  cantidad    Int      @default(0)
+  stockMinimo Int      @default(0)
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  producto   Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  productoId Int
+  sucursal   Sucursal @relation(fields: [sucursalId], references: [id])
+  sucursalId Int
+
+  @@unique([productoId, sucursalId])
+  @@index([sucursalId])
 }
