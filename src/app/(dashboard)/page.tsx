@@ -40,6 +40,7 @@ interface Movimiento {
 }
 
 interface DashboardData {
+  premium: boolean;
   cuentas: {
     saldoTotal: number;
     principales: CuentaPrincipal[];
@@ -242,12 +243,15 @@ export default function DashboardPage() {
                 </span>
               )}
             </div>
-            <Link
-              href="/finanzas/flujo-caja"
-              className="text-xs font-medium text-primary hover:underline"
-            >
-              Ver todo →
-            </Link>
+            {/* Flujo de caja es una pantalla Premium: en plan Básico no se muestra el acceso */}
+            {datos?.premium && (
+              <Link
+                href="/finanzas/flujo-caja"
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                Ver todo →
+              </Link>
+            )}
           </div>
 
           <div className="mt-4 flex items-center justify-between border-b border-border pb-3">
