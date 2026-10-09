@@ -40,7 +40,7 @@ export async function GET() {
   const [configuracion, cuentas, movimientosHoy, [porArmar, armados], reporteHoy] = await Promise.all([
     prisma.configuracion.findUnique({
       where: { empresaId },
-      select: { cotizacionUSD: true },
+      select: { cotizacionUSD: true, licencia: true },
     }),
     prisma.cuenta.findMany({
       where: { activa: true, empresaId },
@@ -94,6 +94,7 @@ export async function GET() {
   }));
 
   return NextResponse.json({
+    premium: configuracion?.licencia === "PREMIUM",
     cuentas: {
       saldoTotal,
       principales: cuentas.slice(0, 5).map((c) => ({
