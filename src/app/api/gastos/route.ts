@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
+import { obtenerSucursalIdActual } from "@/lib/sucursal";
+import { validarCuentaParaSucursal, sucursalDelMovimiento } from "@/lib/cuenta-sucursal";
 
 export async function GET(request: NextRequest) {
   // Gastos: disponible en los dos planes (ver lib/configuracion.ts).
@@ -107,8 +109,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // El gasto queda en la sucursal elegida. En "Todas" queda como gasto de
+    // la empresa (sin sucursal) y solo se puede pagar con una cuenta compartida.
+    const sucursalId = await obtenerSucursalIdActual();
+
     const dataBase: Prisma.GastoCreateInput = {
       empresa: { connect: { id: empresaId } },
+      ...(sucursalId != null ? { sucursal: { connect: { id: sucursalId } } } : {}),
       monto,
       concepto: body.concepto.trim(),
       observaciones: body.observaciones?.trim() || null,
@@ -120,6 +127,10 @@ export async function POST(request: NextRequest) {
     const resultado = await prisma.$transaction(async (tx) => {
       const cuenta = await tx.cuenta.findFirst({ where: { id: cuentaId, empresaId } });
       if (!cuenta) throw new Error("CUENTA_NO_ENCONTRADA");
+      await validarCuentaParaSucursal(tx, empresaId, cuentaId, sucursalId);
+      if (sucursalId == null && cuenta.sucursalId != null) {
+        throw new Error("Un gasto de la empresa (en \"Todas\") se paga con una cuenta compartida. Elegí una sucursal o una cuenta compartida.");
+      }
 
       const esCuentaUSD = cuenta.tipo === "EFECTIVO_USD" || cuenta.tipo === "BANCO_USD";
 
@@ -153,6 +164,7 @@ export async function POST(request: NextRequest) {
           monto: montoADescontar,
           saldoResultante: cuentaActualizada.saldoActual,
           gastoId: nuevoGasto.id,
+          sucursalId: sucursalDelMovimiento(sucursalId, cuenta.sucursalId),
         },
       });
 
@@ -169,6 +181,9 @@ export async function POST(request: NextRequest) {
     }
     if (error?.message === "SALDO_INSUFICIENTE") {
       return NextResponse.json({ error: "La cuenta no tiene saldo suficiente para este gasto" }, { status: 409 });
+    }
+    if (error instanceof Error && /cuenta/i.test(error.message)) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
     console.error("Error al crear gasto:", error);
     return NextResponse.json({ error: "Error al crear el gasto" }, { status: 500 });

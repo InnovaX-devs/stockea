@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { validarCuentaParaSucursal, sucursalDelMovimiento } from "@/lib/cuenta-sucursal";
 
 export async function POST(
   request: NextRequest,
@@ -29,6 +30,8 @@ export async function POST(
 
       const cuenta = await tx.cuenta.findFirst({ where: { id: cuentaId, empresaId } });
       if (!cuenta) throw new Error("CUENTA_NO_ENCONTRADA");
+      // Se paga con una cuenta de la sucursal del gasto o una compartida.
+      await validarCuentaParaSucursal(tx, empresaId, cuentaId, gasto.sucursalId);
 
       const esCuentaUSD = cuenta.tipo === "EFECTIVO_USD" || cuenta.tipo === "BANCO_USD";
 
@@ -67,6 +70,7 @@ export async function POST(
           monto: montoADescontar,
           saldoResultante: cuentaActualizada.saldoActual,
           gastoId: gasto.id,
+          sucursalId: sucursalDelMovimiento(gasto.sucursalId, cuenta.sucursalId),
         },
       });
 
@@ -89,6 +93,9 @@ export async function POST(
     }
     if (error?.message === "SIN_COTIZACION") {
       return NextResponse.json({ error: "No hay una cotización de USD configurada" }, { status: 400 });
+    }
+    if (error instanceof Error && /cuenta/i.test(error.message) && !error.message.includes("_")) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
     console.error("Error al pagar gasto:", error);
     return NextResponse.json({ error: "Error al marcar el gasto como pagado" }, { status: 500 });

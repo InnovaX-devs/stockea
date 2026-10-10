@@ -15,6 +15,9 @@ export type CuentaDTO = {
   limiteMensualIngresos: number | null;
   activa: boolean;
   createdAt: string;
+  /** Sucursal de la cuenta; null = compartida por todas. */
+  sucursalId?: number | null;
+  sucursalNombre?: string | null;
 };
 
 export const ES_TIPO_BANCO = (tipo: TipoCuenta) => tipo === "BANCO_ARS" || tipo === "BANCO_USD";

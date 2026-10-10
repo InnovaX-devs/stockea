@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { obtenerSucursalIdActual } from "@/lib/sucursal";
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,6 +50,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Cada movimiento queda en la sucursal de su cuenta (si es compartida, en
+    // la elegida). Así se puede pasar plata de la caja de una sucursal al banco.
+    const sucursalActual = await obtenerSucursalIdActual();
+
     // Se resta y se suma sobre el saldo de ESTE momento (no uno leído antes):
     // si entra una venta o se hace otra transferencia a la vez, no se pisa.
     const resultado = await prisma.$transaction(async (tx) => {
@@ -71,6 +76,7 @@ export async function POST(request: NextRequest) {
             monto,
             saldoResultante: cuentaOrigen.saldoActual,
             detalle: concepto ? `A ${destino.nombre}: ${concepto}` : `Transferencia a ${destino.nombre}`,
+            sucursalId: origen.sucursalId ?? sucursalActual,
           },
           {
             empresaId,
@@ -80,6 +86,7 @@ export async function POST(request: NextRequest) {
             monto,
             saldoResultante: cuentaDestino.saldoActual,
             detalle: concepto ? `De ${origen.nombre}: ${concepto}` : `Transferencia de ${origen.nombre}`,
+            sucursalId: destino.sucursalId ?? sucursalActual,
           },
         ],
       });

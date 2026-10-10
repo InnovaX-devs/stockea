@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { siguienteNumero } from "@/lib/numeracion";
+import { requerirSucursalId } from "@/lib/sucursal";
+import { validarCuentaParaSucursal } from "@/lib/cuenta-sucursal";
 
 const FILTROS_VALIDOS = ["pendientes", "confirmadas", "canceladas"] as const;
 type Filtro = (typeof FILTROS_VALIDOS)[number];
@@ -107,6 +109,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // La compra se carga en una sucursal concreta (ahí entra la mercadería).
+    let sucursalId: number;
+    try {
+      sucursalId = await requerirSucursalId();
+      await validarCuentaParaSucursal(prisma, empresaId, cuentaId, sucursalId);
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Elegí una sucursal." }, { status: 400 });
+    }
+
     const cuenta = await prisma.cuenta.findFirst({ where: { id: cuentaId, empresaId } });
     if (!cuenta) {
       return NextResponse.json({ error: "La cuenta seleccionada no existe" }, { status: 400 });
@@ -162,6 +173,7 @@ export async function POST(request: NextRequest) {
       return tx.compra.create({
       data: {
         empresaId,
+        sucursalId,
         numero,
         proveedorId,
         cuentaId,

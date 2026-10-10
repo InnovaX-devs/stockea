@@ -30,6 +30,8 @@ export interface CuentaFormData {
   favorita: boolean;
   saldoInicial: number | "";
   limiteMensualIngresos: number | "";
+  /** null = compartida por todas las sucursales. */
+  sucursalId: number | null;
 }
 
 const FORM_VACIO: CuentaFormData = {
@@ -43,7 +45,10 @@ const FORM_VACIO: CuentaFormData = {
   favorita: false,
   saldoInicial: "",
   limiteMensualIngresos: "",
+  sucursalId: null,
 };
+
+type SucursalesInfo = { sucursales: { id: number; nombre: string }[]; actualId: number | null; multisucursal: boolean };
 
 interface Props {
   isOpen: boolean;
@@ -57,6 +62,17 @@ export function CuentaFormModal({ isOpen, onClose, cuentaEditar, onSuccess, usaC
   const [formData, setFormData] = useState<CuentaFormData>(FORM_VACIO);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  // Sucursales (solo se muestra el campo si la empresa tiene más de una).
+  const [infoSucursales, setInfoSucursales] = useState<SucursalesInfo | null>(null);
+  const [sucursalTocada, setSucursalTocada] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch("/api/sucursales")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: SucursalesInfo | null) => setInfoSucursales(d))
+      .catch(() => setInfoSucursales(null));
+  }, [isOpen]);
 
   const TIPOS = usaCotizacionUSD ? TIPOS_ARS_USD : TIPOS_ARS;
 
@@ -74,16 +90,23 @@ export function CuentaFormModal({ isOpen, onClose, cuentaEditar, onSuccess, usaC
         favorita: cuentaEditar.favorita,
         saldoInicial: cuentaEditar.saldoInicial,
         limiteMensualIngresos: cuentaEditar.limiteMensualIngresos ?? "",
+        sucursalId: cuentaEditar.sucursalId ?? null,
       });
     } else {
       setFormData(FORM_VACIO);
     }
+    setSucursalTocada(false);
     setErrorMsg("");
   }, [cuentaEditar, isOpen]);
 
   if (!isOpen) return null;
 
   const esBanco = ES_TIPO_BANCO(formData.tipo);
+  const multisucursal = Boolean(infoSucursales?.multisucursal);
+  // Cuenta nueva sin elegir sucursal a mano: el efectivo va a la caja de la
+  // sucursal en la que se está trabajando; los bancos quedan compartidos.
+  const sucursalSugerida = !cuentaEditar && !sucursalTocada && !esBanco ? (infoSucursales?.actualId ?? null) : null;
+  const sucursalElegida = !cuentaEditar && !sucursalTocada ? sucursalSugerida : formData.sucursalId;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -104,6 +127,7 @@ export function CuentaFormModal({ isOpen, onClose, cuentaEditar, onSuccess, usaC
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
+          sucursalId: multisucursal ? sucursalElegida : undefined,
           saldoInicial: formData.saldoInicial === "" ? 0 : formData.saldoInicial,
           limiteMensualIngresos:
             formData.limiteMensualIngresos === "" ? null : formData.limiteMensualIngresos,
@@ -172,6 +196,31 @@ export function CuentaFormModal({ isOpen, onClose, cuentaEditar, onSuccess, usaC
               ))}
             </div>
           </div>
+
+          {multisucursal && (
+            <div>
+              <label htmlFor="cuenta-sucursal" className="block text-xs font-medium text-text-dim">Sucursal</label>
+              <select
+                id="cuenta-sucursal"
+                value={sucursalElegida ?? ""}
+                onChange={(e) => {
+                  setSucursalTocada(true);
+                  setFormData({ ...formData, sucursalId: e.target.value === "" ? null : Number(e.target.value) });
+                }}
+                className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+              >
+                <option value="">Compartida (todas las sucursales)</option>
+                {infoSucursales!.sucursales.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    Solo {s.nombre}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-text-dim">
+                Una cuenta de sucursal solo se usa para cobrar y pagar en esa sucursal. Los bancos y Mercado Pago suelen ser compartidos.
+              </p>
+            </div>
+          )}
 
           {esBanco && (
             <div className="rounded-xl border border-border bg-surface-hover/30 p-4 space-y-3">

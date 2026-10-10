@@ -92,6 +92,10 @@ model Sucursal {
   usuarios Usuario[]
   stocks   StockSucursal[]
   ventas   Venta[]
+  compras     Compra[]
+  gastos      Gasto[]
+  movimientos MovimientoCaja[]
+  cuentas     Cuenta[]
 
   @@unique([empresaId, nombre])
   @@index([empresaId])
@@ -421,6 +425,10 @@ model Compra {
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   empresaId Int
 
+  // Sucursal donde se carga la compra y donde entra la mercadería al confirmarla.
+  sucursal   Sucursal? @relation(fields: [sucursalId], references: [id])
+  sucursalId Int?
+
   items           ItemCompra[]
   movimientosCaja MovimientoCaja[]
 
@@ -429,6 +437,7 @@ model Compra {
   @@index([fecha])
   @@unique([empresaId, numero])
   @@index([empresaId])
+  @@index([sucursalId])
 }
 
 model ItemCompra {
@@ -472,6 +481,11 @@ model Cuenta {
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   empresaId Int
 
+  // Con sucursal: es una caja/cuenta de esa sucursal y solo se usa ahí.
+  // Sin sucursal (null): cuenta compartida por todas (bancos, Mercado Pago).
+  sucursal   Sucursal? @relation(fields: [sucursalId], references: [id])
+  sucursalId Int?
+
   movimientos MovimientoCaja[]
   pagosVenta  PagoVenta[]
   compras Compra[]
@@ -479,6 +493,7 @@ model Cuenta {
 
   @@index([nombre])
   @@index([empresaId])
+  @@index([sucursalId])
 }
 
 enum TipoMovimientoCaja {
@@ -517,9 +532,15 @@ model MovimientoCaja {
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   empresaId Int
 
+  // Sucursal donde ocurrió el movimiento. null = movimiento de la empresa
+  // (por ejemplo, un ajuste de una cuenta compartida hecho desde "Todas").
+  sucursal   Sucursal? @relation(fields: [sucursalId], references: [id])
+  sucursalId Int?
+
   @@index([cuentaId])
   @@index([fecha])
   @@index([empresaId])
+  @@index([sucursalId])
 }
 
 model CategoriaGasto {
@@ -556,9 +577,14 @@ model Gasto {
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   empresaId Int
 
+  // Sucursal del gasto (para reportes y caja por sucursal).
+  sucursal   Sucursal? @relation(fields: [sucursalId], references: [id])
+  sucursalId Int?
+
   @@index([fecha])
   @@index([categoriaId])
   @@index([empresaId])
+  @@index([sucursalId])
 }
 
 enum Licencia {

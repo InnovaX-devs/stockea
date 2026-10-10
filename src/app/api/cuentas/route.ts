@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { obtenerEmpresaIdActual, obtenerUsuarioActual } from "@/lib/empresa";
+import { listarSucursalesHabilitadas, obtenerSucursalIdActual } from "@/lib/sucursal";
+import { filtroCuentasDeSucursal } from "@/lib/cuenta-sucursal";
 
 export async function GET(request: NextRequest) {
   const { empresaId, rol } = await obtenerUsuarioActual();
@@ -9,8 +11,12 @@ export async function GET(request: NextRequest) {
   const q = searchParams.get("q")?.trim() ?? "";
   const incluirInactivas = searchParams.get("incluirInactivas") === "true";
 
+  // En una sucursal: sus cuentas y las compartidas. En "Todas": todas.
+  const sucursalId = await obtenerSucursalIdActual();
+
   const where: Prisma.CuentaWhereInput = {
     empresaId,
+    AND: [filtroCuentasDeSucursal(sucursalId)],
     ...(incluirInactivas ? {} : { activa: true }),
     ...(q
       ? {
@@ -23,10 +29,13 @@ export async function GET(request: NextRequest) {
       : {}),
   };
 
-  const items = await prisma.cuenta.findMany({
-    where,
-    orderBy: [{ favorita: "desc" }, { nombre: "asc" }],
-  });
+  const items = (
+    await prisma.cuenta.findMany({
+      where,
+      orderBy: [{ favorita: "desc" }, { nombre: "asc" }],
+      include: { sucursal: { select: { nombre: true } } },
+    })
+  ).map(({ sucursal, ...c }) => ({ ...c, sucursalNombre: sucursal?.nombre ?? null }));
 
   if (rol === "EMPLEADO") {
     // Para cobrar, el empleado solo necesita elegir la cuenta: no ve saldos.
@@ -60,6 +69,12 @@ export async function POST(request: NextRequest) {
     const esBanco = body.tipo === "BANCO_ARS" || body.tipo === "BANCO_USD";
     const saldoInicial = Number(body.saldoInicial || 0);
 
+    // Sucursal de la cuenta (null = compartida). Tiene que ser de la empresa.
+    const sucursalId = body.sucursalId == null || body.sucursalId === "" ? null : Number(body.sucursalId);
+    if (sucursalId != null && !(await listarSucursalesHabilitadas(empresaId)).some((s) => s.id === sucursalId)) {
+      return NextResponse.json({ error: "La sucursal elegida no existe" }, { status: 400 });
+    }
+
     const nuevaCuenta = await prisma.cuenta.create({
       data: {
         empresaId,
@@ -73,6 +88,7 @@ export async function POST(request: NextRequest) {
         favorita: Boolean(body.favorita),
         saldoInicial,
         saldoActual: saldoInicial,
+        sucursalId,
         limiteMensualIngresos: body.limiteMensualIngresos
           ? Number(body.limiteMensualIngresos)
           : null,

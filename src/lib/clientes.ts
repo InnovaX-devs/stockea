@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { obtenerSucursalIdActual } from "@/lib/sucursal";
+import { filtroCuentasDeSucursal } from "@/lib/cuenta-sucursal";
 import type { Prisma } from "@prisma/client";
 import { montoARSDePago } from "@/lib/currency";
 import { obtenerEmpresaIdActual, obtenerUsuarioActual } from "@/lib/empresa";
@@ -195,8 +197,9 @@ function redondear(n: number) {
 
 export async function getCuentasActivas() {
   const { empresaId, rol } = await obtenerUsuarioActual();
+  // Cuentas de la sucursal elegida y las compartidas (ver src/lib/cuenta-sucursal.ts).
   const cuentas = await prisma.cuenta.findMany({
-    where: { activa: true, empresaId },
+    where: { activa: true, empresaId, ...filtroCuentasDeSucursal(await obtenerSucursalIdActual()) },
     orderBy: [{ favorita: "desc" }, { nombre: "asc" }],
     select: { id: true, nombre: true, tipo: true, saldoActual: true },
   });

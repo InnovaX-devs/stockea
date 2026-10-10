@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { listarSucursalesHabilitadas } from "@/lib/sucursal";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -50,6 +51,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const esBanco = body.tipo === "BANCO_ARS" || body.tipo === "BANCO_USD";
 
+    // Sucursal: si no viene, no se toca. null = compartida.
+    let sucursalId: number | null | undefined = undefined;
+    if (body.sucursalId !== undefined) {
+      sucursalId = body.sucursalId == null || body.sucursalId === "" ? null : Number(body.sucursalId);
+      if (sucursalId != null && !(await listarSucursalesHabilitadas(empresaId)).some((s) => s.id === sucursalId)) {
+        return NextResponse.json({ error: "La sucursal elegida no existe" }, { status: 400 });
+      }
+    }
+
     const cuentaActualizada = await prisma.cuenta.update({
       where: { id: cuentaId },
       data: {
@@ -64,6 +74,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         limiteMensualIngresos: body.limiteMensualIngresos
           ? Number(body.limiteMensualIngresos)
           : null,
+        ...(sucursalId !== undefined ? { sucursalId } : {}),
       },
     });
 

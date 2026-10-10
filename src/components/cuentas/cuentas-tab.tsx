@@ -129,6 +129,9 @@ export function CuentasTab() {
                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color ?? "#999" }} />
                         <span className="font-medium text-text">{c.nombre}</span>
                         {c.favorita && <span className="text-xs text-text-dim">★</span>}
+                        {c.sucursalNombre && (
+                          <span className="rounded-full border border-border px-1.5 py-0.5 text-[11px] text-text-dim">{c.sucursalNombre}</span>
+                        )}
                       </div>
                     </td>
                     <td className="py-3 pr-4 text-text-dim">{c.tipo.replace("_", " ")}</td>
