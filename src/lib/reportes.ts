@@ -10,6 +10,8 @@ import type {
 
 import {
   fechaISOAR,
+  formatFechaAR,
+  formatFechaHoraAR,
   inicioDiaAR,
   inicioFinHoyAR,
   siguienteDiaAR,
@@ -266,14 +268,46 @@ export function rangoParaTab(
     case "periodo":
     case "cuenta":
     default: {
-      const fechaDesde = desdeParam ?? fechaISOAR(ahora);
-      const fechaHasta = hastaParam ?? fechaISOAR(ahora);
+      // Las fechas pueden traer hora ("2026-10-09T08:00"), para negocios que
+      // trabajan pasada la medianoche: "del jueves 08:00 al viernes 03:00".
+      const desde = parseFechaHora(desdeParam, fechaISOAR(ahora));
+      const hasta = parseFechaHora(hastaParam, fechaISOAR(ahora));
       return {
-        desde: inicioDiaAR(fechaDesde),
-        hasta: inicioDiaAR(siguienteDiaAR(fechaHasta)),
+        desde: desde.hora ? new Date(`${desde.fecha}T${desde.hora}:00-03:00`) : inicioDiaAR(desde.fecha),
+        // "Hasta 03:00" incluye las ventas de las 03:00 (hasta 03:00:59).
+        hasta: hasta.hora
+          ? new Date(new Date(`${hasta.fecha}T${hasta.hora}:00-03:00`).getTime() + 60_000)
+          : inicioDiaAR(siguienteDiaAR(hasta.fecha)),
       };
     }
   }
+}
+
+/** "2026-10-09" o "2026-10-09T08:00" → { fecha, hora? }. Lo inválido se ignora. */
+function parseFechaHora(valor: string | undefined, porDefecto: string): { fecha: string; hora: string | null } {
+  const fecha = /^(\d{4}-\d{2}-\d{2})/.exec(valor ?? "")?.[1];
+  if (!fecha) return { fecha: porDefecto, hora: null };
+  const hora = /T(([01]\d|2[0-3]):[0-5]\d)$/.exec(valor ?? "")?.[1] ?? null;
+  return { fecha, hora };
+}
+
+/** ¿El parámetro de fecha trae hora? */
+export function tieneHora(valor?: string): boolean {
+  return /T\d{2}:\d{2}$/.test(valor ?? "");
+}
+
+/** Texto del rango para mostrar arriba del reporte (con hora si se eligió). */
+export function textoRango(rango: { desde: Date; hasta: Date }, desdeParam?: string, hastaParam?: string): string {
+  const conHora = tieneHora(desdeParam) || tieneHora(hastaParam);
+  if (conHora) {
+    // hasta es exclusivo: con hora se le sumó 1 minuto.
+    const hastaVisible = new Date(rango.hasta.getTime() - 60_000);
+    return `${formatFechaHoraAR(rango.desde)} — ${formatFechaHoraAR(hastaVisible)}`;
+  }
+  const hastaVisible = new Date(rango.hasta.getTime() - 1);
+  return esMismoDia(rango.desde, hastaVisible)
+    ? formatFechaAR(rango.desde)
+    : `${formatFechaAR(rango.desde)} — ${formatFechaAR(hastaVisible)}`;
 }
 
 export function claveFecha(d: Date): string {

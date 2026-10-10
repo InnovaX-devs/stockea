@@ -111,7 +111,7 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
   }
 
   // Con la caja cerrada no se vende (ver src/lib/caja.ts).
-  const cajaCerrada = await mensajeSiCajaCerrada(empresaId);
+  const cajaCerrada = await mensajeSiCajaCerrada(empresaId, sucursalId);
   if (cajaCerrada) return { success: false, error: cajaCerrada };
 
   // Blindaje: sin importar qué pantalla llame a esta función, el total
@@ -724,8 +724,17 @@ export async function registrarCobroPedido(
     return { success: false, error: "Ingresá al menos un pago válido" };
   }
 
-  const cajaCerrada = await mensajeSiCajaCerrada(await obtenerEmpresaIdActual());
-  if (cajaCerrada) return { success: false, error: cajaCerrada };
+  // La caja que tiene que estar abierta es la de la sucursal del pedido.
+  {
+    const empresaIdCaja = await obtenerEmpresaIdActual();
+    const pedido = await prisma.venta.findFirst({
+      where: { id: ventaId, empresaId: empresaIdCaja },
+      select: { empresaId: true, sucursalId: true },
+    });
+    if (!pedido) return { success: false, error: "El pedido no existe" };
+    const cajaCerrada = await mensajeSiCajaCerrada(empresaIdCaja, await sucursalDeVenta(prisma, pedido));
+    if (cajaCerrada) return { success: false, error: cajaCerrada };
+  }
 
   try {
     const empresaId = await obtenerEmpresaIdActual();

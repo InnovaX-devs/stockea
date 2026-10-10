@@ -12,11 +12,16 @@ import { fechaISOAR } from "@/lib/timezone";
  *
  * No hace falta un proceso programado: la apertura automática se hace "al
  * pasar", la primera vez que alguien usa el sistema después de la hora.
+ *
+ * Por sucursal (issue #34): cada sucursal tiene su propio turno. Todas las
+ * funciones reciben la sucursal (requerirSucursalId() en las acciones).
  */
 
 type Db = Pick<typeof prisma, "sesionCaja" | "movimientoCaja" | "configuracion">;
 
 export const NOMBRE_APERTURA_AUTOMATICA = "Apertura automática";
+/** Turno que se abre solo al cerrar el anterior (Configuracion.cajaTurnoContinuo). */
+export const NOMBRE_TURNO_SIGUIENTE = "Turno siguiente (automático)";
 
 /** Ahora. Centralizado para poder probar la lógica con otra hora. */
 export function ahora(): Date {
@@ -33,9 +38,9 @@ export function aperturaDeHoy(horaApertura: string, momento: Date = ahora()): Da
   return new Date(`${fechaISOAR(momento)}T${hora}:00-03:00`);
 }
 
-export async function sesionAbierta(db: Db, empresaId: number) {
+export async function sesionAbierta(db: Db, empresaId: number, sucursalId: number) {
   return db.sesionCaja.findFirst({
-    where: { empresaId, cerradaFecha: null },
+    where: { empresaId, sucursalId, cerradaFecha: null },
     orderBy: { id: "asc" },
   });
 }
@@ -54,11 +59,11 @@ export async function ultimoMovimientoId(db: Db, empresaId: number): Promise<num
  * apertura desde el último cierre, o nunca se abrió una caja), lo abre solo.
  * Devuelve null si la caja está cerrada y todavía no es hora.
  */
-export async function asegurarAperturaAutomatica(empresaId: number, db: Db = prisma) {
-  const abierta = await sesionAbierta(db, empresaId);
+export async function asegurarAperturaAutomatica(empresaId: number, sucursalId: number, db: Db = prisma) {
+  const abierta = await sesionAbierta(db, empresaId, sucursalId);
   if (abierta) return abierta;
 
-  const ultima = await db.sesionCaja.findFirst({ where: { empresaId }, orderBy: { id: "desc" } });
+  const ultima = await db.sesionCaja.findFirst({ where: { empresaId, sucursalId }, orderBy: { id: "desc" } });
   const config = await db.configuracion.findUnique({
     where: { empresaId },
     select: { horaAperturaCaja: true },
@@ -71,6 +76,7 @@ export async function asegurarAperturaAutomatica(empresaId: number, db: Db = pri
   await db.sesionCaja.create({
     data: {
       empresaId,
+      sucursalId,
       abiertaPorNombre: NOMBRE_APERTURA_AUTOMATICA,
       aperturaAutomatica: true,
       aperturaMovimientoId: await ultimoMovimientoId(db, empresaId),
@@ -79,7 +85,7 @@ export async function asegurarAperturaAutomatica(empresaId: number, db: Db = pri
 
   // Si dos pedidos llegaron a abrirla a la vez, queda solo la primera.
   const abiertas = await db.sesionCaja.findMany({
-    where: { empresaId, cerradaFecha: null },
+    where: { empresaId, sucursalId, cerradaFecha: null },
     orderBy: { id: "asc" },
   });
   for (const duplicada of abiertas.slice(1)) {
@@ -92,8 +98,8 @@ export async function asegurarAperturaAutomatica(empresaId: number, db: Db = pri
  * Para las server actions que venden o cobran: devuelve el mensaje de error
  * si la caja está cerrada, o null si se puede seguir.
  */
-export async function mensajeSiCajaCerrada(empresaId: number): Promise<string | null> {
-  const sesion = await asegurarAperturaAutomatica(empresaId);
+export async function mensajeSiCajaCerrada(empresaId: number, sucursalId: number): Promise<string | null> {
+  const sesion = await asegurarAperturaAutomatica(empresaId, sucursalId);
   return sesion
     ? null
     : "La caja está cerrada. Abrila desde Nueva venta o desde Finanzas → Cierre de caja para poder vender o cobrar.";

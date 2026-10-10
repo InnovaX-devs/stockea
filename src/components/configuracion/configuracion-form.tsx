@@ -19,6 +19,7 @@ interface ConfiguracionFormProps {
     remitenteDni: string | null;
     costoPromedioPonderado: boolean;
     horaAperturaCaja: string;
+    cajaTurnoContinuo: boolean;
     colorPrimario: string | null;
     colorSecundario: string | null;
     licencia: "BASICO" | "PREMIUM";
@@ -382,6 +383,22 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
             required
             className="shrink-0 rounded-lg border border-border px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary"
           />
+        </label>
+
+        <label className="mt-4 flex items-start gap-2">
+          <input
+            type="checkbox"
+            name="cajaTurnoContinuo"
+            defaultChecked={configuracion.cajaTurnoContinuo}
+            className="mt-0.5 h-4 w-4"
+          />
+          <span>
+            <span className="text-sm font-medium text-text">Abrir el siguiente turno al cerrar la caja</span>
+            <p className="text-xs text-text-dim">
+              Para negocios que abren de corrido o hasta la madrugada: al cerrar un turno se cuenta la plata y el
+              siguiente queda abierto en el momento, así nunca se corta la venta.
+            </p>
+          </span>
         </label>
       </div>
 

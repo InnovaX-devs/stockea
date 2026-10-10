@@ -188,9 +188,6 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
     return { success: false as const, error: "Ingresá un monto mayor a $0." };
   }
 
-  const cajaCerrada = await mensajeSiCajaCerrada(await obtenerEmpresaIdActual());
-  if (cajaCerrada) return { success: false as const, error: cajaCerrada };
-
   // El cobro pasa en una sucursal concreta (ahí entra la plata).
   let sucursalId: number;
   try {
@@ -198,6 +195,9 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Elegí una sucursal." };
   }
+
+  const cajaCerrada = await mensajeSiCajaCerrada(await obtenerEmpresaIdActual(), sucursalId);
+  if (cajaCerrada) return { success: false as const, error: cajaCerrada };
 
   try {
     const empresaId = await obtenerEmpresaIdActual();

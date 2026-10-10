@@ -1,8 +1,7 @@
-import { rangoParaTab, esMismoDia, type TabReporte } from "@/lib/reportes";
+import { rangoParaTab, textoRango, type TabReporte } from "@/lib/reportes";
 import { obtenerReporte } from "../queries";
 import { TabsReportes } from "@/components/reportes/TabsReportes";
 import { formatCurrency } from "@/lib/currency";
-import { formatFechaAR } from "@/lib/timezone";
 import { cn } from "@/lib/cn";
 
 type SearchParams = { tab?: string; desde?: string; hasta?: string };
@@ -18,10 +17,8 @@ export default async function EstadoResultadosPage({
   const tab: TabReporte = TABS_VALIDOS.includes(params.tab as TabReporte) ? (params.tab as TabReporte) : "mensual";
   const rango = rangoParaTab(tab, params.desde, params.hasta);
   const faltaPeriodo = tab === "periodo" && (!params.desde || !params.hasta);
-  const hastaVisible = new Date(rango.hasta.getTime() - 1);
-  const rangoTexto = esMismoDia(rango.desde, hastaVisible)
-    ? formatFechaAR(rango.desde)
-    : `${formatFechaAR(rango.desde)} — ${formatFechaAR(hastaVisible)}`;
+  const rangoTexto = textoRango(rango, params.desde, params.hasta);
+  const rangoInvalido = rango.hasta <= rango.desde;
 
   return (
     <div className="space-y-4">
@@ -30,6 +27,8 @@ export default async function EstadoResultadosPage({
 
       {faltaPeriodo ? (
         <p className="text-sm text-text-dim">Elegí un rango de fechas para ver el estado de resultados.</p>
+      ) : rangoInvalido ? (
+        <p className="text-sm text-danger">El &quot;hasta&quot; tiene que ser después del &quot;desde&quot;. Revisá las fechas y horas.</p>
       ) : (
         <EstadoResultadosSection rango={rango} />
       )}

@@ -50,6 +50,8 @@ export async function guardarConfiguracion(formData: FormData) {
 
   const costoPromedioPonderado = formData.get("costoPromedioPonderado") === "on";
 
+  const cajaTurnoContinuo = formData.get("cajaTurnoContinuo") === "on";
+
   const horaAperturaCaja = (formData.get("horaAperturaCaja") as string | null)?.trim() || "07:00";
   if (!esHoraValida(horaAperturaCaja)) {
     throw new Error("Hora de apertura de caja inválida");
@@ -79,6 +81,7 @@ export async function guardarConfiguracion(formData: FormData) {
     colorSecundario,
     costoPromedioPonderado,
     horaAperturaCaja,
+    cajaTurnoContinuo,
     ...(usaCotizacionUSD !== undefined ? { usaCotizacionUSD } : {}),
     ...(cotizacionUSD !== undefined ? { cotizacionUSD } : {}),
     ...(logoUrl !== undefined ? { logoUrl } : {}),

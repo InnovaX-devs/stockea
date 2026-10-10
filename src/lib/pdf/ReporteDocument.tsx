@@ -114,10 +114,13 @@ export function ReporteDocument({
   reporte,
   configuracion,
   titulo = "Reporte de Ventas",
+  rangoTexto: rangoTextoProp,
 }: {
   reporte: ReporteData;
   configuracion: Configuracion;
   titulo?: string;
+  /** Texto del rango ya armado (con hora si se eligió). */
+  rangoTexto?: string;
 }) {
   const { kpis, desgloseTipoPrecio, desgloseMetodoCobro, ingresosPorDia, topProductos } = reporte;
 
@@ -130,9 +133,11 @@ export function ReporteDocument({
   // el último día realmente incluido (mismo criterio que hastaVisible en page.tsx).
   const fechaFinVisible = new Date(new Date(reporte.fechaFin).getTime() - 1);
 
-  const rangoTexto = `${new Intl.DateTimeFormat("es-AR", { dateStyle: "long" }).format(
-    new Date(reporte.fechaInicio)
-  )} — ${new Intl.DateTimeFormat("es-AR", { dateStyle: "long" }).format(fechaFinVisible)}`;
+  const rangoTexto =
+    rangoTextoProp ??
+    `${new Intl.DateTimeFormat("es-AR", { dateStyle: "long" }).format(
+      new Date(reporte.fechaInicio)
+    )} — ${new Intl.DateTimeFormat("es-AR", { dateStyle: "long" }).format(fechaFinVisible)}`;
 
   const kpiItems: { label: string; valor: string; sub?: string; destacado?: boolean }[] = [
     {
