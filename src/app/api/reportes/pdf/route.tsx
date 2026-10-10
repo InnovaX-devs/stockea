@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { rangoParaTab, type TabReporte } from "@/lib/reportes";
+import { rangoParaTab, textoRango, type TabReporte } from "@/lib/reportes";
 import { obtenerReporte } from "@/app/(dashboard)/reportes/queries";
 import { ReporteDocument } from "@/lib/pdf/ReporteDocument";
 import { obtenerConfiguracion } from "@/lib/configuracion";
@@ -32,7 +32,12 @@ export async function GET(req: NextRequest) {
   const rango = rangoParaTab(tab, desdeParam, hastaParam);
 
   const buffer = await renderToBuffer(
-    <ReporteDocument reporte={await obtenerReporte(rango)} configuracion={configuracion} titulo={TITULOS[tab]} />
+    <ReporteDocument
+      reporte={await obtenerReporte(rango)}
+      configuracion={configuracion}
+      titulo={TITULOS[tab]}
+      rangoTexto={tab === "periodo" ? textoRango(rango, desdeParam, hastaParam) : undefined}
+    />
   );
 
   const nombreArchivo = `reporte-${tab}-${rango.desde.toISOString().slice(0, 10)}.pdf`;

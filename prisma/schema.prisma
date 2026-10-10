@@ -96,6 +96,8 @@ model Sucursal {
   gastos      Gasto[]
   movimientos MovimientoCaja[]
   cuentas     Cuenta[]
+  sesionesCaja SesionCaja[]
+  cierresCaja  CierreCaja[]
 
   @@unique([empresaId, nombre])
   @@index([empresaId])
@@ -646,6 +648,9 @@ model Configuracion {
   cotizacionUSD    Float   @default(1000)
   // Hora (Argentina, "HH:MM") a la que la caja se abre sola cada día.
   horaAperturaCaja String  @default("07:00")
+  // Negocios que abren de corrido (24 h): al cerrar un turno se abre el
+  // siguiente en el momento, así nunca queda la caja cerrada (ver cierre-caja).
+  cajaTurnoContinuo Boolean @default(false)
 
   // Compras
   costoPromedioPonderado Boolean @default(true)
@@ -689,9 +694,14 @@ model CierreCaja {
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   empresaId Int
 
+  // Sucursal de la caja que se cerró (issue #34).
+  sucursal   Sucursal? @relation(fields: [sucursalId], references: [id])
+  sucursalId Int?
+
   cuentas CierreCajaCuenta[]
 
   @@index([empresaId, fecha])
+  @@index([sucursalId])
 }
 
 model CierreCajaCuenta {
@@ -739,9 +749,14 @@ model SesionCaja {
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   empresaId Int
 
+  // Cada sucursal abre y cierra su propia caja (issue #34).
+  sucursal   Sucursal? @relation(fields: [sucursalId], references: [id])
+  sucursalId Int?
+
   cierre CierreCaja?
 
   @@index([empresaId, cerradaFecha])
+  @@index([sucursalId])
 }
 
 // --- Facturación electrónica ARCA ---

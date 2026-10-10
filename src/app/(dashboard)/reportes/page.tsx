@@ -1,4 +1,4 @@
-import { rangoParaTab, esMismoDia, type TabReporte } from "@/lib/reportes";
+import { rangoParaTab, textoRango, type TabReporte } from "@/lib/reportes";
 import { obtenerReporte } from "./queries";
 import { TabsReportes } from "../../../components/reportes/TabsReportes";
 import { KpiCards } from "@/components/reportes/kpi-cards";
@@ -8,7 +8,6 @@ import { BotonExportarPdf } from "../../../components/reportes/BotonExportarPdf"
 import { IngresosPorDia } from "@/components/reportes/ingresos-por-dia";
 import { TopProductos } from "@/components/reportes/top-productos";
 import { TopClientes } from "@/components/reportes/top-clientes";
-import { formatFechaAR } from "@/lib/timezone";
 
 type SearchParams = {
   tab?: string;
@@ -30,11 +29,8 @@ export default async function ReportesPage({
   const rango = rangoParaTab(tab, params.desde, params.hasta);
   const faltaPeriodo = tab === "periodo" && (!params.desde || !params.hasta);
 
-  const hastaVisible = new Date(rango.hasta.getTime() - 1);
-
-  const rangoTexto = esMismoDia(rango.desde, hastaVisible)
-    ? formatFechaAR(rango.desde)
-    : `${formatFechaAR(rango.desde)} — ${formatFechaAR(hastaVisible)}`;
+  const rangoTexto = textoRango(rango, params.desde, params.hasta);
+  const rangoInvalido = rango.hasta <= rango.desde;
 
   return (
     <div className="space-y-4 print:p-0">
@@ -49,6 +45,8 @@ export default async function ReportesPage({
 
       {faltaPeriodo ? (
         <p className="text-sm text-text-dim">Elegí un rango de fechas para ver el reporte.</p>
+      ) : rangoInvalido ? (
+        <p className="text-sm text-danger">El &quot;hasta&quot; tiene que ser después del &quot;desde&quot;. Revisá las fechas y horas.</p>
       ) : (
         <ReportePeriodoSection rango={rango} />
       )}

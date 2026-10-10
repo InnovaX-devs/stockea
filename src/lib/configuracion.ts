@@ -79,6 +79,7 @@ export async function actualizarConfiguracion(
     cotizacionUSD: number;
     costoPromedioPonderado: boolean;
     horaAperturaCaja: string;
+    cajaTurnoContinuo: boolean;
   }>
 ) {
   const empresaId = await obtenerEmpresaIdActual();

@@ -136,9 +136,16 @@ export function CierreCaja({ estado, historial }: { estado: EstadoCaja; historia
     <div className="mx-auto max-w-4xl space-y-6 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-text sm:text-2xl">Caja</h1>
-          <p className="text-sm text-text-dim">Apertura y cierre del efectivo de cada turno.</p>
+          <h1 className="text-xl font-semibold text-text sm:text-2xl">
+            Caja{estado.multisucursal && estado.sucursal ? ` · ${estado.sucursal.nombre}` : ""}
+          </h1>
+          <p className="text-sm text-text-dim">
+            {estado.multisucursal
+              ? "Cada sucursal abre y cierra su propia caja."
+              : "Apertura y cierre del efectivo de cada turno."}
+          </p>
         </div>
+        {estado.sucursal && (
         <span
           className={cn(
             "inline-flex items-center gap-2 self-start rounded-full px-3 py-1.5 text-sm sm:self-auto",
@@ -152,7 +159,14 @@ export function CierreCaja({ estado, historial }: { estado: EstadoCaja; historia
               ? `Cerrada, se abre el ${formatFechaAR(proxima)} a las ${formatHoraAR(proxima)}`
               : "Cerrada"}
         </span>
+        )}
       </div>
+
+      {!estado.sucursal && (
+        <div className="rounded-2xl border border-border bg-white px-5 py-6 text-sm text-text-dim">
+          Elegí una sucursal en la barra superior para ver, abrir o cerrar su caja. Abajo están los cierres de todas las sucursales.
+        </div>
+      )}
 
       {abierta?.desdeAyerOAntes && (
         <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-text">
@@ -161,9 +175,9 @@ export function CierreCaja({ estado, historial }: { estado: EstadoCaja; historia
         </div>
       )}
 
-      {abierta ? <CajaAbierta estado={estado} /> : <CajaCerrada estado={estado} />}
+      {estado.sucursal && (abierta ? <CajaAbierta estado={estado} /> : <CajaCerrada estado={estado} />)}
 
-      {estado.esAdmin && <Historial cierres={historial} />}
+      {estado.esAdmin && <Historial cierres={historial} conSucursal={estado.multisucursal && !estado.sucursal} />}
     </div>
   );
 }
@@ -311,7 +325,7 @@ function CajaAbierta({ estado }: { estado: EstadoCaja }) {
         setConfirmando(false);
         return void toast.error(r.error);
       }
-      toast.success("Caja cerrada.");
+      toast.success(r.data.abrioSiguienteTurno ? "Turno cerrado. El siguiente ya quedó abierto." : "Caja cerrada.");
       router.refresh();
     });
   }
@@ -649,7 +663,7 @@ function RevisarApertura({ estado, onListo }: { estado: EstadoCaja; onListo: () 
 
 /* -------------------------------- Historial ------------------------------- */
 
-function Historial({ cierres }: { cierres: CierreHistorial[] }) {
+function Historial({ cierres, conSucursal }: { cierres: CierreHistorial[]; conSucursal: boolean }) {
   const router = useRouter();
   const [abierto, setAbierto] = useState<number | null>(null);
   const [pendiente, startTransition] = useTransition();
@@ -675,6 +689,7 @@ function Historial({ cierres }: { cierres: CierreHistorial[] }) {
             <thead className="bg-topbar">
               <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-white">
                 <th className="px-4 py-3">Turno</th>
+                {conSucursal && <th className="px-4 py-3">Sucursal</th>}
                 <th className="px-4 py-3">Cerró</th>
                 <th className="px-4 py-3 text-right">Contado</th>
                 <th className="px-4 py-3 text-right">Diferencia</th>
@@ -699,6 +714,7 @@ function Historial({ cierres }: { cierres: CierreHistorial[] }) {
                           : formatFechaHoraAR(new Date(c.fecha))}
                         {c.anulado && <span className="ml-2 text-xs text-text-dim">(anulado)</span>}
                       </td>
+                      {conSucursal && <td className="px-4 py-3 text-text">{c.sucursalNombre ?? "—"}</td>}
                       <td className="px-4 py-3 text-text-dim">{c.usuarioNombre}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-text">
                         {efectivo.map((x) => fmt(x.contado!, x.tipo)).join(" / ") || "—"}
@@ -722,7 +738,7 @@ function Historial({ cierres }: { cierres: CierreHistorial[] }) {
                     </tr>
                     {expandido && (
                       <tr className="border-t border-border bg-surface">
-                        <td colSpan={6} className="space-y-3 px-4 py-4">
+                        <td colSpan={conSucursal ? 7 : 6} className="space-y-3 px-4 py-4">
                           <div className="grid gap-3 sm:grid-cols-2">
                             {c.cuentas.map((x) => (
                               <div key={x.cuentaId} className="rounded-xl border border-border bg-white p-3 text-sm">
