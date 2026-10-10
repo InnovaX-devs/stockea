@@ -7,6 +7,8 @@ import { getHistorialDeuda } from "@/lib/clientes";
 import { obtenerEmpresaIdActual, requerirAdmin } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { mensajeSiCajaCerrada } from "@/lib/caja";
+import { obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
+import { validarCuentaParaSucursal, sucursalDelMovimiento } from "@/lib/cuenta-sucursal";
 import { normalizarCuit } from "@/lib/arca/certificado";
 import { redondearARS, esCuentaUSD, montoEnCuentaUSD, redondearUSD } from "@/lib/currency";
 
@@ -189,6 +191,14 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
   const cajaCerrada = await mensajeSiCajaCerrada(await obtenerEmpresaIdActual());
   if (cajaCerrada) return { success: false as const, error: cajaCerrada };
 
+  // El cobro pasa en una sucursal concreta (ahí entra la plata).
+  let sucursalId: number;
+  try {
+    sucursalId = await requerirSucursalId();
+  } catch (e) {
+    return { success: false as const, error: e instanceof Error ? e.message : "Elegí una sucursal." };
+  }
+
   try {
     const empresaId = await obtenerEmpresaIdActual();
     const cotizacion = await obtenerCotizacion();
@@ -228,6 +238,11 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
       for (const pago of pagosValidos) {
         const cuentaValida = await tx.cuenta.findFirst({ where: { id: pago.cuentaId, empresaId } });
         if (!cuentaValida) throw new Error("CUENTA_NO_ENCONTRADA");
+        try {
+          await validarCuentaParaSucursal(tx, empresaId, pago.cuentaId, sucursalId);
+        } catch (e) {
+          throw new Error("COBRO:" + (e instanceof Error ? e.message : "Cuenta inválida."));
+        }
 
         // pago.monto llega en ARS. Si la cuenta es en USD, entran los dólares
         // que escribió el usuario (igual que en ventas y pedidos).
@@ -274,6 +289,7 @@ export async function cobrarDeuda(clienteId: number, pagos: PagoInput[]) {
               monto: enCuenta(montoAplicado),
               saldoResultante: cuenta.saldoActual,
               ventaId: ventasTocadas.length === 1 ? ventasTocadas[0] : null,
+              sucursalId,
             },
           });
         }
@@ -332,6 +348,8 @@ export async function ajustarDeudaManual(input: AjusteDeudaInput) {
   }
 
   const empresaId = await obtenerEmpresaIdActual();
+  // Sucursal elegida (null en "Todas": ajuste de la empresa).
+  const sucursalId = await obtenerSucursalIdActual();
 
   const cliente = await prisma.cliente.findFirst({ where: { id: clienteId, empresaId } });
   if (!cliente) {
@@ -350,6 +368,7 @@ export async function ajustarDeudaManual(input: AjusteDeudaInput) {
       await prisma.venta.create({
         data: {
           empresaId,
+          sucursalId,
           clienteId,
           fecha: new Date(),
           cotizacionUsada: cotizacion,
@@ -388,6 +407,11 @@ export async function ajustarDeudaManual(input: AjusteDeudaInput) {
     const cuentaValida = await prisma.cuenta.findFirst({ where: { id: cuentaId, empresaId } });
     if (!cuentaValida) {
       return { success: false as const, error: "La cuenta seleccionada no existe." };
+    }
+    try {
+      await validarCuentaParaSucursal(prisma, empresaId, cuentaId, sucursalId);
+    } catch (e) {
+      return { success: false as const, error: e instanceof Error ? e.message : "Cuenta inválida." };
     }
 
     let aplicadoTotal = 0;
@@ -449,6 +473,7 @@ export async function ajustarDeudaManual(input: AjusteDeudaInput) {
           monto: enCuenta(aplicadoTotal),
           saldoResultante: cuenta.saldoActual,
           ventaId: ventasTocadas.length === 1 ? ventasTocadas[0] : null,
+          sucursalId: sucursalDelMovimiento(sucursalId, cuentaValida.sucursalId),
         },
       });
     });

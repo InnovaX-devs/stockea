@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { obtenerSucursalIdActual } from "@/lib/sucursal";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -34,6 +35,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "El nuevo saldo es igual al actual" }, { status: 400 });
     }
 
+    // El ajuste queda en la sucursal de la cuenta; si es compartida, en la elegida.
+    const sucursalId = cuenta.sucursalId ?? (await obtenerSucursalIdActual());
+
     const [cuentaActualizada] = await prisma.$transaction([
       prisma.cuenta.update({
         where: { id: cuentaId },
@@ -48,6 +52,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           monto: Math.abs(diferencia),
           saldoResultante: nuevoSaldo,
           detalle: concepto,
+          sucursalId,
         },
       }),
     ]);

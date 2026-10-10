@@ -141,10 +141,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const invalida = validarCompra(compra);
     if (invalida) return NextResponse.json({ error: invalida.error }, { status: invalida.status });
 
-    // La mercadería entra en la sucursal donde se confirma la compra.
+    // La mercadería entra en la sucursal de la compra.
+    // Compras viejas (sin sucursal): la sucursal elegida al confirmar.
     let sucursalId: number;
     try {
-      sucursalId = await requerirSucursalId();
+      sucursalId = compra!.sucursalId ?? (await requerirSucursalId());
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "Elegí una sucursal." }, { status: 400 });
     }
@@ -260,6 +261,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           monto: montoADebitar,
           saldoResultante: cuenta.saldoActual,
           compraId: compra!.id,
+          sucursalId,
         },
       });
 

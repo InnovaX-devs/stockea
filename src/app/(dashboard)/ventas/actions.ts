@@ -11,6 +11,7 @@ import { notaCreditoTrasAnular } from "@/lib/arca/factura";
 import { siguienteNumero } from "@/lib/numeracion";
 import { descontarStock, sumarStock, sucursalDeVenta, stockEnSucursal } from "@/lib/stock";
 import { obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
+import { validarCuentaParaSucursal } from "@/lib/cuenta-sucursal";
 import { Prisma } from "@prisma/client";
 import { inicioDiaAR } from "@/lib/timezone";
 import type {
@@ -231,11 +232,8 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
 
             // 3. Registrar pagos + movimientos de caja
       for (const pago of pagosValidos) {
-        const cuentaInfo = await tx.cuenta.findFirst({
-          where: { id: pago.cuentaId, empresaId },
-          select: { tipo: true },
-        });
-        if (!cuentaInfo) throw new Error("La cuenta seleccionada no existe");
+        // La cuenta tiene que ser de esta sucursal o compartida.
+        const cuentaInfo = await validarCuentaParaSucursal(tx, empresaId, pago.cuentaId, sucursalId);
 
         // pago.monto llega en ARS (así arma los totales el front). Si la cuenta
         // es en USD, entran los dólares que escribió el usuario (montoUSD).
@@ -260,6 +258,7 @@ async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<Re
             monto: montoEnMonedaCuenta,
             saldoResultante: cuenta.saldoActual,
             ventaId: venta.id,
+            sucursalId,
           },
         });
       }
@@ -745,6 +744,8 @@ export async function registrarCobroPedido(
       const venta = await tx.venta.findFirst({ where: { id: ventaId, empresaId } });
       if (!venta) throw new Error("El pedido no existe");
       if (venta.estadoPago === "PAGADA") throw new Error("El pedido ya está pagado");
+      // El cobro queda en la sucursal del pedido.
+      const sucursalPedido = await sucursalDeVenta(tx, venta);
 
       // Blindaje: si el registro quedó guardado con decimales (pedidos
       // viejos, u otra pantalla que en el futuro no redondee), lo
@@ -762,11 +763,7 @@ export async function registrarCobroPedido(
       }
 
       for (const pago of pagosValidos) {
-        const cuentaInfo = await tx.cuenta.findFirst({
-          where: { id: pago.cuentaId, empresaId },
-          select: { tipo: true },
-        });
-        if (!cuentaInfo) throw new Error("La cuenta seleccionada no existe");
+        const cuentaInfo = await validarCuentaParaSucursal(tx, empresaId, pago.cuentaId, sucursalPedido);
 
         const esCuentaUSD = cuentaInfo.tipo === "EFECTIVO_USD" || cuentaInfo.tipo === "BANCO_USD";
         const montoEnMonedaCuenta = esCuentaUSD ? montoEnCuentaUSD(pago, cotizacion) : pago.monto;
@@ -789,6 +786,7 @@ export async function registrarCobroPedido(
             monto: montoEnMonedaCuenta,
             saldoResultante: cuenta.saldoActual,
             ventaId,
+            sucursalId: sucursalPedido,
           },
         });
       }
@@ -872,6 +870,7 @@ export async function anularVenta(
             saldoResultante: cuenta.saldoActual,
             detalle: `Reversión por anulación de venta #${venta.numero ?? venta.id}`,
             ventaId: venta.id,
+            sucursalId: await sucursalDeVenta(tx, venta),
           },
         });
       }
@@ -945,6 +944,7 @@ export async function cancelarPedido(
             saldoResultante: cuenta.saldoActual,
             detalle: `Reversión por cancelación de pedido #${venta.numero ?? venta.id}`,
             ventaId: venta.id,
+            sucursalId: await sucursalDeVenta(tx, venta),
           },
         });
       }
