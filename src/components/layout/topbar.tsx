@@ -52,6 +52,7 @@ export function Topbar({
   usuarioNombre,
   otroUsuario,
   sucursal,
+  esDesarrollador = false,
 }: {
   logoUrl: string | null;
   nombreNegocio: string;
@@ -65,6 +66,8 @@ export function Topbar({
   otroUsuario: { nombre: string; rol: Rol } | null;
   /** Sucursal activa; null si la empresa tiene una sola (no se muestra nada). */
   sucursal: SucursalBarra | null;
+  /** Desarrollador de InnovaX: ve el acceso al panel /innovax. */
+  esDesarrollador?: boolean;
 }) {
   const pathname = usePathname();
   const esAdmin = rol === "ADMIN";
@@ -290,7 +293,7 @@ export function Topbar({
 
         {sucursal && <SelectorSucursal {...sucursal} />}
 
-        {esAdmin && <MenuConfiguracion />}
+        {esAdmin && <MenuConfiguracion esDesarrollador={esDesarrollador} />}
 
         {/* Quién está usando el sistema: cambio de usuario, contraseña y salir. */}
         <MenuUsuario nombre={usuarioNombre} rol={rol} otroUsuario={otroUsuario} />

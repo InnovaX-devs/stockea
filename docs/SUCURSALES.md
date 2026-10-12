@@ -7,6 +7,8 @@ Cada empresa tiene al menos una sucursal, la **Principal**, que se crea sola.
 | BASICO  | Una sola (la Principal). No se le pueden agregar más.        |
 | PREMIUM | Varias. Las adicionales las creamos nosotros con el script.  |
 
+> 💡 Ahora todo esto también se puede hacer desde el **Panel InnovaX** (`/innovax`, ver `docs/PANEL-INNOVAX.md`), sin usar la terminal. Los comandos de abajo siguen funcionando.
+
 El cliente **no** puede crear sucursales desde el sistema. Cuando tiene más de una:
 
 - El admin ve un selector en la barra de arriba para elegir en qué sucursal trabaja, o "Todas" para consultar.

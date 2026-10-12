@@ -22,7 +22,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const usuarios = await prisma.usuario.findMany({
     where: { empresaId: usuario.empresaId, activo: true },
     orderBy: { id: "asc" },
-    select: { id: true, nombre: true, rol: true, sucursalId: true },
+    select: { id: true, nombre: true, rol: true, sucursalId: true, esDesarrollador: true },
   });
   const usuarioNombre = usuarios.find((u) => u.id === usuario.id)?.nombre ?? "Usuario";
   const empleadoDeLaSucursal = () => {
@@ -50,6 +50,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         rol={usuario.rol}
         usuarioNombre={usuarioNombre}
         otroUsuario={otro ? { nombre: otro.nombre, rol: otro.rol } : null}
+        esDesarrollador={usuarios.find((u) => u.id === usuario.id)?.esDesarrollador ?? false}
         sucursal={
           contextoSucursal.multisucursal
             ? {

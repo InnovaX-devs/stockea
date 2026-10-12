@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings } from "lucide-react";
+import { Settings, Wrench } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { SECCIONES_CONFIGURACION } from "@/components/configuracion/secciones";
 
 /** Engranaje de la barra superior: desplegable con las secciones de Configuración (solo admin). */
-export function MenuConfiguracion() {
+export function MenuConfiguracion({ esDesarrollador = false }: { esDesarrollador?: boolean }) {
   const pathname = usePathname();
   const [abierto, setAbierto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -74,6 +74,26 @@ export function MenuConfiguracion() {
               </Link>
             );
           })}
+          {esDesarrollador && (
+            <>
+              <div className="my-1 border-t border-white/10" />
+              <Link
+                href="/innovax"
+                role="menuitem"
+                aria-current={pathname?.startsWith("/innovax") ? "page" : undefined}
+                className={cn(
+                  "flex items-start gap-2.5 rounded-lg px-3 py-2 transition-colors",
+                  pathname?.startsWith("/innovax") ? "bg-primary-soft/[0.16] text-white" : "text-white hover:bg-white/[0.06]"
+                )}
+              >
+                <Wrench className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                <span>
+                  <span className="block text-[13px]">Panel InnovaX</span>
+                  <span className="block text-[11px] text-white/55">Empresas, sucursales y usuarios de los clientes</span>
+                </span>
+              </Link>
+            </>
+          )}
         </div>
       )}
     </div>
