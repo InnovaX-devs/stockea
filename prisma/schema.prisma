@@ -63,6 +63,11 @@ model Usuario {
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
+  // Desarrollador de InnovaX: puede entrar al panel /innovax para dar de alta
+  // empresas, sucursales y usuarios de TODOS los clientes. Se marca a mano
+  // con SQL (ver docs/PANEL-INNOVAX.md); nunca desde la app.
+  esDesarrollador Boolean @default(false)
+
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   empresaId Int
 
