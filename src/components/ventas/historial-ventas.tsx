@@ -13,6 +13,7 @@ import type { FiltroEstado, VentaListItem } from "@/types/venta";
 import { Search, RefreshCw, Download, Loader2, X, Plus } from "lucide-react";
 import Select from "@/components/ui/select";
 import { RangoFechas } from "@/components/ui/rango-fechas";
+import { useMostrarSucursal } from "@/lib/hooks/use-mostrar-sucursal";
 import { etiquetaVenta, archivoComprobanteVenta } from "@/lib/numeracion";
 
 const PAGE_SIZE = 15;
@@ -92,6 +93,8 @@ export function HistorialVentas() {
 
   // Anular (solo admin): devuelve plata y stock; si tenía factura, nota de crédito.
   const esAdmin = useEsAdmin();
+  // Con "Todas las sucursales" se agrega la columna para saber de dónde es cada venta.
+  const mostrarSucursal = useMostrarSucursal();
   async function anular(venta: VentaListItem) {
     const conFactura = venta.factura?.estado === "AUTORIZADO";
     if (!confirm(`¿Anular la venta ${etiquetaVenta(venta.numero)}? Se devuelve la plata a la cuenta y los productos al stock.${conFactura ? " Como tiene factura, se va a emitir una nota de crédito." : ""}`)) return;
@@ -307,6 +310,7 @@ export function HistorialVentas() {
                   <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-white">
                     <th className="px-4 py-3">#</th>
                     <th className="px-4 py-3">Cliente</th>
+                    {mostrarSucursal && <th className="px-4 py-3">Sucursal</th>}
                     <th className="px-4 py-3">Total</th>
                     <th className="px-4 py-3">Ganancia</th>
                     <th className="px-4 py-3">Fecha</th>
@@ -325,6 +329,7 @@ export function HistorialVentas() {
                           <span className="italic text-text-dim">Sin cliente</span>
                         )}
                       </td>
+                      {mostrarSucursal && <td className="px-4 py-3 text-text-dim">{venta.sucursalNombre ?? "—"}</td>}
                       <td className="px-4 py-3 font-mono font-medium text-text">
                         {formatoMoneda.format(venta.totalARS)}
                       </td>
@@ -397,6 +402,7 @@ export function HistorialVentas() {
                       ) : (
                         <p className="italic text-text-dim">Sin cliente</p>
                       )}
+                      {mostrarSucursal && <p className="text-xs text-text-dim">{venta.sucursalNombre ?? "Sin sucursal"}</p>}
                     </div>
                     <span
                       className={cn(

@@ -6,12 +6,14 @@ import { Plus, Search, RefreshCw, Loader2, Check, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatFechaAR } from "@/lib/timezone";
 import { ConfirmarCompraModal } from "@/components/compras/confirmar-compra-modal";
+import { useMostrarSucursal } from "@/lib/hooks/use-mostrar-sucursal";
 
 interface Compra {
   id: number;
   numero: number; // número visible de la empresa
   proveedor: { nombre: string } | null;
   cuenta: { nombre: string; tipo: string } | null;
+  sucursal: { nombre: string } | null;
   totalUSD: number;
   totalARS: number | null;
   confirmada: boolean;
@@ -56,6 +58,8 @@ export function ComprasListado() {
   const [accionandoId, setAccionandoId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
   const [usaCotizacionUSD, setUsaCotizacionUSD] = useState(false);
+  // Con "Todas las sucursales" se agrega la columna para saber de dónde es cada compra.
+  const mostrarSucursal = useMostrarSucursal();
 
   useEffect(() => {
     fetch("/api/configuracion")
@@ -219,6 +223,7 @@ export function ComprasListado() {
                     <th className="px-4 py-3">#</th>
                     <th className="px-4 py-3">Proveedor</th>
                     <th className="px-4 py-3">Cuenta</th>
+                    {mostrarSucursal && <th className="px-4 py-3">Sucursal</th>}
                     <th className="px-4 py-3">Total</th>
                     <th className="px-4 py-3">Estado</th>
                     <th className="px-4 py-3">Fecha</th>
@@ -237,6 +242,7 @@ export function ComprasListado() {
                           {compra.proveedor?.nombre ?? "Sin especificar"}
                         </td>
                         <td className="px-4 py-4 text-text-dim">{compra.cuenta?.nombre ?? "—"}</td>
+                        {mostrarSucursal && <td className="px-4 py-4 text-text-dim">{compra.sucursal?.nombre ?? "—"}</td>}
                         <td className="px-4 py-4 font-mono font-medium text-text">
                           {usaCotizacionUSD ? (
                             <>
@@ -329,6 +335,7 @@ export function ComprasListado() {
                           {compra.proveedor?.nombre ?? "Sin especificar"}
                         </p>
                         <p className="text-xs text-text-dim">{compra.cuenta?.nombre ?? "—"}</p>
+                        {mostrarSucursal && <p className="text-xs text-text-dim">{compra.sucursal?.nombre ?? "Sin sucursal"}</p>}
                       </div>
                       <span
                         className={cn(
