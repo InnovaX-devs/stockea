@@ -13,7 +13,7 @@ import type { Prisma } from "@prisma/client";
  */
 type Db = Prisma.TransactionClient;
 
-export async function siguienteNumero(db: Db, empresaId: number, tipo: "venta" | "compra" | "presupuesto"): Promise<number> {
+export async function siguienteNumero(db: Db, empresaId: number, tipo: "venta" | "compra" | "presupuesto" | "transferencia"): Promise<number>{
   const where = { id: empresaId };
   if (tipo === "venta") {
     const e = await db.empresa.update({ where, data: { ultimoNumeroVenta: { increment: 1 } }, select: { ultimoNumeroVenta: true } });
@@ -22,6 +22,10 @@ export async function siguienteNumero(db: Db, empresaId: number, tipo: "venta" |
   if (tipo === "compra") {
     const e = await db.empresa.update({ where, data: { ultimoNumeroCompra: { increment: 1 } }, select: { ultimoNumeroCompra: true } });
     return e.ultimoNumeroCompra;
+  }
+  if (tipo === "transferencia") {
+    const e = await db.empresa.update({ where, data: { ultimoNumeroTransferencia: { increment: 1 } }, select: { ultimoNumeroTransferencia: true } });
+    return e.ultimoNumeroTransferencia;
   }
   const e = await db.empresa.update({ where, data: { ultimoNumeroPresupuesto: { increment: 1 } }, select: { ultimoNumeroPresupuesto: true } });
   return e.ultimoNumeroPresupuesto;

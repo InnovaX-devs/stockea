@@ -20,7 +20,17 @@ export type Rol = "ADMIN" | "EMPLEADO";
 export const INICIO_EMPLEADO = "/ventas";
 
 /** Páginas que ve el empleado (coincidencia exacta). */
-const PAGINAS_EMPLEADO = ["/ventas", "/ventas/pedidos", "/clientes", "/productos", "/finanzas/cierre-caja", "/salir"];
+const PAGINAS_EMPLEADO = [
+  "/ventas",
+  "/ventas/pedidos",
+  "/clientes",
+  "/productos",
+  // Transferencias entre sucursales: el empleado arma los envíos de su local y recibe los que llegan.
+  "/transferencias",
+  "/transferencias/nueva",
+  "/finanzas/cierre-caja",
+  "/salir",
+];
 
 /** Rutas /api que puede usar el empleado, con el método permitido. */
 const API_EMPLEADO: { patron: RegExp; metodos: string[] }[] = [

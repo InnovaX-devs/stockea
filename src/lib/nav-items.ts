@@ -15,6 +15,7 @@ import {
   Package,
   Truck,
   ClipboardCheck,
+  ArrowRightLeft,
 } from "lucide-react";
 
 export type NavLeaf = {
@@ -22,6 +23,8 @@ export type NavLeaf = {
   href: string;
   icon: LucideIcon;
   premium?: boolean;
+  /** Solo se muestra si la empresa tiene más de una sucursal. */
+  multisucursal?: boolean;
 };
 
 export type NavGroup = {
@@ -66,6 +69,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Comprobantes", href: "/ventas/comprobantes", icon: FileText },
     ],
   },
+  { label: "Transferencias", href: "/transferencias", icon: ArrowRightLeft, premium: true, multisucursal: true },
   { label: "Presupuestos", href: "/presupuestos", icon: FileText, premium: true },
   {
     label: "Finanzas",
