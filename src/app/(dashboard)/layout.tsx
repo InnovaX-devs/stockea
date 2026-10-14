@@ -7,6 +7,7 @@ import { obtenerUsuarioActualOpcional } from "@/lib/empresa";
 import { RolProvider } from "@/components/layout/rol-context";
 import { prisma } from "@/lib/prisma";
 import { obtenerContextoSucursal } from "@/lib/sucursal";
+import { SincronizadorCatalogo } from "@/components/pwa/sincronizador-catalogo";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   // Si la sesión quedó colgada (usuario borrado/desactivado), se cierra.
@@ -39,6 +40,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <RolProvider rol={usuario.rol}>
+    <SincronizadorCatalogo sucursalKey={String(contextoSucursal.actual?.id ?? "todas")} />
     <div className="flex min-h-dvh flex-col bg-bg">
       <Topbar
         logoUrl={configuracion.logoUrl ?? null}
