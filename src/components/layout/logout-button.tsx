@@ -5,6 +5,7 @@ import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
 import { limpiarCopiaLocal } from "@/lib/offline/sync-catalogo";
+import { hayVentasSinSubir, sincronizarVentas } from "@/lib/offline/cola-ventas";
 
 export function LogoutButton({ variant = "light" }: { variant?: "light" | "dark" }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -12,6 +13,20 @@ export function LogoutButton({ variant = "light" }: { variant?: "light" | "dark"
   async function handleLogout() {
     setIsLoading(true);
     try {
+      // Las ventas hechas sin conexión no se pierden al salir (la cola no se
+      // borra), pero solo suben con la sesión de su empresa: primero se intenta
+      // subirlas y, si quedan, se avisa.
+      await sincronizarVentas().catch(() => {});
+      const sinSubir = await hayVentasSinSubir().catch(() => 0);
+      if (
+        sinSubir > 0 &&
+        !window.confirm(
+          `Hay ${sinSubir === 1 ? "1 venta" : `${sinSubir} ventas`} de este equipo sin subir. Quedan guardadas y se suben la próxima vez que entres. ¿Cerrar sesión igual?`
+        )
+      ) {
+        setIsLoading(false);
+        return;
+      }
       await limpiarCopiaLocal().catch(() => {});
       await signOut({ callbackUrl: "/login" });
       toast.success("Sesión cerrada");

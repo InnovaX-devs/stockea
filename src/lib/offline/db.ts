@@ -34,6 +34,50 @@ export type CuentaLocal = {
   color: string | null;
 };
 
+/** Lo que se manda al servidor por cada venta (ver POST /api/sync/ventas). */
+export type PayloadVentaLocal = {
+  clienteId: number | null;
+  items: { productoId: number; cantidad: number; precioUnitarioArs: number; tipoPrecio: "MINORISTA" | "MAYORISTA" }[];
+  pagos: { cuentaId: number; monto: number; montoUSD: number | null }[];
+  descuentoMonto: number | null;
+  descuentoPorcentaje: number | null;
+  totalARS: number;
+};
+
+export type EstadoVentaLocal =
+  /** Esperando subir (sin red, o todavía no le tocó). */
+  | "pendiente"
+  /** El servidor la rechazó: hay que mirarla (reintentar o descartar). */
+  | "error"
+  /** Ya subió y tiene su número; queda unas horas a la vista. */
+  | "sincronizada";
+
+/**
+ * Venta hecha sin conexión, en la cola de salida (issue #41). `idCliente` es
+ * el uuid que identifica la venta en el servidor: reenviarla es seguro.
+ */
+export type VentaLocal = {
+  id?: number;
+  idCliente: string;
+  empresaId: number;
+  sucursalId: number;
+  /** Momento real de la venta (ms). */
+  creadaEn: number;
+  estado: EstadoVentaLocal;
+  intentos: number;
+  error?: string;
+  /** Número que le dio el servidor (hasta entonces se muestra "Pendiente"). */
+  numero?: number;
+  sincronizadaEn?: number;
+  stockNegativo?: boolean;
+  productosStockNegativo?: string[];
+  // Para mostrarla en la lista
+  totalARS: number;
+  clienteNombre: string | null;
+  resumen: string;
+  venta: PayloadVentaLocal;
+};
+
 type Meta = { clave: string; valor: unknown };
 
 class StockeaDB extends Dexie {
@@ -41,6 +85,7 @@ class StockeaDB extends Dexie {
   clientes!: Table<ClienteLocal, number>;
   cuentas!: Table<CuentaLocal, number>;
   meta!: Table<Meta, string>;
+  outbox!: Table<VentaLocal, number>;
 
   constructor() {
     super("stockea-offline");
@@ -49,6 +94,15 @@ class StockeaDB extends Dexie {
       clientes: "id, telefono",
       cuentas: "id",
       meta: "clave",
+    });
+    // v2 (issue #41): cola de ventas sin conexión. `&idCliente` = único: la
+    // misma venta nunca entra dos veces.
+    this.version(2).stores({
+      productos: "id, codigoBarras",
+      clientes: "id, telefono",
+      cuentas: "id",
+      meta: "clave",
+      outbox: "++id, &idCliente, estado, empresaId",
     });
   }
 }
@@ -64,4 +118,31 @@ export function normalizar(texto: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+}
+
+/** "empresaId:sucursalId" (o "empresaId:todas") de la última sincronización del catálogo. */
+export async function leerAlcance(): Promise<{ empresaId: number; sucursalId: number | null } | null> {
+  const alcance = await leerMeta<string>("alcance");
+  if (!alcance) return null;
+  const [empresa, sucursal] = alcance.split(":");
+  const empresaId = Number(empresa);
+  if (!Number.isInteger(empresaId)) return null;
+  const sucursalId = Number(sucursal);
+  return { empresaId, sucursalId: Number.isInteger(sucursalId) ? sucursalId : null };
+}
+
+/**
+ * Último estado de la caja que se vio CON conexión (abrir y cerrar caja
+ * requieren conexión, así que sin red no hay forma de saberlo de nuevo).
+ */
+export type EstadoCajaLocal = { abierta: boolean; sucursalId: number | null; en: number };
+
+export async function guardarEstadoCaja(abierta: boolean, sucursalId: number | null) {
+  await db.meta.put({ clave: "caja", valor: { abierta, sucursalId, en: Date.now() } satisfies EstadoCajaLocal });
+}
+
+/** Igual que guardarEstadoCaja, para la sucursal en la que se está trabajando. */
+export async function recordarEstadoCaja(abierta: boolean) {
+  const alcance = await leerAlcance();
+  await guardarEstadoCaja(abierta, alcance?.sucursalId ?? null);
 }

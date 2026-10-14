@@ -275,6 +275,16 @@ model Venta {
   // Número visible, propio de cada empresa (1, 2, 3…). Los ajustes manuales
   // de deuda no llevan número (null). El id es interno.
   numero     Int?
+
+  // Identificador generado en la compu al confirmar la venta (uuid). Si la
+  // misma venta llega dos veces (cola sin conexión, reintento, respuesta
+  // perdida), el servidor la reconoce y no la duplica. Null en las ventas
+  // viejas y en las que no pasan por la cola (issue #41).
+  idCliente  String?
+  // true si esta venta dejó stock negativo al sincronizarse sin conexión
+  // (se vendió algo que la compu creía tener y el servidor no).
+  stockNegativo Boolean @default(false)
+
   cliente   Cliente? @relation(fields: [clienteId], references: [id])
   clienteId Int?
 
@@ -320,6 +330,10 @@ model Venta {
   @@index([armado])
   @@index([enviado])
   @@unique([empresaId, numero])
+  // Único por empresa (el uuid ya es único, pero así una empresa nunca
+  // puede "ver" ni chocar con el id de otra).
+  @@unique([empresaId, idCliente])
+  @@index([empresaId, stockNegativo])
   @@index([empresaId])
   @@index([sucursalId])
 }

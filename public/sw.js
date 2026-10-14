@@ -10,8 +10,8 @@
  *   se abre bien; sin conexión se muestra esa copia, y para el resto de las
  *   páginas, offline.html.
  * - /api y las peticiones internas de Next (RSC) no se tocan: van directo a
- *   internet. La venta sin conexión llega en #40/#41 (copia del catálogo y
- *   cola de ventas).
+ *   internet. La venta sin conexión no depende del service worker: usa la copia
+ *   local del catálogo (#40) y la cola de ventas en IndexedDB (#41).
  * - Como a Nueva venta casi siempre se entra desde el menú (Next cambia de
  *   página sin recargar y el service worker no se entera), la app le avisa
  *   al service worker (mensaje "precargar") y él la descarga por su cuenta,

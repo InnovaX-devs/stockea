@@ -84,6 +84,41 @@ export async function descontarStock(tx: Db, empresaId: number, sucursalId: numb
 }
 
 /**
+ * Igual que descontarStock, pero NO se frena si no alcanza: el stock de la
+ * sucursal puede quedar negativo (issue #41). Es solo para sincronizar ventas
+ * que ya pasaron en el mostrador sin conexión: la mercadería ya salió, y
+ * rechazar la venta dejaría la caja y el stock sin reflejarla. Devuelve los
+ * productos que quedaron con stock negativo en la sucursal (para marcar la
+ * venta y avisar al administrador).
+ *
+ * Si el producto todavía no tiene fila en "StockSucursal" (stock 0), la crea
+ * con la cantidad en negativo. Mismo orden de bloqueo que las demás: primero
+ * "StockSucursal", después "Producto".
+ */
+export async function descontarStockPermitiendoNegativo(tx: Db, empresaId: number, sucursalId: number, items: Item[]) {
+  const grupos = agrupar(items);
+  if (grupos.length === 0) return [];
+
+  const filas = await tx.$queryRaw<{ productoId: number; cantidad: number }[]>`
+    INSERT INTO "StockSucursal" ("productoId", "sucursalId", "cantidad", "updatedAt")
+    SELECT v.id, su.id, -v.cantidad, now()
+    FROM (VALUES ${valores(grupos)}) AS v(id, cantidad)
+    JOIN "Producto" AS p ON p.id = v.id AND p."empresaId" = ${empresaId}
+    JOIN "Sucursal" AS su ON su.id = ${sucursalId} AND su."empresaId" = ${empresaId}
+    WHERE true -- evita que Postgres lea el ON CONFLICT como parte del JOIN
+    ON CONFLICT ("productoId", "sucursalId")
+    DO UPDATE SET "cantidad" = "StockSucursal"."cantidad" + EXCLUDED."cantidad", "updatedAt" = now()
+    RETURNING "productoId", "cantidad"`;
+
+  if (filas.length !== grupos.length) {
+    throw new Error("Uno o más productos (o la sucursal) no son válidos.");
+  }
+
+  await moverTotal(tx, empresaId, grupos, -1);
+  return filas.filter((f) => f.cantidad < 0);
+}
+
+/**
  * Suma stock SOLO en la sucursal, sin tocar el total de "Producto". Es para
  * la confirmación de compras, que ya suma el total en su propia consulta
  * (junto con los precios). Todo lo demás usa sumarStock.

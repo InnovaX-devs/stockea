@@ -41,7 +41,17 @@ export async function GET() {
   const { inicio: inicioHoy, fin: finHoy } = inicioFinHoyAR();
 
   // Todo esto es independiente entre sí -> se pide junto, no en fila
-  const [configuracion, cuentas, movimientosHoy, [porArmar, armados], reporteHoy] = await Promise.all([
+  // Productos con stock negativo (ventas sin conexión que se sincronizaron con
+  // más unidades de las que había, issue #41). Se mira el stock de la sucursal
+  // actual; con "Todas", el de cualquiera. Se apaga solo al corregir el stock.
+  const whereNegativo = {
+    cantidad: { lt: 0 },
+    producto: { empresaId, activo: true },
+    ...filtroPorSucursal(sucursalId),
+  };
+  const hace30Dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const [configuracion, cuentas, movimientosHoy, [porArmar, armados], reporteHoy, [negativosTotal, negativos, ventasNegativas]] = await Promise.all([
     prisma.configuracion.findUnique({
       where: { empresaId },
       select: { cotizacionUSD: true, licencia: true },
@@ -68,6 +78,27 @@ export async function GET() {
       }),
     ]),
     obtenerKpisDelDia(rangoParaTab("diario")),
+    Promise.all([
+      prisma.stockSucursal.count({ where: whereNegativo }),
+      prisma.stockSucursal.findMany({
+        where: whereNegativo,
+        orderBy: { cantidad: "asc" },
+        take: 5,
+        select: { cantidad: true, producto: { select: { id: true, nombre: true } }, sucursal: { select: { nombre: true } } },
+      }),
+      prisma.venta.findMany({
+        where: {
+          empresaId,
+          ...filtroPorSucursal(sucursalId),
+          stockNegativo: true,
+          estadoPago: { notIn: ["ANULADA", "CANCELADA"] },
+          fecha: { gte: hace30Dias },
+        },
+        orderBy: { id: "desc" },
+        take: 5,
+        select: { numero: true },
+      }),
+    ]),
   ]);
 
   const cotizacionActual = configuracion?.cotizacionUSD ?? 1000;
@@ -118,5 +149,15 @@ export async function GET() {
     },
     pedidos: { porArmar, armados },
     movimientos,
+    stockNegativo: {
+      total: negativosTotal,
+      productos: negativos.map((n) => ({
+        id: n.producto.id,
+        nombre: n.producto.nombre,
+        cantidad: n.cantidad,
+        sucursal: n.sucursal.nombre,
+      })),
+      ventas: ventasNegativas.map((v) => v.numero).filter((n): n is number => n != null),
+    },
   });
 }
