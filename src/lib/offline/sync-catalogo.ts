@@ -65,12 +65,20 @@ async function ejecutar() {
     // Las ventas hechas sin conexión que todavía no subieron (o que el servidor
     // rechazó y siguen a la vista) ya sacaron mercadería del mostrador, pero el
     // servidor no las conoce: se vuelven a descontar para que el stock local no "reviva".
+    // OJO: solo en los productos que se acaban de pisar con el stock del
+    // servidor. Los demás ya tienen el descuento hecho (al encolar o en una
+    // sincronización anterior): descontarlos otra vez los haría bajar en cada
+    // sincronización incremental (cada 3 minutos) mientras la venta siga en la cola.
+    const pisados = data.completo ? null : new Set(activos.map((p) => p.id));
     const sinSubir = await db.outbox.where("estado").anyOf("pendiente", "error").toArray();
     const alcanceActual = Number(data.alcance.split(":")[0]);
     const descontar = new Map<number, number>();
     for (const v of sinSubir) {
       if (v.empresaId !== alcanceActual) continue;
-      for (const i of v.venta.items) descontar.set(i.productoId, (descontar.get(i.productoId) ?? 0) + i.cantidad);
+      for (const i of v.venta.items) {
+        if (pisados && !pisados.has(i.productoId)) continue;
+        descontar.set(i.productoId, (descontar.get(i.productoId) ?? 0) + i.cantidad);
+      }
     }
     for (const [id, cantidad] of descontar) {
       await db.productos.where("id").equals(id).modify((p) => {
