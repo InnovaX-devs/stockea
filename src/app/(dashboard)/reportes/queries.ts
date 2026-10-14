@@ -11,6 +11,7 @@ import {
   type VentaParaReporte,
 } from "@/lib/reportes";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { filtroPorSucursal, obtenerSucursalIdActual } from "@/lib/sucursal";
 import type { ReporteData } from "@/types/reporte";
 
 export type RangoFechas = { desde: Date; hasta: Date };
@@ -19,12 +20,15 @@ const ESTADOS_EXCLUIDOS = ["ANULADA", "CANCELADA"] as const;
 
 export async function obtenerReporte(rango: RangoFechas): Promise<ReporteData> {
   const empresaId = await obtenerEmpresaIdActual();
+  // Sucursal actual; null = "Todas" (solo admin) -> sin filtro.
+  const sucursalId = await obtenerSucursalIdActual();
   const { desde, hasta } = rango;
 
   const [ventasRaw, config] = await Promise.all([
     prisma.venta.findMany({
       where: {
         empresaId,
+        ...filtroPorSucursal(sucursalId),
         fecha: { gte: desde, lt: hasta },
         estadoPago: { notIn: [...ESTADOS_EXCLUIDOS] },
       },
@@ -71,7 +75,7 @@ export async function obtenerReporte(rango: RangoFechas): Promise<ReporteData> {
         })
       : Promise.resolve([]),
     prisma.movimientoCaja.findMany({
-      where: { empresaId, tipo: "EGRESO", concepto: "GASTO", fecha: { gte: desde, lt: hasta } },
+      where: { empresaId, ...filtroPorSucursal(sucursalId), tipo: "EGRESO", concepto: "GASTO", fecha: { gte: desde, lt: hasta } },
       select: { monto: true, fecha: true, cuenta: { select: { tipo: true } } },
     }),
   ]);
@@ -158,12 +162,15 @@ export async function obtenerReporte(rango: RangoFechas): Promise<ReporteData> {
 // pero sin calcular ingresosPorDia ni topProductos (no se usan ahí).
 export async function obtenerKpisDelDia(rango: RangoFechas): Promise<{ gananciaNetaARS: number; cantidadVentas: number }> {
   const empresaId = await obtenerEmpresaIdActual();
+  // Sucursal actual; null = "Todas" (solo admin) -> sin filtro.
+  const sucursalId = await obtenerSucursalIdActual();
   const { desde, hasta } = rango;
 
   const [ventasRaw, config] = await Promise.all([
     prisma.venta.findMany({
       where: {
         empresaId,
+        ...filtroPorSucursal(sucursalId),
         fecha: { gte: desde, lt: hasta },
         estadoPago: { notIn: [...ESTADOS_EXCLUIDOS] },
       },
@@ -208,7 +215,7 @@ export async function obtenerKpisDelDia(rango: RangoFechas): Promise<{ gananciaN
         })
       : Promise.resolve([]),
     prisma.movimientoCaja.findMany({
-      where: { empresaId, tipo: "EGRESO", concepto: "GASTO", fecha: { gte: desde, lt: hasta } },
+      where: { empresaId, ...filtroPorSucursal(sucursalId), tipo: "EGRESO", concepto: "GASTO", fecha: { gte: desde, lt: hasta } },
       select: { monto: true, cuenta: { select: { tipo: true } } },
     }),
   ]);

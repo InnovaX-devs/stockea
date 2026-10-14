@@ -4,6 +4,7 @@ import { rangoParaTab, textoRango, type TabReporte } from "@/lib/reportes";
 import { obtenerReporte } from "@/app/(dashboard)/reportes/queries";
 import { ReporteDocument } from "@/lib/pdf/ReporteDocument";
 import { obtenerConfiguracion } from "@/lib/configuracion";
+import { obtenerContextoSucursal } from "@/lib/sucursal";
 
 const TABS_VALIDOS: TabReporte[] = ["diario", "semanal", "mensual", "periodo", "cuenta"];
 
@@ -31,11 +32,15 @@ export async function GET(req: NextRequest) {
 
   const rango = rangoParaTab(tab, desdeParam, hastaParam);
 
+  // Con varias sucursales, el PDF aclara de cuál es (o "Todas").
+  const { actual, multisucursal } = await obtenerContextoSucursal();
+  const titulo = multisucursal ? `${TITULOS[tab]} — ${actual?.nombre ?? "Todas las sucursales"}` : TITULOS[tab];
+
   const buffer = await renderToBuffer(
     <ReporteDocument
       reporte={await obtenerReporte(rango)}
       configuracion={configuracion}
-      titulo={TITULOS[tab]}
+      titulo={titulo}
       rangoTexto={tab === "periodo" ? textoRango(rango, desdeParam, hastaParam) : undefined}
     />
   );

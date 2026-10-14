@@ -3,21 +3,22 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
-import { obtenerSucursalIdActual } from "@/lib/sucursal";
-import { validarCuentaParaSucursal, sucursalDelMovimiento } from "@/lib/cuenta-sucursal";
+import { filtroPorSucursal, obtenerSucursalIdActual } from "@/lib/sucursal";
+import { filtroCuentasDeSucursal, validarCuentaParaSucursal, sucursalDelMovimiento } from "@/lib/cuenta-sucursal";
 
 export async function GET(request: NextRequest) {
   // Gastos: disponible en los dos planes (ver lib/configuracion.ts).
   const configuracion = await obtenerConfiguracion();
 
   const empresaId = await obtenerEmpresaIdActual();
+  const sucursalIdFiltro = await obtenerSucursalIdActual(); // null = "Todas" (solo admin)
   const searchParams = request.nextUrl.searchParams;
   const q = searchParams.get("q")?.trim().toLowerCase() ?? "";
   const estado = searchParams.get("estado") ?? "todos"; // todos | pendiente | pagado
   const categoriaId = searchParams.get("categoriaId");
 
   const gastos = await prisma.gasto.findMany({
-    where: { empresaId },
+    where: { empresaId, ...filtroPorSucursal(sucursalIdFiltro) },
     orderBy: { fecha: "desc" },
     include: {
       categoria: { select: { id: true, nombre: true } },
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
   });
 
   const cuentasActivas = await prisma.cuenta.findMany({
-    where: { activa: true, empresaId },
+    where: { activa: true, empresaId, ...filtroCuentasDeSucursal(sucursalIdFiltro) },
     select: { tipo: true, saldoActual: true },
   });
 

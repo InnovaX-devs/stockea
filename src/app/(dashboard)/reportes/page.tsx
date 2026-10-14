@@ -8,6 +8,7 @@ import { BotonExportarPdf } from "../../../components/reportes/BotonExportarPdf"
 import { IngresosPorDia } from "@/components/reportes/ingresos-por-dia";
 import { TopProductos } from "@/components/reportes/top-productos";
 import { TopClientes } from "@/components/reportes/top-clientes";
+import { EtiquetaSucursal } from "@/components/reportes/etiqueta-sucursal";
 
 type SearchParams = {
   tab?: string;
@@ -35,7 +36,10 @@ export default async function ReportesPage({
   return (
     <div className="space-y-4 print:p-0">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <p className="text-sm text-text-dim">{rangoTexto}</p>
+        <div className="space-y-0.5">
+          <p className="text-sm text-text-dim">{rangoTexto}</p>
+          <EtiquetaSucursal />
+        </div>
         <div className="flex items-center gap-2">
           <BotonExportarPdf tab={tab} desde={params.desde} hasta={params.hasta} />
         </div>
