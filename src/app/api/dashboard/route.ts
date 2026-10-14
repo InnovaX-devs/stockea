@@ -4,6 +4,8 @@ import { obtenerKpisDelDia } from "../../(dashboard)/reportes/queries";
 import { rangoParaTab } from "@/lib/reportes";
 import { formatHoraAR, inicioFinHoyAR } from "@/lib/timezone";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { filtroPorSucursal, obtenerSucursalIdActual } from "@/lib/sucursal";
+import { filtroCuentasDeSucursal } from "@/lib/cuenta-sucursal";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +36,8 @@ function descripcionMovimiento(m: {
 
 export async function GET() {
   const empresaId = await obtenerEmpresaIdActual();
+  // Sucursal actual; null = "Todas" (solo admin) -> sin filtro.
+  const sucursalId = await obtenerSucursalIdActual();
   const { inicio: inicioHoy, fin: finHoy } = inicioFinHoyAR();
 
   // Todo esto es independiente entre sí -> se pide junto, no en fila
@@ -43,11 +47,11 @@ export async function GET() {
       select: { cotizacionUSD: true, licencia: true },
     }),
     prisma.cuenta.findMany({
-      where: { activa: true, empresaId },
+      where: { activa: true, empresaId, ...filtroCuentasDeSucursal(sucursalId) },
       orderBy: [{ favorita: "desc" }, { saldoActual: "desc" }],
     }),
     prisma.movimientoCaja.findMany({
-      where: { empresaId, fecha: { gte: inicioHoy, lt: finHoy } },
+      where: { empresaId, ...filtroPorSucursal(sucursalId), fecha: { gte: inicioHoy, lt: finHoy } },
       include: {
         gasto: { select: { concepto: true } },
         cuenta: { select: { tipo: true } },
@@ -57,10 +61,10 @@ export async function GET() {
     }),
     Promise.all([
       prisma.venta.count({
-        where: { empresaId, armado: false, estadoPago: { notIn: ["ANULADA", "CANCELADA"] } },
+        where: { empresaId, ...filtroPorSucursal(sucursalId), armado: false, estadoPago: { notIn: ["ANULADA", "CANCELADA"] } },
       }),
       prisma.venta.count({
-        where: { empresaId, armado: true, retirado: false, estadoPago: { notIn: ["ANULADA", "CANCELADA"] } },
+        where: { empresaId, ...filtroPorSucursal(sucursalId), armado: true, retirado: false, estadoPago: { notIn: ["ANULADA", "CANCELADA"] } },
       }),
     ]),
     obtenerKpisDelDia(rangoParaTab("diario")),

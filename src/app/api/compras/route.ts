@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { siguienteNumero } from "@/lib/numeracion";
-import { requerirSucursalId } from "@/lib/sucursal";
+import { filtroPorSucursal, obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
 import { validarCuentaParaSucursal } from "@/lib/cuenta-sucursal";
 
 const FILTROS_VALIDOS = ["pendientes", "confirmadas", "canceladas"] as const;
@@ -12,8 +12,13 @@ type Filtro = (typeof FILTROS_VALIDOS)[number];
 const PAGE_SIZE_DEFAULT = 15;
 const PAGE_SIZE_MAX = 100;
 
-function armarWhere(empresaId: number, filtro: string | null, busqueda: string | null): Prisma.CompraWhereInput {
-  const where: Prisma.CompraWhereInput = { empresaId };
+function armarWhere(
+  empresaId: number,
+  sucursalId: number | null,
+  filtro: string | null,
+  busqueda: string | null
+): Prisma.CompraWhereInput {
+  const where: Prisma.CompraWhereInput = { empresaId, ...filtroPorSucursal(sucursalId) };
 
   switch (filtro as Filtro | null) {
     case "pendientes":
@@ -52,7 +57,8 @@ export async function GET(request: NextRequest) {
         ? Math.min(Math.floor(pageSizeParam), PAGE_SIZE_MAX)
         : PAGE_SIZE_DEFAULT;
 
-    const where = armarWhere(empresaId, filtro, busqueda);
+    const sucursalId = await obtenerSucursalIdActual(); // null = "Todas" (solo admin)
+    const where = armarWhere(empresaId, sucursalId, filtro, busqueda);
 
     const [compras, totalCount] = await Promise.all([
       prisma.compra.findMany({

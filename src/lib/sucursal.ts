@@ -122,6 +122,18 @@ export async function obtenerSucursalIdActual(): Promise<number | null> {
 }
 
 /**
+ * Fragmento de `where` de Prisma para filtrar por sucursal. Con null ("Todas",
+ * solo admin) no filtra. Pensado para spread:
+ *   prisma.venta.findMany({ where: { empresaId, ...filtroPorSucursal(sucursalId) } })
+ * Sirve para cualquier modelo que tenga `sucursalId` (Venta, Compra, Gasto,
+ * MovimientoCaja...). Para Cuenta usar filtroCuentasDeSucursal (incluye las
+ * compartidas).
+ */
+export function filtroPorSucursal(sucursalId: number | null): { sucursalId?: number } {
+  return sucursalId == null ? {} : { sucursalId };
+}
+
+/**
  * Para operaciones que pasan en un local concreto (vender, cobrar, abrir o
  * cerrar caja, recibir mercadería). Lanza si el admin está en "Todas".
  */

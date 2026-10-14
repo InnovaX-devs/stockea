@@ -15,6 +15,7 @@ import {
   TOPE_CONSUMIDOR_FINAL,
   type DocumentoReceptor,
 } from "@/lib/arca/factura";
+import { obtenerSucursalIdActual } from "@/lib/sucursal";
 import { ArcaError } from "@/lib/arca/wsaa";
 import { normalizarCuit } from "@/lib/arca/certificado";
 
@@ -166,10 +167,17 @@ export type FilaComprobante = {
 /** Comprobantes emitidos (solo admin), para controlar y para el contador. */
 export async function listarComprobantes(filtros: { desde: string; hasta: string; entorno: "HOMOLOGACION" | "PRODUCCION" }): Promise<FilaComprobante[]> {
   const admin = await requerirAdmin();
+  const sucursalId = await obtenerSucursalIdActual();
   const desde = new Date(`${filtros.desde}T00:00:00-03:00`);
   const hasta = new Date(new Date(`${filtros.hasta}T00:00:00-03:00`).getTime() + 864e5);
   const filas = await prisma.comprobante.findMany({
-    where: { empresaId: admin.empresaId, entorno: filtros.entorno, fecha: { gte: desde, lt: hasta } },
+    where: {
+      empresaId: admin.empresaId,
+      entorno: filtros.entorno,
+      fecha: { gte: desde, lt: hasta },
+      // Comprobantes de las ventas de la sucursal actual ("Todas": sin filtro).
+      ...(sucursalId != null ? { venta: { sucursalId } } : {}),
+    },
     orderBy: [{ fecha: "desc" }, { id: "desc" }],
     take: 2000,
     include: { venta: { select: { numero: true } } },

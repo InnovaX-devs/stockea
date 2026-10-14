@@ -3,6 +3,7 @@ import { obtenerReporte } from "../queries";
 import { TabsReportes } from "@/components/reportes/TabsReportes";
 import { formatCurrency } from "@/lib/currency";
 import { cn } from "@/lib/cn";
+import { EtiquetaSucursal } from "@/components/reportes/etiqueta-sucursal";
 
 type SearchParams = { tab?: string; desde?: string; hasta?: string };
 
@@ -22,7 +23,10 @@ export default async function EstadoResultadosPage({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-text-dim">{rangoTexto}</p>
+      <div className="space-y-0.5">
+        <p className="text-sm text-text-dim">{rangoTexto}</p>
+        <EtiquetaSucursal />
+      </div>
       <TabsReportes tabActual={tab} desde={params.desde} hasta={params.hasta} />
 
       {faltaPeriodo ? (

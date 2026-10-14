@@ -4,6 +4,8 @@ import type { Prisma } from "@prisma/client";
 import { inicioDiaAR } from "@/lib/timezone";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
+import { filtroPorSucursal, obtenerSucursalIdActual } from "@/lib/sucursal";
+import { filtroCuentasDeSucursal } from "@/lib/cuenta-sucursal";
 
 export async function GET(request: NextRequest) {
   const configuracion = await obtenerConfiguracion();
@@ -12,6 +14,7 @@ export async function GET(request: NextRequest) {
   }
 
   const empresaId = await obtenerEmpresaIdActual();
+  const sucursalId = await obtenerSucursalIdActual(); // null = "Todas" (solo admin)
   const sp = request.nextUrl.searchParams;
   const desde = sp.get("desde");
   const hasta = sp.get("hasta");
@@ -21,6 +24,7 @@ export async function GET(request: NextRequest) {
 
   const where: Prisma.MovimientoCajaWhereInput = {
     empresaId,
+    ...filtroPorSucursal(sucursalId),
     ...(desde || hasta
           ? {
               fecha: {
@@ -90,6 +94,7 @@ export async function GET(request: NextRequest) {
     where: {
       empresaId,
       activa: true,
+      ...filtroCuentasDeSucursal(sucursalId),
       ...(cuentaId ? { id: Number(cuentaId) } : {}),
     },
     select: { tipo: true, saldoActual: true },

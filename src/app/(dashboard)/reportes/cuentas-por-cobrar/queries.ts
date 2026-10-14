@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { filtroPorSucursal, obtenerSucursalIdActual } from "@/lib/sucursal";
 
 export type ClienteDeudaItem = {
   clienteId: number;
@@ -25,9 +26,10 @@ function bucketDe(dias: number): ClienteDeudaItem["bucket"] {
 
 export async function obtenerCuentasPorCobrar(): Promise<CuentasPorCobrarData> {
   const empresaId = await obtenerEmpresaIdActual();
+  const sucursalId = await obtenerSucursalIdActual(); // null = "Todas" (solo admin)
 
   const ventasPendientes = await prisma.venta.findMany({
-    where: { empresaId, estadoPago: "A_CUENTA" },
+    where: { empresaId, ...filtroPorSucursal(sucursalId), estadoPago: "A_CUENTA" },
     select: {
       totalARS: true,
       montoPagado: true,

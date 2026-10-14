@@ -1,6 +1,7 @@
 import { obtenerCuentasPorCobrar } from "./queries";
 import { formatCurrency } from "@/lib/currency";
 import { cn } from "@/lib/cn";
+import { EtiquetaSucursal } from "@/components/reportes/etiqueta-sucursal";
 
 const COLOR_BUCKET: Record<string, string> = {
   "0-30": "text-success",
@@ -14,6 +15,7 @@ export default async function CuentasPorCobrarPage() {
 
   return (
     <div className="space-y-4">
+      <EtiquetaSucursal />
       <div className="rounded-2xl border border-border bg-white p-4">
         <p className="text-xs uppercase tracking-wide text-text-dim">Total pendiente de cobro</p>
         <p className="mt-1 text-2xl font-semibold text-text">

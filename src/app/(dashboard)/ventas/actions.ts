@@ -10,7 +10,7 @@ import { mensajeSiCajaCerrada } from "@/lib/caja";
 import { notaCreditoTrasAnular } from "@/lib/arca/factura";
 import { siguienteNumero } from "@/lib/numeracion";
 import { descontarStock, sumarStock, sucursalDeVenta, stockEnSucursal } from "@/lib/stock";
-import { obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
+import { filtroPorSucursal, obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
 import { validarCuentaParaSucursal } from "@/lib/cuenta-sucursal";
 import { Prisma } from "@prisma/client";
 import { inicioDiaAR } from "@/lib/timezone";
@@ -300,10 +300,11 @@ export async function registrarPedido(input: VentaInput): Promise<ResultadoVenta
 export async function listarVentas(filtros: FiltrosVentas): Promise<ResultadoListadoVentas> {
   await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
   const empresaId = await obtenerEmpresaIdActual();
+  const sucursalId = await obtenerSucursalIdActual(); // null = "Todas" (solo admin)
   const { estado, clienteTexto, fechaDesde, fechaHasta, orden, page, pageSize } = filtros;
 
   const condicionesBase: Prisma.VentaWhereInput[] = [
-    { empresaId },
+    { empresaId, ...filtroPorSucursal(sucursalId) },
     {
       OR: [
         { retirado: true },
@@ -476,10 +477,12 @@ export async function verificarStockDisponible(
 
 export async function listarPedidos(filtros: FiltrosPedidos): Promise<ResultadoListadoPedidos> {
   const empresaId = await obtenerEmpresaIdActual();
+  const sucursalId = await obtenerSucursalIdActual(); // null = "Todas" (solo admin)
   const { clienteTexto, fechaDesde, fechaHasta, orden, sinCobrar, sinArmar, sinEnviar, sinRetirar } = filtros;
 
   const where: Prisma.VentaWhereInput = {
     empresaId,
+    ...filtroPorSucursal(sucursalId),
     retirado: false,
     estadoPago: { notIn: ["CANCELADA", "ANULADA"] },
   };

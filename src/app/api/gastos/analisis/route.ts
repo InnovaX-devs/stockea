@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { calcularVariacion, mesAnterior, rangoDeMes, ultimosNMeses, etiquetaMes } from "@/lib/gastos-analisis";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
+import { filtroPorSucursal, obtenerSucursalIdActual } from "@/lib/sucursal";
 
 interface AcumuladorCategoria {
   categoriaId: number | null;
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
   }
 
   const empresaId = await obtenerEmpresaIdActual();
+  const sucursalId = await obtenerSucursalIdActual(); // null = "Todas" (solo admin)
   const searchParams = request.nextUrl.searchParams;
   const modo = searchParams.get("modo") === "rango" ? "rango" : "mes";
 
@@ -71,7 +73,7 @@ export async function GET(request: NextRequest) {
 
   // --- Gastos del período seleccionado (para comparación, torta y top5) ---
   const gastosSeleccion = await prisma.gasto.findMany({
-    where: { empresaId, fecha: { gte: inicioSeleccion, lt: finSeleccion } },
+    where: { empresaId, ...filtroPorSucursal(sucursalId), fecha: { gte: inicioSeleccion, lt: finSeleccion } },
     include: { categoria: { select: { id: true, nombre: true } } },
     orderBy: { fecha: "desc" },
   });
@@ -84,7 +86,7 @@ export async function GET(request: NextRequest) {
     const anterior = mesAnterior(anioAncla, mesAncla);
     const { inicio: inicioAnt, fin: finAnt } = rangoDeMes(anterior.anio, anterior.mes);
     const gastosAnterior = await prisma.gasto.findMany({
-      where: { empresaId, fecha: { gte: inicioAnt, lt: finAnt } },
+      where: { empresaId, ...filtroPorSucursal(sucursalId), fecha: { gte: inicioAnt, lt: finAnt } },
       select: { monto: true },
     });
     const totalAnterior = gastosAnterior.reduce((acc, g) => acc + g.monto, 0);
@@ -131,7 +133,7 @@ export async function GET(request: NextRequest) {
   const finVentana = rangoDeMes(meses[meses.length - 1].anio, meses[meses.length - 1].mes).fin;
 
   const gastosVentana = await prisma.gasto.findMany({
-    where: { empresaId, fecha: { gte: inicioVentana, lt: finVentana } },
+    where: { empresaId, ...filtroPorSucursal(sucursalId), fecha: { gte: inicioVentana, lt: finVentana } },
     include: { categoria: { select: { id: true, nombre: true } } },
   });
 
@@ -139,7 +141,7 @@ export async function GET(request: NextRequest) {
   const primerMesAnt = mesAnterior(meses[0].anio, meses[0].mes);
   const { inicio: inicioPrimerAnt, fin: finPrimerAnt } = rangoDeMes(primerMesAnt.anio, primerMesAnt.mes);
   const gastosPrimerMesAnt = await prisma.gasto.findMany({
-    where: { empresaId, fecha: { gte: inicioPrimerAnt, lt: finPrimerAnt } },
+    where: { empresaId, ...filtroPorSucursal(sucursalId), fecha: { gte: inicioPrimerAnt, lt: finPrimerAnt } },
     select: { monto: true },
   });
   const totalPrimerMesAnt = gastosPrimerMesAnt.reduce((acc, g) => acc + g.monto, 0);
