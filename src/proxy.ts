@@ -34,6 +34,8 @@ export default auth((req) => {
   return NextResponse.next();
 });
 
+// Fuera del proxy (públicos, sin sesión): archivos de Next, íconos y lo que
+// necesita la app instalable (#39): service worker, manifest y offline.html.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/|sw\\.js|manifest\\.webmanifest|offline\\.html|.*\\.svg$).*)"],
 };
