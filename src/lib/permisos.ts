@@ -45,6 +45,8 @@ const API_EMPLEADO: { patron: RegExp; metodos: string[] }[] = [
   { patron: /^\/api\/categorias$/, metodos: ["GET"] },
   // Elegir cuenta al cobrar: el saldo se saca del lado del servidor.
   { patron: /^\/api\/cuentas$/, metodos: ["GET"] },
+  // Copia local del catálogo.
+  { patron: /^\/api\/sync\/catalogo$/, metodos: ["GET"] },
   // Comprobante de una venta / pedido.
   { patron: /^\/api\/ventas\/\d+\/comprobante$/, metodos: ["GET"] },
 ];
