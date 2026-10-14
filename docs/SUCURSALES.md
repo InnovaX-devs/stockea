@@ -70,6 +70,17 @@ Por ahora es directo en la base (deja de aparecer en el selector; sus datos no s
 ```sql
 UPDATE "Sucursal" SET activa = false WHERE id = <id> AND "empresaId" = <empresaId>;
 ```
+## Transferencias de stock entre sucursales
+
+Menú **Transferencias** (solo aparece con más de una sucursal).
+
+1. **Enviar:** en la sucursal de origen, *Transferir a otra sucursal* → elegir destino y productos. Al enviar, el stock **sale del origen** en ese momento (si no alcanza, no se envía) y la transferencia queda *En camino*.
+2. **Recibir:** en la sucursal de destino aparece en **Por recibir**. Al tocar *Confirmar recepción* el stock **entra en el destino**. Solo la sucursal destino puede confirmar, y una transferencia no se puede confirmar dos veces.
+3. **Historial:** todas las transferencias que salieron de la sucursal actual o llegaron a ella (con "Todas las sucursales", las de toda la empresa).
+
+- El admin tiene que elegir una sucursal concreta para enviar o recibir; el empleado usa la suya.
+- Mientras está *En camino* la mercadería no cuenta en ninguna sucursal; el total del producto baja al enviar y sube al recibir.
+- Por ahora no hay "cancelar": una transferencia enviada que no llega se resuelve ajustando el stock a mano.
 
 ## Si se cambia de plan
 

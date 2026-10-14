@@ -23,6 +23,7 @@ model Empresa {
   ultimoNumeroVenta       Int @default(0)
   ultimoNumeroCompra      Int @default(0)
   ultimoNumeroPresupuesto Int @default(0)
+  ultimoNumeroTransferencia Int @default(0)
 
   usuarios         Usuario[]
   sucursales       Sucursal[]
@@ -43,6 +44,7 @@ model Empresa {
   sesionesCaja     SesionCaja[]
   categoriasGasto  CategoriaGasto[]
   gastos           Gasto[]
+  transferencias   Transferencia[]
 }
 
 // ADMIN ve todo. EMPLEADO (solo licencia PREMIUM, máximo uno por empresa)
@@ -76,6 +78,9 @@ model Usuario {
   sucursal   Sucursal? @relation(fields: [sucursalId], references: [id])
   sucursalId Int?
 
+  transferenciasEnviadas   Transferencia[] @relation("TransferenciaUsuarioEnvio")
+  transferenciasRecibidas  Transferencia[] @relation("TransferenciaUsuarioRecepcion")
+
   @@index([empresaId])
   @@index([sucursalId])
 }
@@ -103,6 +108,8 @@ model Sucursal {
   cuentas     Cuenta[]
   sesionesCaja SesionCaja[]
   cierresCaja  CierreCaja[]
+  transferenciasSalida  Transferencia[] @relation("TransferenciaOrigen")
+  transferenciasEntrada Transferencia[] @relation("TransferenciaDestino")
 
   @@unique([empresaId, nombre])
   @@index([empresaId])
@@ -182,6 +189,7 @@ model Producto {
   itemsCompra      ItemCompra[]
   historialPrecios HistorialPrecio[]
   stocks           StockSucursal[]
+  itemsTransferencia ItemTransferencia[]
 
   @@unique([empresaId, codigoBarras])
   @@index([nombre])
@@ -860,4 +868,57 @@ model StockSucursal {
 
   @@unique([productoId, sucursalId])
   @@index([sucursalId])
+}
+
+enum EstadoTransferencia {
+  ENVIADA
+  RECIBIDA
+}
+
+// Transferencia de stock entre sucursales (issue #36). Al enviarla se descuenta
+// el stock de la sucursal origen; al confirmar la recepción se suma en la
+// destino (ver src/lib/transferencias.ts). Mientras está ENVIADA la mercadería
+// está "en camino".
+model Transferencia {
+  id     Int @id @default(autoincrement())
+  numero Int // número visible, propio de cada empresa
+
+  estado         EstadoTransferencia @default(ENVIADA)
+  fechaEnvio     DateTime            @default(now())
+  fechaRecepcion DateTime?
+  observaciones  String?
+
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  origen    Sucursal @relation("TransferenciaOrigen", fields: [origenId], references: [id])
+  origenId  Int
+  destino   Sucursal @relation("TransferenciaDestino", fields: [destinoId], references: [id])
+  destinoId Int
+
+  usuarioEnvio       Usuario  @relation("TransferenciaUsuarioEnvio", fields: [usuarioEnvioId], references: [id])
+  usuarioEnvioId     Int
+  usuarioRecepcion   Usuario? @relation("TransferenciaUsuarioRecepcion", fields: [usuarioRecepcionId], references: [id])
+  usuarioRecepcionId Int?
+
+  items ItemTransferencia[]
+
+  @@unique([empresaId, numero])
+  @@index([empresaId])
+  @@index([origenId])
+  @@index([destinoId, estado])
+  @@index([fechaEnvio])
+}
+
+model ItemTransferencia {
+  id       Int @id @default(autoincrement())
+  cantidad Int
+
+  transferencia   Transferencia @relation(fields: [transferenciaId], references: [id], onDelete: Cascade)
+  transferenciaId Int
+  producto        Producto      @relation(fields: [productoId], references: [id])
+  productoId      Int
+
+  @@index([transferenciaId])
+  @@index([productoId])
 }

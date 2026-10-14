@@ -75,10 +75,12 @@ export function Topbar({
   const inicioHref = esAdmin ? "/" : INICIO_EMPLEADO;
 
   // Filtra por licencia (Premium) y por rol (ver src/lib/permisos.ts).
-  const visible = (href: string, esPremium?: boolean) => (!esPremium || premium) && puedeVerEnMenu(rol, href);
+  // `sucursal` es null si la empresa tiene una sola sucursal.
+  const visible = (href: string, esPremium?: boolean, soloMultisucursal?: boolean) =>
+    (!esPremium || premium) && (!soloMultisucursal || sucursal != null) && puedeVerEnMenu(rol, href);
   const navItems = NAV_ITEMS.map((item) =>
-    esGrupo(item) ? { ...item, children: item.children.filter((c) => visible(c.href, c.premium)) } : item
-  ).filter((item) => (esGrupo(item) ? item.children.length > 0 : visible(item.href, item.premium)));
+    esGrupo(item) ? { ...item, children: item.children.filter((c) => visible(c.href, c.premium, c.multisucursal)) } : item
+  ).filter((item) => (esGrupo(item) ? item.children.length > 0 : visible(item.href, item.premium, item.multisucursal)));
 
   // Grupo con el dropdown abierto (uno solo a la vez). Se cierra al navegar
   // o al hacer click afuera.
