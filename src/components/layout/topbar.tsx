@@ -12,6 +12,7 @@ import { actualizarCotizacionRapida } from "@/app/(dashboard)/configuracion/acti
 import { MenuUsuario } from "@/components/layout/menu-usuario";
 import { MenuConfiguracion } from "@/components/layout/menu-configuracion";
 import { SelectorSucursal, type SucursalBarra } from "@/components/layout/selector-sucursal";
+import { IndicadorConexion } from "@/components/layout/indicador-conexion";
 import { INICIO_EMPLEADO, puedeVerEnMenu, type Rol } from "@/lib/permisos";
 
 // Clases compartidas por los ítems de nav, pensadas para la topbar oscura
@@ -290,6 +291,8 @@ export function Topbar({
             <span className="font-mono text-sm font-medium text-white">${cotizacionFormateada}</span>
           </button>
         ))}
+
+        <IndicadorConexion />
 
         {sucursal && <SelectorSucursal {...sucursal} />}
 

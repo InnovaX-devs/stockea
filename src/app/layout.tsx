@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { RegistrarServiceWorker } from "@/components/pwa/registrar-sw";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { AuthProvider } from "@/components/providers/session-provider";
 import { obtenerConfiguracion } from "@/lib/configuracion";
@@ -23,6 +24,21 @@ const jetbrainsMono = JetBrains_Mono({
 
 const TITULO_DEFAULT = "Panel administrativo";
 
+// PWA (issue #39): color de la barra del sistema en el celular / ventana instalada.
+export const viewport: Viewport = {
+  themeColor: "#132A1F",
+};
+
+// Íconos y modo "app" en iPhone. El manifest está en src/app/manifest.ts.
+const METADATA_APP: Metadata = {
+  applicationName: "Stockea",
+  icons: {
+    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
+  appleWebApp: { capable: true, title: "Stockea", statusBarStyle: "black-translucent" },
+};
+
 export async function generateMetadata(): Promise<Metadata> {
   // Si la base no está disponible en el momento del build (ej: build sin
   // DATABASE_URL configurada, o un problema transitorio de conexión), no
@@ -31,11 +47,13 @@ export async function generateMetadata(): Promise<Metadata> {
   try {
     const configuracion = await obtenerConfiguracion();
     return {
+      ...METADATA_APP,
       title: `${configuracion.nombreNegocio} · Panel administrativo`,
       description: `Panel de administración para ${configuracion.nombreNegocio}.`,
     };
   } catch {
     return {
+      ...METADATA_APP,
       title: TITULO_DEFAULT,
       description: TITULO_DEFAULT,
     };
@@ -58,6 +76,7 @@ export default function RootLayout({
           <AuthProvider>
             {children}
           </AuthProvider>
+          <RegistrarServiceWorker />
           <Toaster
             position="top-right"
             toastOptions={{

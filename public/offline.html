@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#132A1F">
+<title>Sin conexión · Stockea</title>
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #FAFAFC; color: #132A1F; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 24px; }
+  .caja { max-width: 380px; text-align: center; }
+  img { width: 64px; height: 64px; border-radius: 16px; }
+  h1 { font-size: 20px; margin: 20px 0 8px; }
+  p { font-size: 14px; line-height: 1.5; color: #4b5b53; margin: 0 0 20px; }
+  button { background: #15803d; color: #fff; border: 0; border-radius: 10px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:hover { opacity: .9; }
+  small { display: block; margin-top: 16px; font-size: 12px; color: #7a8a82; }
+</style>
+</head>
+<body>
+  <div class="caja">
+    <img src="/icons/icon-192.png" alt="Stockea">
+    <h1>Sin conexión</h1>
+    <p>No hay internet en este momento y esta página todavía no se puede usar sin conexión. Apenas vuelva la conexión, se recarga sola.</p>
+    <button type="button" onclick="location.reload()">Reintentar</button>
+    <small>Stockea</small>
+  </div>
+  <script>window.addEventListener("online", function () { location.reload(); });</script>
+</body>
+</html>
