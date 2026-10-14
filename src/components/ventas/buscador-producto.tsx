@@ -6,6 +6,7 @@ import { useDebounce } from "@/lib/hooks/use-debounce";
 import type { ProductoBusquedaDTO } from "@/types/producto";
 import { formatCurrency, toArs } from "@/lib/currency";
 import { useVenta } from "@/components/ventas/venta-context";
+import { buscarProductos } from "@/lib/offline/buscar";
 
 
 const UMBRAL_LECTORA_MS = 40;
@@ -32,10 +33,9 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
     const controller = new AbortController();
     setCargando(true);
 
-    fetch(`/api/productos/buscar?q=${encodeURIComponent(debouncedQuery)}`, { signal: controller.signal })
-      .then((res) => res.json())
-      .then((data) => {
-        setResultados(data.items ?? []);
+    buscarProductos(debouncedQuery, controller.signal)
+      .then(({ items }) => {
+        setResultados(items);
         setActiveIndex(-1);
       })
       .catch((err) => {
@@ -66,9 +66,7 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
   async function buscarPorCodigoExacto(codigo: string) {
     setCargando(true);
     try {
-      const res = await fetch(`/api/productos/buscar?q=${encodeURIComponent(codigo)}`);
-      const data = await res.json();
-      const items: ProductoBusquedaDTO[] = data.items ?? [];
+      const { items } = await buscarProductos(codigo);
       const match = items.find((p) => p.codigoBarras === codigo);
       if (match) {
         seleccionar(match);

@@ -5,6 +5,7 @@ import { Search, X, Loader2, PackageX } from "lucide-react";
 import { useDebounce } from "@/lib/hooks/use-debounce";
 import type { ProductoBusquedaDTO } from "@/types/producto";
 import { formatCurrency, toUsd, toArs } from "@/lib/currency";
+import { buscarProductos, cargarConfig } from "@/lib/offline/buscar";
 
 interface Props {
   onClose: () => void;
@@ -25,17 +26,15 @@ export function ModalConsultarPrecio({ onClose }: Props) {
   const [cargando, setCargando] = useState(false);
   const [cotizacionUSD, setCotizacionUSD] = useState(0);
   const [usaCotizacionUSD, setUsaCotizacionUSD] = useState(false);
+  const [desdeCopia, setDesdeCopia] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debouncedQuery = useDebounce(query, 250);
 
   useEffect(() => {
-    fetch("/api/configuracion")
-      .then((res) => res.json())
-      .then((data) => {
-        setCotizacionUSD(data.cotizacionUSD ?? 0);
-        setUsaCotizacionUSD(data.usaCotizacionUSD ?? false);
-      })
-      .catch(() => {});
+    cargarConfig().then((c) => {
+      setCotizacionUSD(c.cotizacionUSD);
+      setUsaCotizacionUSD(c.usaCotizacionUSD);
+    });
   }, []);
 
   useEffect(() => {
@@ -45,14 +44,17 @@ export function ModalConsultarPrecio({ onClose }: Props) {
   useEffect(() => {
     if (!debouncedQuery.trim()) {
       setResultados([]);
+      setDesdeCopia(false);
       return;
     }
     const controller = new AbortController();
     setCargando(true);
 
-    fetch(`/api/productos/buscar?q=${encodeURIComponent(debouncedQuery)}`, { signal: controller.signal })
-      .then((res) => res.json())
-      .then((data) => setResultados(data.items ?? []))
+    buscarProductos(debouncedQuery, controller.signal)
+      .then(({ items, local }) => {
+        setResultados(items);
+        setDesdeCopia(local);
+      })
       .catch((err) => {
         if (err.name !== "AbortError") console.error(err);
       })
@@ -97,6 +99,12 @@ export function ModalConsultarPrecio({ onClose }: Props) {
               <PackageX size={28} className="opacity-40" />
               Sin resultados para &quot;{query}&quot;
             </div>
+          )}
+
+          {desdeCopia && resultados.length > 0 && (
+            <p className="px-3 pb-2 text-xs text-warning">
+              Sin conexión: precios y stock de la última sincronización.
+            </p>
           )}
 
           <div className="divide-y divide-border">

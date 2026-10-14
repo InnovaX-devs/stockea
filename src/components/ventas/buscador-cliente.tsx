@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Search, Plus, X, Loader2 } from "lucide-react";
 import { useDebounce } from "@/lib/hooks/use-debounce";
-import { buscarClientesRapido, type ClienteBusquedaResult } from "@/lib/clientes-busqueda";
+import type { ClienteBusquedaResult } from "@/lib/clientes-busqueda";
+import { buscarClientes } from "@/lib/offline/buscar";
 import ClienteModal from "@/components/clientes/ClienteModal";
 import type { ClienteBasico } from "@/components/clientes/ClienteForm";
 import { useVenta } from "./venta-context";
@@ -27,8 +28,8 @@ export function BuscadorCliente() {
     let cancelado = false;
     setCargando(true);
 
-    buscarClientesRapido(debouncedQuery)
-      .then((items) => {
+    buscarClientes(debouncedQuery)
+      .then(({ items }) => {
         if (!cancelado) {
           setResultados(items);
           setActiveIndex(-1);
