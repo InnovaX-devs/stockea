@@ -4,12 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { obtenerEmpresaIdActual, obtenerUsuarioActual, requerirAdmin } from "@/lib/empresa";
 import { revalidatePath } from "next/cache";
-import type { EstadoPago, TipoPrecioVenta } from "@prisma/client";
+import type { EstadoPago } from "@prisma/client";
 import { redondearARS, montoEnCuentaUSD, montoARSDePago } from "@/lib/currency";
 import { mensajeSiCajaCerrada } from "@/lib/caja";
 import { notaCreditoTrasAnular } from "@/lib/arca/factura";
-import { siguienteNumero } from "@/lib/numeracion";
 import { descontarStock, sumarStock, sucursalDeVenta, stockEnSucursal } from "@/lib/stock";
+import { crearVentaInterna, type PagoInput, type VentaInput, type ResultadoVenta } from "@/lib/ventas";
 import { filtroPorSucursal, obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
 import { validarCuentaParaSucursal } from "@/lib/cuenta-sucursal";
 import { Prisma } from "@prisma/client";
@@ -25,36 +25,6 @@ import type {
 } from "@/types/venta"; 
 
 
-type ItemInput = {
-  productoId: number;
-  cantidad: number;
-  precioUnitarioArs: number;
-  tipoPrecio: TipoPrecioVenta;
-};
-
-type PagoInput = {
-  cuentaId: number;
-  /** Equivalente en ARS (lo que se descuenta del total). */
-  monto: number;
-  /** Dólares que entran a la cuenta, si la cuenta es USD. */
-  montoUSD?: number | null;
-};
-
-type VentaInput = {
-  clienteId: number | null;
-  items: ItemInput[];
-  pagos: PagoInput[];
-  descuentoMonto: number | null;
-  descuentoPorcentaje: number | null;
-  totalARS: number;
-  cotizacionUSD: number;
-  presupuestoId?: number | null; // presente solo cuando la venta viene de "Convertir a venta"
-};
-
-type ResultadoVenta =
-  // ventaId = id interno; numero = el que ve el negocio (1, 2, 3…)
-  | { success: true; ventaId: number; numero: number }
-  | { success: false; error: string };
 
   type DescontarStockItemInput = {
   productoId: number;
@@ -95,199 +65,6 @@ export async function descontarStockSinVenta(
   }
 }
 
-async function crearVentaInterna(input: VentaInput, armado: boolean): Promise<ResultadoVenta> {
-  if (input.items.length === 0) {
-    return { success: false, error: "El carrito está vacío." };
-  }
-
-  const empresaId = await obtenerEmpresaIdActual();
-
-  // Se vende siempre en una sucursal concreta: de ahí sale el stock.
-  let sucursalId: number;
-  try {
-    sucursalId = await requerirSucursalId();
-  } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : "Elegí una sucursal." };
-  }
-
-  // Con la caja cerrada no se vende (ver src/lib/caja.ts).
-  const cajaCerrada = await mensajeSiCajaCerrada(empresaId, sucursalId);
-  if (cajaCerrada) return { success: false, error: cajaCerrada };
-
-  // Blindaje: sin importar qué pantalla llame a esta función, el total
-  // siempre se redondea acá, en el backend. Así "lo que se ve" y "lo que se
-  // compara" son siempre el mismo número, sin decimales invisibles de la
-  // conversión USD -> ARS.
-  const totalARS = redondearARS(input.totalARS);
-
-  const pagosValidos = input.pagos
-    .filter((p) => p.cuentaId != null && p.monto > 0)
-    .map((p) => ({ ...p, monto: redondearARS(p.monto) }));
-  const montoPagado = pagosValidos.reduce((acc, p) => acc + p.monto, 0);
-
-  let estadoPago: EstadoPago;
-  if (montoPagado >= totalARS - 0.01) {
-    estadoPago = "PAGADA";
-  } else {
-    // Pago parcial: necesitamos cliente para poder trackear la deuda.
-    if (!input.clienteId) {
-      return {
-        success: false,
-        error: "Para dejar un saldo pendiente hace falta seleccionar un cliente.",
-      };
-    }
-    estadoPago = "A_CUENTA";
-  }
-
-  // Blindaje: la cotización que se guarda en la venta la decide el server,
-  // no el cliente. Si el negocio no opera con dólares (usaCotizacionUSD
-  // apagado), cotizacionUsada siempre es 1, sin importar qué haya quedado
-  // cargado en el campo cotizacionUSD de Configuración.
-  const configuracionActual = await obtenerConfiguracion();
-  // Se usa la de Configuración, no la que manda la pantalla: si la venta se
-  // confirmaba antes de que la pantalla cargara la cotización, llegaba 0 y la
-  // venta quedaba guardada con el dólar a $1 (costos y ganancias mal para
-  // siempre en los reportes).
-  const cotizacionConfig = configuracionActual.usaCotizacionUSD ? configuracionActual.cotizacionUSD : 1;
-  const cotizacionUsada = cotizacionConfig > 0 ? cotizacionConfig : 1;
-  const totalUSD = totalARS / cotizacionUsada;
-
-  try {
-    const { ventaId, numero } = await prisma.$transaction(async (tx) => {
-      // 0. Si viene de un presupuesto, revalidar que siga siendo convertible
-      //    (nadie lo convirtió en otra pestaña, y no venció mientras el
-      //    usuario armaba el cobro).
-      if (input.presupuestoId != null) {
-        const presupuesto = await tx.presupuesto.findFirst({
-          where: { id: input.presupuestoId, empresaId },
-          select: { estado: true, fechaVencimiento: true },
-        });
-
-        if (!presupuesto) {
-          throw new Error("El presupuesto de origen ya no existe.");
-        }
-        if (presupuesto.estado !== "BORRADOR") {
-          throw new Error("Este presupuesto ya fue convertido o ya no es un borrador.");
-        }
-        if (presupuesto.fechaVencimiento < new Date()) {
-          throw new Error("Este presupuesto venció, no se puede convertir.");
-        }
-      }
-
-      // 0.5 Todo productoId del carrito tiene que ser de esta empresa —
-      //     sin esto, un id de producto de otra empresa podría colarse en
-      //     un ItemVenta (grave: filtración de datos entre negocios).
-      const productoIdsDelCarrito = [
-        ...new Set(input.items.map((i) => i.productoId).filter((id): id is number => id != null)),
-      ];
-      if (productoIdsDelCarrito.length > 0) {
-        const productosValidos = await tx.producto.count({
-          where: { id: { in: productoIdsDelCarrito }, empresaId },
-        });
-        if (productosValidos !== productoIdsDelCarrito.length) {
-          throw new Error("Uno o más productos del carrito no son válidos.");
-        }
-      }
-
-      if (armado) {
-        // Una sola consulta para todos los productos, y solo si alcanza el stock.
-        await descontarStock(tx, empresaId, sucursalId, input.items);
-      }
-
-      // 1.5 Si viene con cliente, validar que sea de esta empresa.
-      if (input.clienteId != null) {
-        const cliente = await tx.cliente.findFirst({ where: { id: input.clienteId, empresaId } });
-        if (!cliente) throw new Error("El cliente seleccionado no existe");
-      }
-
-      // 2. Crear la venta + ítems, con el número propio de la empresa
-      //    (dentro de esta transacción: si algo falla, el número no se gasta).
-      const numeroVenta = await siguienteNumero(tx, empresaId, "venta");
-      const venta = await tx.venta.create({
-        data: {
-          empresaId,
-          sucursalId,
-          numero: numeroVenta,
-          clienteId: input.clienteId,
-          presupuestoId: input.presupuestoId ?? null,
-          cotizacionUsada,
-          descuentoMonto: input.descuentoMonto,
-          descuentoPorcentaje: input.descuentoPorcentaje,
-          totalARS, // ya redondeado
-          totalUSD,
-          montoPagado,
-          estadoPago,
-          armado,
-          retirado: armado,
-          items: {
-            create: input.items.map((item) => ({
-              productoId: item.productoId,
-              cantidad: item.cantidad,
-              precioUnitarioUSD: item.precioUnitarioArs / cotizacionUsada,
-              tipoPrecio: item.tipoPrecio,
-            })),
-          },
-        },
-      });
-
-            // 3. Registrar pagos + movimientos de caja
-      for (const pago of pagosValidos) {
-        // La cuenta tiene que ser de esta sucursal o compartida.
-        const cuentaInfo = await validarCuentaParaSucursal(tx, empresaId, pago.cuentaId, sucursalId);
-
-        // pago.monto llega en ARS (así arma los totales el front). Si la cuenta
-        // es en USD, entran los dólares que escribió el usuario (montoUSD).
-        const esCuentaUSD = cuentaInfo.tipo === "EFECTIVO_USD" || cuentaInfo.tipo === "BANCO_USD";
-        const montoEnMonedaCuenta = esCuentaUSD ? montoEnCuentaUSD(pago, cotizacionUsada) : pago.monto;
-
-        const cuenta = await tx.cuenta.update({
-          where: { id: pago.cuentaId },
-          data: { saldoActual: { increment: montoEnMonedaCuenta } },
-        });
-
-        await tx.pagoVenta.create({
-          data: { ventaId: venta.id, cuentaId: pago.cuentaId, monto: montoEnMonedaCuenta, montoARS: pago.monto },
-        });
-
-        await tx.movimientoCaja.create({
-          data: {
-            empresaId,
-            cuentaId: pago.cuentaId,
-            tipo: "INGRESO",
-            concepto: "VENTA_COBRADA",
-            monto: montoEnMonedaCuenta,
-            saldoResultante: cuenta.saldoActual,
-            ventaId: venta.id,
-            sucursalId,
-          },
-        });
-      }
-
-      // 4. Marcar el presupuesto de origen como CONVERTIDO.
-      //    updateMany con el estado como filtro = guard atómico contra
-      //    doble conversión en carrera (dos pestañas confirmando a la vez).
-      if (input.presupuestoId != null) {
-        const actualizado = await tx.presupuesto.updateMany({
-          where: { id: input.presupuestoId, empresaId, estado: "BORRADOR" },
-          data: { estado: "CONVERTIDO" },
-        });
-        if (actualizado.count === 0) {
-          throw new Error("Este presupuesto ya fue convertido en otra pestaña.");
-        }
-      }
-
-      return { ventaId: venta.id, numero: numeroVenta };
-    });
-
-    revalidatePath("/", "layout");
-
-    return { success: true, ventaId, numero };
-  } catch (e) {
-    console.error(e);
-    const mensaje = e instanceof Error ? e.message : "Ocurrió un error al procesar la venta.";
-    return { success: false, error: mensaje };
-  }
-}
 
 export async function confirmarVenta(input: VentaInput): Promise<ResultadoVenta> {
   return crearVentaInterna(input, true);

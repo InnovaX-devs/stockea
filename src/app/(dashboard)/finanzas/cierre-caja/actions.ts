@@ -296,17 +296,17 @@ export async function obtenerEstadoCaja(): Promise<EstadoCaja> {
 }
 
 /** Para Nueva venta: ¿está abierta? (abre sola si ya es hora). */
-export async function estadoCajaParaVenta(): Promise<{ abierta: boolean; horaApertura: string }> {
+export async function estadoCajaParaVenta(): Promise<{ abierta: boolean; horaApertura: string; sucursalId: number | null }> {
   const usuario = await obtenerUsuarioActual();
   const { actual } = await obtenerContextoSucursal();
   // En "Todas" no se vende (lo frena la venta misma): no hay aviso de caja.
-  if (!actual) return { abierta: true, horaApertura: "07:00" };
+  if (!actual) return { abierta: true, horaApertura: "07:00", sucursalId: null };
   const sesion = await asegurarAperturaAutomatica(usuario.empresaId, actual.id);
   const config = await prisma.configuracion.findUnique({
     where: { empresaId: usuario.empresaId },
     select: { horaAperturaCaja: true },
   });
-  return { abierta: sesion != null, horaApertura: config?.horaAperturaCaja ?? "07:00" };
+  return { abierta: sesion != null, horaApertura: config?.horaAperturaCaja ?? "07:00", sucursalId: actual.id };
 }
 
 /** Abrir caja a mano. El admin puede además cargar el cambio contado. */

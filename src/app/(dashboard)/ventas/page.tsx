@@ -17,6 +17,9 @@ import type { ItemCarrito, TipoPrecioLinea } from "@/types/item-carrito";
 import { SelectorCobro } from "@/components/ventas/selector-cobro";
 import { useEsAdmin } from "@/components/layout/rol-context";
 import { AvisoCajaCerrada } from "@/components/ventas/aviso-caja-cerrada";
+import { PanelVentasSinConexion } from "@/components/ventas/panel-ventas-sin-conexion";
+import { leerAlcance, leerMeta, type EstadoCajaLocal } from "@/lib/offline/db";
+import { encolarVenta, nuevoIdCliente, sincronizarVentas } from "@/lib/offline/cola-ventas";
 import { obtenerPresupuestoParaConvertir } from "@/app/(dashboard)/presupuestos/actions";
 import { confirmarVenta, registrarPedido, descontarStockSinVenta, verificarStockDisponible, type StockDisponibilidad } from "./actions";
 import { ModalStockComprometido } from "@/components/ventas/modal-stock-comprometido";
@@ -109,7 +112,25 @@ function NuevaVentaContenido() {
       .filter((it) => it.producto.id === producto.id)
       .reduce((acc, it) => acc + it.cantidad, 0);
 
-    const stock = await verificarStockDisponible(producto.id, yaEnCarrito + 1);
+    const necesarias = yaEnCarrito + 1;
+
+    let stock: StockDisponibilidad | null = null;
+    if (navigator.onLine) {
+      try {
+        stock = await verificarStockDisponible(producto.id, necesarias);
+      } catch {
+        stock = null; // se cortó la red: se usa la copia local
+      }
+    }
+    if (!stock) {
+      // Sin conexión: stock de la copia local (las reservas de pedidos no se conocen).
+      stock = {
+        stockFisico: producto.stockActual,
+        reservado: 0,
+        disponible: producto.stockActual,
+        alcanza: producto.stockActual >= necesarias,
+      };
+    }
 
     if (stock.alcanza) {
       agregarAlCarrito(producto, precioUnitarioArs);
@@ -213,6 +234,10 @@ function NuevaVentaContenido() {
       toast.error("El carrito está vacío.");
       return;
     }
+    if (!navigator.onLine) {
+      toast.error("Descontar stock sin venta requiere conexión a internet.");
+      return;
+    }
     setProcesando(true);
     const resultado = await descontarStockSinVenta(
       carrito.map((it) => ({
@@ -233,6 +258,10 @@ function NuevaVentaContenido() {
     async function handleRegistrarPedido() {
     if (carrito.length === 0) {
       toast.error("El carrito está vacío.");
+      return;
+    }
+    if (!navigator.onLine) {
+      toast.error("Registrar un pedido requiere conexión. Sin internet podés confirmar ventas, que se suben solas al volver.");
       return;
     }
     setProcesando(true);
@@ -274,6 +303,84 @@ function NuevaVentaContenido() {
     }
   }
 
+  /**
+   * Guarda la venta en la cola de este equipo (IndexedDB) para subirla cuando
+   * haya red. `motivo`: "sin-red" = no hay conexión; "fallo" = se intentó
+   * confirmar con conexión pero el pedido se cortó y no sabemos si el servidor
+   * llegó a guardarla (no pasa nada: la venta lleva el mismo idCliente, así que
+   * si ya estaba guardada el servidor la reconoce y no la duplica).
+   */
+  async function guardarEnLaCola(
+    input: ReturnType<typeof armarInput> & { cotizacionUSD: number; idCliente: string },
+    motivo: "sin-red" | "fallo"
+  ): Promise<boolean> {
+    const alcance = await leerAlcance();
+    if (!alcance) {
+      toast.error("Para vender sin conexión, abrí el sistema una vez con internet.");
+      return false;
+    }
+    if (alcance.sucursalId == null) {
+      toast.error("Elegí una sucursal para vender (con internet).");
+      return false;
+    }
+    if (motivo === "sin-red") {
+      // Abrir y cerrar la caja requieren conexión: se usa el último estado visto con internet.
+      const caja = await leerMeta<EstadoCajaLocal>("caja");
+      if (!caja || !caja.abierta || caja.sucursalId !== alcance.sucursalId) {
+        toast.error("Sin conexión no se puede confirmar que la caja esté abierta. Abrila con internet para poder vender.");
+        return false;
+      }
+    }
+
+    const pagosValidos = input.pagos
+      .filter((p) => p.cuentaId != null && p.monto > 0)
+      .map((p) => ({ cuentaId: p.cuentaId, monto: p.monto, montoUSD: p.montoUSD ?? null }));
+    const pagado = pagosValidos.reduce((acc, p) => acc + Math.round(p.monto), 0);
+    if (pagado < Math.round(input.totalARS) - 0.01 && !input.clienteId) {
+      toast.error("Para dejar un saldo pendiente hace falta seleccionar un cliente.");
+      return false;
+    }
+
+    try {
+      await encolarVenta({
+        empresaId: alcance.empresaId,
+        sucursalId: alcance.sucursalId,
+        idCliente: input.idCliente,
+        clienteNombre: cliente ? `${cliente.nombre}${cliente.apellido ? ` ${cliente.apellido}` : ""}` : null,
+        nombres: Object.fromEntries(carrito.map((it) => [it.producto.id, it.producto.nombre])),
+        venta: {
+          clienteId: input.clienteId,
+          items: input.items,
+          pagos: pagosValidos,
+          descuentoMonto: input.descuentoMonto,
+          descuentoPorcentaje: input.descuentoPorcentaje,
+          totalARS: input.totalARS,
+        },
+      });
+    } catch (err) {
+      console.error(err);
+      toast.error(
+        motivo === "fallo"
+          ? "No se pudo confirmar la venta. Antes de cobrar de nuevo, revisá en el historial si quedó guardada."
+          : "No se pudo guardar la venta en este equipo. Probá de nuevo."
+      );
+      return false;
+    }
+
+    toast.success(
+      motivo === "sin-red"
+        ? "Venta guardada sin conexión. Queda como Pendiente y se sube sola cuando vuelva internet."
+        : "No se pudo confirmar al instante: la venta quedó guardada en este equipo y se sube sola.",
+      { duration: 6000 }
+    );
+    if (facturacion?.disponible && emitirFactura) {
+      toast.info("La factura no se emite sin conexión: pedila desde el historial cuando la venta ya esté subida.", { duration: 8000 });
+    }
+    limpiarVenta();
+    if (navigator.onLine) sincronizarVentas().catch(() => {});
+    return true;
+  }
+
   async function handleConfirmarVenta() {
     if (carrito.length === 0) {
       toast.error("El carrito está vacío.");
@@ -285,8 +392,26 @@ function NuevaVentaContenido() {
       toast.error("El monto cobrado no coincide con el total. Revisá el cobro.");
       return;
     }
+    // Cada confirmación lleva su propio id: es lo que permite reenviarla sin duplicarla.
+    const input = { ...armarInput(), cotizacionUSD, idCliente: nuevoIdCliente() };
+
+    if (!navigator.onLine) {
+      setProcesando(true);
+      await guardarEnLaCola(input, "sin-red");
+      setProcesando(false);
+      return;
+    }
+
     setProcesando(true);
-    const resultado = await confirmarVenta({ ...armarInput(), cotizacionUSD });
+    let resultado: Awaited<ReturnType<typeof confirmarVenta>>;
+    try {
+      resultado = await confirmarVenta(input);
+    } catch {
+      // Se cortó el pedido: no sabemos si el servidor la guardó. Va a la cola con el mismo id.
+      await guardarEnLaCola(input, "fallo");
+      setProcesando(false);
+      return;
+    }
     setProcesando(false);
 
     if (!resultado.success) {
@@ -301,6 +426,7 @@ function NuevaVentaContenido() {
   return (
     <div className="space-y-4 p-4">
       <AvisoCajaCerrada />
+      <PanelVentasSinConexion />
       <div>
         <h1 className="text-xl font-semibold text-text sm:text-2xl">Nueva Venta</h1>
         <p className="text-sm text-text-dim">Buscá cliente y productos, y confirmá el cobro</p>

@@ -16,6 +16,7 @@ import {
   Zap,
   Package,
   Tag,
+  TriangleAlert,
 } from "lucide-react";
 import { TodasCuentasModal } from "@/components/dashboard/todas-cuentas-modal";
 import { ModalConsultarPrecio } from "@/components/ventas/modal-consultar-precio";
@@ -54,6 +55,11 @@ interface DashboardData {
   };
   pedidos: { porArmar: number; armados: number };
   movimientos: Movimiento[];
+  stockNegativo: {
+    total: number;
+    productos: { id: number; nombre: string; cantidad: number; sucursal: string }[];
+    ventas: number[];
+  };
 }
 
 const ACCESOS_RAPIDOS = [
@@ -108,6 +114,41 @@ export default function DashboardPage() {
           + Nueva Venta
         </Link>
       </div>
+
+      {/* Stock negativo: ventas sin conexión que se sincronizaron con más unidades de las que había (#41) */}
+      {!!datos?.stockNegativo?.total && (
+        <div role="alert" className="flex gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4">
+          <TriangleAlert size={20} className="mt-0.5 shrink-0 text-warning" />
+          <div className="min-w-0 flex-1 text-sm">
+            <p className="font-medium text-text">
+              {datos.stockNegativo.total === 1
+                ? "1 producto quedó con stock negativo"
+                : `${datos.stockNegativo.total} productos quedaron con stock negativo`}
+            </p>
+            <p className="mt-0.5 text-text-dim">
+              {datos.stockNegativo.ventas.length > 0
+                ? `Se vendió sin conexión más de lo que había en el sistema (ventas ${datos.stockNegativo.ventas.map((n) => `#${n}`).join(", ")}). `
+                : ""}
+              Revisá el inventario y corregí el stock.
+            </p>
+            <ul className="mt-2 space-y-0.5 text-text">
+              {datos.stockNegativo.productos.map((p) => (
+                <li key={`${p.id}-${p.sucursal}`} className="flex flex-wrap gap-x-2">
+                  <span className="font-medium">{p.nombre}</span>
+                  <span className="font-mono text-danger">{p.cantidad}</span>
+                  <span className="text-text-dim">· {p.sucursal}</span>
+                </li>
+              ))}
+              {datos.stockNegativo.total > datos.stockNegativo.productos.length && (
+                <li className="text-text-dim">y {datos.stockNegativo.total - datos.stockNegativo.productos.length} más…</li>
+              )}
+            </ul>
+            <Link href="/productos" className="mt-2 inline-block text-xs font-medium text-primary hover:underline">
+              Ir a Productos →
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Saldo total + Hoy */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

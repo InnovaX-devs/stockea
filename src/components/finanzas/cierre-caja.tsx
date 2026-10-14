@@ -15,6 +15,8 @@ import {
   type Destino,
   type EstadoCaja,
 } from "@/app/(dashboard)/finanzas/cierre-caja/actions";
+import { recordarEstadoCaja } from "@/lib/offline/db";
+import { hayVentasSinSubir } from "@/lib/offline/cola-ventas";
 
 /**
  * Pantalla de Caja: estado del turno arriba, resumen en cuadros, conteo del
@@ -191,6 +193,7 @@ function CajaCerrada({ estado }: { estado: EstadoCaja }) {
   const [pendiente, startTransition] = useTransition();
 
   function abrir() {
+    if (!navigator.onLine) return void toast.error("Abrir la caja requiere conexión a internet.");
     startTransition(async () => {
       const lista = contar
         ? estado.efectivo
@@ -200,6 +203,7 @@ function CajaCerrada({ estado }: { estado: EstadoCaja }) {
       const r = await abrirCaja({ conteos: lista });
       if (!r.success) return void toast.error(r.error);
       toast.success("Caja abierta.");
+      recordarEstadoCaja(true).catch(() => {});
       router.refresh();
     });
   }
@@ -308,7 +312,20 @@ function CajaAbierta({ estado }: { estado: EstadoCaja }) {
   ) || bancosRevisados.some((b) => !Number.isFinite(b.saldo!));
 
   function cerrar() {
+    if (!navigator.onLine) {
+      setConfirmando(false);
+      return void toast.error("Cerrar la caja requiere conexión a internet.");
+    }
     startTransition(async () => {
+      // Una venta hecha sin conexión que todavía no subió quedaría fuera de este cierre.
+      const sinSubir = await hayVentasSinSubir().catch(() => 0);
+      if (sinSubir > 0) {
+        setConfirmando(false);
+        return void toast.error(
+          `Hay ${sinSubir === 1 ? "1 venta hecha" : `${sinSubir} ventas hechas`} en este equipo sin conexión que todavía no se ${sinSubir === 1 ? "subió" : "subieron"}. Esperá a que suban (o revisalas en Nueva venta) antes de cerrar la caja.`,
+          { duration: 10000 }
+        );
+      }
       const r = await registrarCierre({
         cuentas: [
           ...contadas.map((c) => ({
@@ -326,6 +343,7 @@ function CajaAbierta({ estado }: { estado: EstadoCaja }) {
         return void toast.error(r.error);
       }
       toast.success(r.data.abrioSiguienteTurno ? "Turno cerrado. El siguiente ya quedó abierto." : "Caja cerrada.");
+      recordarEstadoCaja(r.data.abrioSiguienteTurno).catch(() => {});
       router.refresh();
     });
   }
