@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Search, X, Landmark, Wallet } from "lucide-react";
 import type { CuentaOption } from "@/types/pago";
+import { cargarCuentas } from "@/lib/offline/buscar";
 
 interface Props {
   onSeleccionar: (cuenta: CuentaOption) => void;
@@ -22,9 +23,9 @@ export function SelectorCuentaModal({ onSeleccionar, onClose }: Props) {
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    fetch("/api/cuentas") // ya filtra activa: true por default
-      .then((res) => res.json())
-      .then((data) => setCuentas(data.items ?? []))
+    // Red primero (ya filtra activa: true); sin red, copia local de Dexie.
+    cargarCuentas()
+      .then((items) => setCuentas(items as CuentaOption[]))
       .catch(() => {})
       .finally(() => setCargando(false));
   }, []);

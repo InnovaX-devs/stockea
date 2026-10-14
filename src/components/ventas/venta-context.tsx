@@ -4,6 +4,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import type { ClienteBusquedaResult } from "@/lib/clientes-busqueda";
 import type { ModoCobro, PagoLinea } from "@/types/pago";
+import { cargarConfig } from "@/lib/offline/buscar";
 
 type TipoPrecio = "MINORISTA" | "MAYORISTA";
 
@@ -30,18 +31,12 @@ export function VentaProvider({ children }: { children: ReactNode }) {
   const [cotizacionUSD, setCotizacionUSD] = useState<number>(0); // NUEVO
   const [usaCotizacionUSD, setUsaCotizacionUSD] = useState<boolean>(false);
 
-  // Traer la cotización real UNA vez al abrir la pantalla de venta
+  // Traer la cotización UNA vez al abrir la pantalla de venta (red primero, copia local sin red)
   useEffect(() => {
-    fetch("/api/configuracion")
-      .then((r) => r.json())
-      .then((data) => {
-        setCotizacionUSD(data.cotizacionUSD ?? 0);
-        setUsaCotizacionUSD(data.usaCotizacionUSD ?? false);
-      })
-      .catch(() => {
-        setCotizacionUSD(0);
-        setUsaCotizacionUSD(false);
-      });
+    cargarConfig().then((c) => {
+      setCotizacionUSD(c.cotizacionUSD);
+      setUsaCotizacionUSD(c.usaCotizacionUSD);
+    });
   }, []);
 
   function setCliente(nuevoCliente: ClienteBusquedaResult | null) {

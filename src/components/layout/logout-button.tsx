@@ -4,6 +4,7 @@ import { signOut } from "next-auth/react";
 import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
+import { limpiarCopiaLocal } from "@/lib/offline/sync-catalogo";
 
 export function LogoutButton({ variant = "light" }: { variant?: "light" | "dark" }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -11,6 +12,7 @@ export function LogoutButton({ variant = "light" }: { variant?: "light" | "dark"
   async function handleLogout() {
     setIsLoading(true);
     try {
+      await limpiarCopiaLocal().catch(() => {});
       await signOut({ callbackUrl: "/login" });
       toast.success("Sesión cerrada");
     } catch {

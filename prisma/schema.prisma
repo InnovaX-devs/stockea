@@ -194,6 +194,7 @@ model Producto {
   @@unique([empresaId, codigoBarras])
   @@index([nombre])
   @@index([empresaId])
+  @@index([empresaId, updatedAt])
 }
 
 enum CampoPrecio {
@@ -238,6 +239,7 @@ model Cliente {
   localidad   String?
   esMayorista Boolean  @default(false)
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 
   // Facturación: sin documento se factura como Consumidor Final.
   tipoDocumento   TipoDocumento?
@@ -253,6 +255,7 @@ model Cliente {
   @@index([nombre])
   @@index([apellido])
   @@index([empresaId])
+  @@index([empresaId, updatedAt])
 }
 
 enum EstadoPago {
@@ -868,6 +871,7 @@ model StockSucursal {
 
   @@unique([productoId, sucursalId])
   @@index([sucursalId])
+  @@index([sucursalId, updatedAt])
 }
 
 enum EstadoTransferencia {
