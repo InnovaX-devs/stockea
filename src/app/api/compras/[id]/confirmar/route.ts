@@ -235,7 +235,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           "stockActual" = p."stockActual" + v.cantidad,
           "precioCosto" = COALESCE(v.costo, p."precioCosto"),
           "precioVenta" = COALESCE(v.venta, p."precioVenta"),
-          "precioMayorista" = COALESCE(v.mayorista, p."precioMayorista")
+          "precioMayorista" = COALESCE(v.mayorista, p."precioMayorista"),
+          -- SQL directo: Prisma no toca @updatedAt solo. Sin esto, la copia
+          -- local del catálogo (#40) de otras sucursales no se entera del
+          -- precio nuevo hasta la sincronización completa diaria.
+          "updatedAt" = now()
         FROM (VALUES ${Prisma.join(
           cambios.map((c) => Prisma.sql`(${c.id}::int, ${c.cantidad}::int, ${num(c.costo)}, ${num(c.venta)}, ${num(c.mayorista)})`)
         )}) AS v(id, cantidad, costo, venta, mayorista)
