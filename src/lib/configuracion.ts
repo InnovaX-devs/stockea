@@ -23,7 +23,7 @@ function conFlagsDeLicencia<T extends Pick<Configuracion, "licencia" | "usaCotiz
   return {
     ...configuracion,
     usaCotizacionUSD: esPremium && configuracion.usaCotizacionUSD,
-    habilitarPresupuestos: esPremium,
+    habilitarPresupuestos: false,
     habilitarReportesAvanzados: esPremium,
     // Gastos (cargar, agendar y pagar) está en los dos planes: sin eso, la
     // caja del plan Básico no refleja los pagos y el cierre da faltantes.

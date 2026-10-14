@@ -48,6 +48,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Productos", href: "/productos", icon: FlaskConical },
       { label: "Marcas y Categorías", href: "/marcas-categorias", icon: Tag },
       { label: "Historial de precios", href: "/historial-precios", icon: History },
+      { label: "Transferencias de stock", href: "/transferencias", icon: ArrowRightLeft, premium: true, multisucursal: true },
     ],
   },
   {
@@ -69,8 +70,6 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Comprobantes", href: "/ventas/comprobantes", icon: FileText },
     ],
   },
-  { label: "Transferencias", href: "/transferencias", icon: ArrowRightLeft, premium: true, multisucursal: true },
-  { label: "Presupuestos", href: "/presupuestos", icon: FileText, premium: true },
   {
     label: "Finanzas",
     icon: Calculator,
