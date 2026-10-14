@@ -5,6 +5,8 @@ export type VentaListItem = {
   /** Número visible de la empresa (null = ajuste manual de deuda). */
   numero: number | null;
   clienteNombre: string | null; // null => "Sin cliente"
+  /** Sucursal donde se hizo la venta (null en ventas viejas sin sucursal). */
+  sucursalNombre: string | null;
   totalARS: number;
   gananciaARS: number;
   gananciaPorcentaje: number; // sobre el costo, no sobre el total

@@ -365,6 +365,7 @@ export async function listarVentas(filtros: FiltrosVentas): Promise<ResultadoLis
       take: pageSize,
       include: {
         cliente: { select: { nombre: true, apellido: true } },
+        sucursal: { select: { nombre: true } },
         items: {
           include: {
             producto: { select: { precioCosto: true, monedaPrecio: true } },
@@ -400,6 +401,7 @@ export async function listarVentas(filtros: FiltrosVentas): Promise<ResultadoLis
       clienteNombre: venta.cliente
         ? `${venta.cliente.nombre}${venta.cliente.apellido ? " " + venta.cliente.apellido : ""}`
         : null,
+      sucursalNombre: venta.sucursal?.nombre ?? null,
       totalARS: venta.totalARS,
       gananciaARS,
       gananciaPorcentaje,

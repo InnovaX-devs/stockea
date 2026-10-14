@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
         include: {
           proveedor: { select: { nombre: true } },
           cuenta: { select: { nombre: true, tipo: true } },
+          sucursal: { select: { nombre: true } },
         },
         skip: (page - 1) * pageSize,
         take: pageSize,
