@@ -146,3 +146,20 @@ export async function recordarEstadoCaja(abierta: boolean) {
   const alcance = await leerAlcance();
   await guardarEstadoCaja(abierta, alcance?.sucursalId ?? null);
 }
+
+/**
+ * Le pide al navegador que NO borre esta base por falta de espacio (issue #42).
+ * Sin esto, si el disco se llena, Chrome puede vaciar IndexedDB por su cuenta
+ * y se perderían ventas que todavía no subieron. Con la app instalada Chrome
+ * suele aceptarlo sin preguntar. No hace nada si ya está concedido o si el
+ * navegador no lo soporta.
+ */
+export async function pedirAlmacenamientoPersistente(): Promise<boolean> {
+  try {
+    if (typeof navigator === "undefined" || !navigator.storage?.persist) return false;
+    if (await navigator.storage.persisted()) return true;
+    return await navigator.storage.persist();
+  } catch {
+    return false;
+  }
+}

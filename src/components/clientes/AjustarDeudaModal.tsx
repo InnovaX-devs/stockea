@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
-
+import { avisar } from "@/components/ui/dialogos"
 import { ajustarDeudaManual } from "@/app/(dashboard)/clientes/actions";
 import type { CuentaOption } from "./CobrarDeudaModal";
 import Select from "@/components/ui/select";
@@ -74,11 +74,12 @@ export default function AjustarDeudaModal({
     }
 
     if (res.aplicado !== undefined && res.aplicado < montoNum) {
-      alert(
+      await avisar(
         `El cliente solo tenía ${res.aplicado.toLocaleString("es-AR", {
           style: "currency",
           currency: "ARS",
-        })} de deuda pendiente. Se aplicó ese monto.`
+        })} de deuda pendiente. Se aplicó ese monto.`,
+        { titulo: "Ajuste aplicado", variante: "info" }
       );
     }
 

@@ -12,6 +12,7 @@ import { formatCurrency } from "@/lib/currency";
 import { Pencil, Ban, Trash2, DollarSign, ArrowLeftRight, Plus, CheckCircle2 } from "lucide-react";
 import { AjustarSaldoModal } from "@/components/finanzas/ajustar-saldo-modal";
 import { TransferenciaModal } from "@/components/finanzas/transferencia-modal";
+import { confirmar } from "@/components/ui/dialogos";
 
 const ETIQUETAS_TIPO: Record<string, string> = {
   EFECTIVO_ARS: "Efectivo ARS",
@@ -106,7 +107,7 @@ export default function FinanzasPage() {
   }
 
   async function eliminar(cuenta: CuentaDTO) {
-    if (!confirm(`¿Eliminar la cuenta "${cuenta.nombre}"? Esta acción no se puede deshacer.`)) return;
+    if (!await confirmar(`¿Eliminar la cuenta "${cuenta.nombre}"? Esta acción no se puede deshacer.`, { titulo: "Eliminar cuenta", confirmar: "Eliminar", peligro: true })) return;
     try {
       const res = await fetch(`/api/cuentas/${cuenta.id}`, { method: "DELETE" });
       const data = await res.json();

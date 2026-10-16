@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Search } from "lucide-react";
+import { avisar, confirmar } from "@/components/ui/dialogos";
 
 interface Elemento {
   id: number;
@@ -112,26 +113,27 @@ function TablaSeccion({ titulo, singular, endpoint }: SeccionProps) {
 
       if (!res.ok) {
         const data = await res.json();
-        alert(data.error || "Error al cambiar el estado");
+        await avisar(data.error || "Error al cambiar el estado", { titulo: "No se pudo cambiar el estado", variante: "error" });
         return;
       }
 
       fetchItems();
     } catch (err) {
-      alert("Error al conectar con el servidor");
+      await avisar("Revisá tu conexión e intentá de nuevo.", { titulo: "No se pudo conectar con el servidor", variante: "error" });
     }
   };
 
   // Eliminar
   const handleEliminar = async (item: Elemento) => {
     if (item.cantidadProductos > 0) {
-      alert(
-        `⚠️ No se puede eliminar "${item.nombre}" porque tiene ${item.cantidadProductos} producto(s) asociado(s).\n\nPuedes desactivarla en su lugar.`
+      await avisar(
+        `"${item.nombre}" tiene ${item.cantidadProductos} producto(s) asociado(s). Podés desactivarla en su lugar.`,
+        { titulo: "No se puede eliminar", variante: "advertencia" }
       );
       return;
     }
 
-    if (!confirm(`¿Estás seguro de que deseas eliminar "${item.nombre}"?`)) {
+    if (!await confirmar(`¿Eliminar "${item.nombre}"? Esta acción no se puede deshacer.`, { titulo: "Eliminar", confirmar: "Eliminar", peligro: true })) {
       return;
     }
 
@@ -143,13 +145,13 @@ function TablaSeccion({ titulo, singular, endpoint }: SeccionProps) {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error || "Error al eliminar");
+        await avisar(data.error || "Error al eliminar", { titulo: "No se pudo eliminar", variante: "error" });
         return;
       }
 
       fetchItems();
     } catch (err) {
-      alert("Error al intentar eliminar");
+      await avisar("Revisá tu conexión e intentá de nuevo.", { titulo: "No se pudo eliminar", variante: "error" });
     }
   };
 

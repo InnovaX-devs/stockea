@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { ChevronDown, Check, X as XIcon, House, Menu, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/cn";
-import { NAV_ITEMS, esGrupo, type NavGroup } from "@/lib/nav-items";
+import { NAV_ITEMS, esGrupo, type NavGroup, type NavLeaf } from "@/lib/nav-items";
 import { actualizarCotizacionRapida } from "@/app/(dashboard)/configuracion/actions";
 import { MenuUsuario } from "@/components/layout/menu-usuario";
 import { MenuConfiguracion } from "@/components/layout/menu-configuracion";

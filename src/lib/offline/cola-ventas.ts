@@ -1,6 +1,6 @@
 import { liveQuery } from "dexie";
 import { toast } from "sonner";
-import { db, leerAlcance, type PayloadVentaLocal, type VentaLocal } from "./db";
+import { db, leerAlcance, pedirAlmacenamientoPersistente, type PayloadVentaLocal, type VentaLocal } from "./db";
 import { fijarVentasConError, fijarVentasPendientes } from "./estado-conexion";
 import { sincronizarCatalogo } from "./sync-catalogo";
 
@@ -68,6 +68,8 @@ export async function encolarVenta(datos: DatosVentaLocal): Promise<VentaLocal> 
     entrada.id = await db.outbox.add(entrada);
     await ajustarStockLocal(datos.venta.items, -1);
   });
+  // Hay una venta que solo existe en esta compu: que el navegador no la borre.
+  void pedirAlmacenamientoPersistente();
   return entrada;
 }
 

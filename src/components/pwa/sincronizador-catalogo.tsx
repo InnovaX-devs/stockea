@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { sincronizarCatalogo } from "@/lib/offline/sync-catalogo";
 import { sincronizarVentas, vigilarCola } from "@/lib/offline/cola-ventas";
+import { pedirAlmacenamientoPersistente } from "@/lib/offline/db";
 
 /**
  * Refresco cada pocos minutos con conexión (issue #40). Primero suben las
@@ -22,6 +23,8 @@ export function SincronizadorCatalogo({ sucursalKey }: { sucursalKey: string }) 
         .catch((err) => console.warn("No se pudo sincronizar el catálogo", err));
     };
     const dejarDeVigilar = vigilarCola();
+    // La copia local y la cola de ventas no se tienen que borrar solas (#42).
+    void pedirAlmacenamientoPersistente();
     sincronizar();
     const intervalo = window.setInterval(sincronizar, CADA_MS);
     window.addEventListener("online", sincronizar);

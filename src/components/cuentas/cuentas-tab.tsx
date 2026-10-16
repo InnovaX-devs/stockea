@@ -6,6 +6,7 @@ import { formatCurrency } from "@/lib/currency";
 import type { CuentaDTO } from "@/types/cuenta";
 import { CuentaFormModal } from "@/components/finanzas/cuenta-form-modal";
 import { TotalesCuentas } from "@/components/finanzas/totales-cuentas";
+import { avisar, confirmar } from "@/components/ui/dialogos";
 
 export function CuentasTab() {
   const [cuentas, setCuentas] = useState<CuentaDTO[]>([]);
@@ -54,12 +55,12 @@ export function CuentasTab() {
       if (!res.ok) throw new Error("Error al cambiar el estado de la cuenta");
       cargar();
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Error inesperado");
+      await avisar(error instanceof Error ? error.message : "Error inesperado", { titulo: "Algo salió mal", variante: "error" });
     }
   };
 
   const eliminar = async (cuenta: CuentaDTO) => {
-    if (!confirm(`¿Eliminar la cuenta "${cuenta.nombre}"?`)) return;
+    if (!await confirmar(`¿Eliminar la cuenta "${cuenta.nombre}"?`, { titulo: "Eliminar cuenta", confirmar: "Eliminar", peligro: true })) return;
     try {
       const res = await fetch(`/api/cuentas/${cuenta.id}`, { method: "DELETE" });
       if (!res.ok) {

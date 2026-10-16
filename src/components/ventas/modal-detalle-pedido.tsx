@@ -11,6 +11,7 @@ import type { PedidoDetalle } from "@/types/venta";
 import { ModalCobrarPedido } from "./modal-cobrar-pedido";
 import { facturacionParaVenta, facturaDeVenta, facturarVenta, type ResumenFactura } from "@/app/(dashboard)/ventas/facturacion-actions";
 import { etiquetaVenta, archivoComprobanteVenta } from "@/lib/numeracion";
+import { confirmar, pedirTexto } from "@/components/ui/dialogos";
 
 const ESTADO_STYLE: Record<EstadoPago, string> = {
   PAGADA: "bg-success/10 text-success",
@@ -72,7 +73,7 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio, titulo = "Pedi
     setFacturando(true);
     let r = await facturarVenta(pedidoId);
     if (!r.success && /identificar al comprador/.test(r.error)) {
-      const dni = window.prompt(`${r.error}\n\nDNI del comprador:`);
+      const dni = await pedirTexto(`${r.error}\n\nDNI del comprador:`, { titulo: "Falta el DNI", confirmar: "Facturar", placeholder: "DNI", inputMode: "numeric" })
       if (dni?.trim()) r = await facturarVenta(pedidoId, { tipo: "DNI", numero: dni });
     }
     setFacturando(false);
@@ -142,7 +143,12 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio, titulo = "Pedi
     // Si devolver la plata deja una cuenta en negativo (por ejemplo, porque
     // ya se transfirió o se retiró en un cierre), se avisa y se pide confirmar.
     if (!resultado.success && resultado.codigo === "SALDO_NEGATIVO") {
-      const seguir = confirm(`${resultado.error} ¿Cancelar el pedido igual?`);
+      const seguir = await confirmar(`${resultado.error} ¿Cancelar el pedido igual?`, {
+        titulo: "¿Cancelar igual?",
+        confirmar: "Cancelar pedido",
+        cancelar: "Volver",
+        peligro: true,
+      });
       if (seguir) resultado = await cancelarPedido(pedidoId, { forzar: true });
     }
     setCancelando(false);

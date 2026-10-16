@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { Dialogos } from "@/components/ui/dialogos";
 import { RegistrarServiceWorker } from "@/components/pwa/registrar-sw";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { AuthProvider } from "@/components/providers/session-provider";
@@ -72,6 +73,7 @@ export default function RootLayout({
       className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
       <body>
+        <Dialogos />
         <ThemeProvider>
           <AuthProvider>
             {children}
