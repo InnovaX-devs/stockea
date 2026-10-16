@@ -73,6 +73,7 @@ export function FiltroPeriodo({ clave, desde, hasta }: { clave: Clave; desde: st
           desde={clave === "rango" ? desde : null}
           hasta={clave === "rango" ? hasta : null}
           onCambiar={elegirRango}
+          alinear="fin"
         />
       )}
     </div>
