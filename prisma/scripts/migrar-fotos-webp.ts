@@ -1,12 +1,14 @@
 // prisma/scripts/migrar-fotos-webp.ts
 //
-// Script one-off: recorre todos los productos con fotoUrl cargada, y para
-// las que NO están en PNG, las descarga, las convierte con sharp, las
-// vuelve a subir a Vercel Blob, actualiza el fotoUrl en la base, y borra
-// el blob viejo. Es seguro correrlo más de una vez (si ya es PNG, la salta).
+// Script one-off: recorre todos los productos con fotoUrl cargada y, para las
+// que NO están en JPEG ni PNG (ej. WebP), las descarga, las convierte a JPEG
+// con sharp, las vuelve a subir a Vercel Blob, actualiza el fotoUrl en la base
+// y borra el blob viejo. Las JPEG/PNG no se tocan. Es seguro correrlo más de
+// una vez (lo que ya está convertido se salta).
 //
 // Uso:
-//   npm run migrar-fotos
+//   npm run migrar-fotos               -> convierte
+//   DRY_RUN=1 npm run migrar-fotos     -> solo lista qué convertiría, sin tocar nada
 
 import { PrismaClient } from "@prisma/client";
 import { put, del } from "@vercel/blob";
@@ -15,6 +17,7 @@ import sharp from "sharp";
 const prisma = new PrismaClient();
 
 const CONCURRENCIA = 5;
+const DRY_RUN = process.env.DRY_RUN === "1";
 
 type ResultadoItem = {
   id: number;
@@ -40,17 +43,25 @@ async function migrarFoto(producto: { id: number; nombre: string; fotoUrl: strin
     const inputBuffer = Buffer.from(arrayBuffer);
 
     const metadata = await sharp(inputBuffer).metadata();
-    if (metadata.format === "png") {
-      // Ya está en el formato correcto, no hace falta tocarla.
-      return { id, nombre, estado: "omitida", detalle: "ya es PNG" };
+    if (metadata.format === "jpeg" || metadata.format === "png") {
+      // Ya está en un formato que soporta el PDF, no hace falta tocarla.
+      return { id, nombre, estado: "omitida", detalle: `ya es ${metadata.format}` };
     }
 
-    const pngBuffer = await sharp(inputBuffer).png().toBuffer();
+    if (DRY_RUN) {
+      return { id, nombre, estado: "convertida", detalle: `(simulacro) ${metadata.format} → jpeg` };
+    }
 
-    const filename = `productos/${Date.now()}-${id}-migrado.png`;
-    const blob = await put(filename, pngBuffer, {
+    const jpegBuffer = await sharp(inputBuffer)
+      .rotate()
+      .flatten({ background: "#ffffff" }) // JPEG no tiene transparencia
+      .jpeg({ quality: 90 })
+      .toBuffer();
+
+    const filename = `productos/${Date.now()}-${id}-migrado.jpg`;
+    const blob = await put(filename, jpegBuffer, {
       access: "public",
-      contentType: "image/png",
+      contentType: "image/jpeg",
     });
 
     await prisma.producto.update({
@@ -67,13 +78,14 @@ async function migrarFoto(producto: { id: number; nombre: string; fotoUrl: strin
       }
     }
 
-    return { id, nombre, estado: "convertida", detalle: `${metadata.format} → png` };
+    return { id, nombre, estado: "convertida", detalle: `${metadata.format} → jpeg` };
   } catch (err: any) {
     return { id, nombre, estado: "error", detalle: err?.message ?? String(err) };
   }
 }
 
 async function main() {
+  console.log(DRY_RUN ? "SIMULACRO: no se modifica nada.\n" : "");
   console.log("Buscando productos con foto...");
 
   const productos = await prisma.producto.findMany({
@@ -107,7 +119,7 @@ async function main() {
 
   console.log("\n--- Resumen ---");
   console.log(`Convertidas: ${convertidas.length}`);
-  console.log(`Omitidas (ya eran PNG o sin foto): ${omitidas.length}`);
+  console.log(`Omitidas (ya eran JPEG/PNG o sin foto): ${omitidas.length}`);
   console.log(`Errores: ${errores.length}`);
 
   if (errores.length > 0) {
