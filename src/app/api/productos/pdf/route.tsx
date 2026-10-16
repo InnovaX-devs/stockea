@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
+import sharp from "sharp";
 import { prisma } from "@/lib/prisma";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
@@ -33,9 +34,21 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
     }
 
     const contentType = res.headers.get("content-type") || "image/png";
-    const arrayBuffer = await res.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
-    return `data:${contentType};base64,${base64}`;
+    let buffer: Buffer = Buffer.from(await res.arrayBuffer());
+    let mime = contentType;
+
+    // @react-pdf solo soporta JPG/PNG: convertimos cualquier otro formato
+    // (ej. fotos WebP subidas antes de convertir en el upload).
+    if (!/image\/(jpe?g|png)/i.test(contentType)) {
+      buffer = await sharp(buffer)
+        .rotate()
+        .flatten({ background: "#ffffff" })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+      mime = "image/jpeg";
+    }
+
+    return `data:${mime};base64,${buffer.toString("base64")}`;
   } catch (err) {
     console.warn(`[pdf] error descargando imagen: ${url}`, err);
     return null;
