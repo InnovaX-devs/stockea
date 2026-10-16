@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put, del } from "@vercel/blob";
-import sharp from "sharp";
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,13 +34,24 @@ export async function POST(request: NextRequest) {
     let nombre = file.name.replace(/\s+/g, "_");
     let contentType = file.type;
     if (file.type === "image/webp") {
-      contenido = await sharp(Buffer.from(await file.arrayBuffer()))
-        .rotate()
-        .flatten({ background: "#ffffff" }) // JPEG no tiene transparencia
-        .jpeg({ quality: 90 })
-        .toBuffer();
-      nombre = nombre.replace(/\.webp$/i, "") + ".jpg";
-      contentType = "image/jpeg";
+      try {
+        // sharp se carga acá (no arriba) para que, si no está disponible en el
+        // servidor, solo falle la conversión y no toda la ruta de subida.
+        const { default: sharp } = await import("sharp");
+        contenido = await sharp(Buffer.from(await file.arrayBuffer()))
+          .rotate()
+          .flatten({ background: "#ffffff" }) // JPEG no tiene transparencia
+          .jpeg({ quality: 90 })
+          .toBuffer();
+        nombre = nombre.replace(/\.webp$/i, "") + ".jpg";
+        contentType = "image/jpeg";
+      } catch (err) {
+        console.error("[upload] no se pudo convertir WebP a JPEG:", err);
+        return NextResponse.json(
+          { error: "No se pudo procesar la imagen WebP. Subila en JPG o PNG." },
+          { status: 422 }
+        );
+      }
     }
 
     // 2. Subir el nuevo archivo a Vercel Blob

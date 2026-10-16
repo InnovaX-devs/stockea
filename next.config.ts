@@ -14,6 +14,19 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // sharp en Vercel: el empaquetado de cada función no incluye la librería
+  // nativa libvips (libvips-cpp.so) y falla con ERR_DLOPEN_FAILED. La
+  // forzamos a entrar en las rutas que convierten imágenes.
+  outputFileTracingIncludes: {
+    "/api/upload": [
+      "./node_modules/@img/sharp-libvips-linux-x64/**/*",
+      "./node_modules/@img/sharp-linux-x64/**/*",
+    ],
+    "/api/productos/pdf": [
+      "./node_modules/@img/sharp-libvips-linux-x64/**/*",
+      "./node_modules/@img/sharp-linux-x64/**/*",
+    ],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "5mb",

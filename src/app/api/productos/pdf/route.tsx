@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
-import sharp from "sharp";
 import { prisma } from "@/lib/prisma";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
@@ -9,6 +8,7 @@ import { ListaPreciosDocument } from "@/lib/pdf/ListaPreciosDocument";
 import { CatalogoDocument } from "@/lib/pdf/CatalogoDocument";
 import { esFotoPermitida } from "@/lib/fotos";
 import type { Prisma } from "@prisma/client";
+import sharp from "sharp";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -185,7 +185,16 @@ export async function GET(request: NextRequest) {
       />
     );
 
-  const buffer = await renderToBuffer(documentoPdf);
+  let buffer: Buffer;
+  try {
+    buffer = await renderToBuffer(documentoPdf);
+  } catch (err) {
+    console.error("[pdf] error al renderizar el PDF:", err);
+    return NextResponse.json(
+      { error: "No se pudo generar el PDF. Intentá de nuevo." },
+      { status: 500 }
+    );
+  }
 
   const sufijo = tipoDocumento.toLowerCase().replace(/_/g, "-");
   const filename = `${sufijo}-${monedaFinal.toLowerCase()}.pdf`;
