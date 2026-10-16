@@ -7,20 +7,28 @@ import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { conStockDeSucursal } from "@/lib/stock-sucursal";
 import { ListaPreciosDocument } from "@/lib/pdf/ListaPreciosDocument";
 import { CatalogoDocument } from "@/lib/pdf/CatalogoDocument";
+import { esFotoPermitida } from "@/lib/fotos";
 import type { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Un catálogo con muchas fotos puede tardar más que el límite por defecto.
+export const maxDuration = 60;
 
-type TipoDocumentoPdf =
-  | "LISTA_GENERAL"
-  | "LISTA_MAYORISTA"
-  | "CATALOGO"
-  | "CATALOGO_MAYORISTA";
+const TIPOS_DOCUMENTO = ["LISTA_GENERAL", "LISTA_MAYORISTA", "CATALOGO", "CATALOGO_MAYORISTA"] as const;
+type TipoDocumentoPdf = (typeof TIPOS_DOCUMENTO)[number];
+
+/** Ancho máximo de las fotos en el PDF: en la tarjeta ocupan ~120 px, así que 360 px ya se ven nítidas al imprimir. */
+const ANCHO_FOTO_PX = 360;
 
 const SIN_CATEGORIA = "SIN_CATEGORIA";
 
 async function fetchImageAsBase64(url: string): Promise<string | null> {
+  // Solo fotos de Vercel Blob (ver src/lib/fotos.ts).
+  if (!esFotoPermitida(url)) {
+    console.warn(`[pdf] foto con dirección no permitida, se omite: ${url}`);
+    return null;
+  }
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -33,22 +41,18 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
       return null;
     }
 
-    const contentType = res.headers.get("content-type") || "image/png";
-    let buffer: Buffer = Buffer.from(await res.arrayBuffer());
-    let mime = contentType;
+    // Siempre se achica y se pasa a JPEG: @react-pdf solo soporta JPG/PNG, y
+    // las fotos del celular (varios MB) metidas tal cual hacen un PDF enorme
+    // y lento de generar (con muchos productos se pasaba del tiempo límite).
+    const original = Buffer.from(await res.arrayBuffer());
+    const buffer = await sharp(original)
+      .rotate()
+      .resize({ width: ANCHO_FOTO_PX, height: ANCHO_FOTO_PX, fit: "inside", withoutEnlargement: true })
+      .flatten({ background: "#ffffff" })
+      .jpeg({ quality: 78 })
+      .toBuffer();
 
-    // @react-pdf solo soporta JPG/PNG: convertimos cualquier otro formato
-    // (ej. fotos WebP subidas antes de convertir en el upload).
-    if (!/image\/(jpe?g|png)/i.test(contentType)) {
-      buffer = await sharp(buffer)
-        .rotate()
-        .flatten({ background: "#ffffff" })
-        .jpeg({ quality: 85 })
-        .toBuffer();
-      mime = "image/jpeg";
-    }
-
-    return `data:${mime};base64,${buffer.toString("base64")}`;
+    return `data:image/jpeg;base64,${buffer.toString("base64")}`;
   } catch (err) {
     console.warn(`[pdf] error descargando imagen: ${url}`, err);
     return null;
@@ -88,7 +92,10 @@ export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
 
   const moneda = sp.get("moneda") === "USD" ? "USD" : "ARS";
-  const tipoDocumento = (sp.get("tipoDocumento") as TipoDocumentoPdf) ?? "LISTA_GENERAL";
+  const pedido = sp.get("tipoDocumento");
+  const tipoDocumento: TipoDocumentoPdf = TIPOS_DOCUMENTO.includes(pedido as TipoDocumentoPdf)
+    ? (pedido as TipoDocumentoPdf)
+    : "LISTA_GENERAL";
 
   const documento = tipoDocumento.startsWith("CATALOGO") ? "CATALOGO" : "LISTA";
   const tipoPrecio: "MINORISTA" | "MAYORISTA" = tipoDocumento.endsWith("MAYORISTA")
@@ -135,7 +142,6 @@ export async function GET(request: NextRequest) {
         stockActual: true,
         precioVenta: true,
         precioMayorista: true,
-        precioCosto: true,
         monedaPrecio: true,
         contenidoMl: true,
       },
@@ -151,7 +157,11 @@ export async function GET(request: NextRequest) {
   }
 
   // "Con stock / sin stock" según la sucursal actual (o el total en "Todas").
-  const productos = await resolverImagenes(await conStockDeSucursal(productosRaw));
+  const conStock = await conStockDeSucursal(productosRaw);
+  // Las fotos solo van en el catálogo: la lista de precios no las muestra y
+  // antes se descargaban todas igual (lento y sin sentido).
+  const productos =
+    documento === "CATALOGO" ? await resolverImagenes(conStock) : conStock.map((p) => ({ ...p, fotoDataUri: null }));
 
   // Blindaje: el query param "moneda" lo arma el cliente, pero la decisión
   // final es del servidor. Si el negocio no opera con dólares, el PDF
