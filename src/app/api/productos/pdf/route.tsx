@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
-import sharp from "sharp";
 import { prisma } from "@/lib/prisma";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
@@ -33,22 +32,31 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
       return null;
     }
 
-    const contentType = res.headers.get("content-type") || "image/png";
     let buffer: Buffer = Buffer.from(await res.arrayBuffer());
-    let mime = contentType;
 
-    // @react-pdf solo soporta JPG/PNG: convertimos cualquier otro formato
-    // (ej. fotos WebP subidas antes de convertir en el upload).
-    if (!/image\/(jpe?g|png)/i.test(contentType)) {
+    // @react-pdf solo soporta JPG/PNG. No nos fiamos del content-type ni de la
+    // extensión (una WebP puede estar guardada como .jpg): miramos los bytes.
+    const esJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    const esPng =
+      buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
+
+    if (esJpeg) return `data:image/jpeg;base64,${buffer.toString("base64")}`;
+    if (esPng) return `data:image/png;base64,${buffer.toString("base64")}`;
+
+    // Cualquier otro formato (ej. WebP) se convierte a JPEG. Si la conversión
+    // falla, la foto sale vacía pero el PDF se genera igual.
+    try {
+      const { default: sharp } = await import("sharp");
       buffer = await sharp(buffer)
         .rotate()
         .flatten({ background: "#ffffff" })
         .jpeg({ quality: 85 })
         .toBuffer();
-      mime = "image/jpeg";
+      return `data:image/jpeg;base64,${buffer.toString("base64")}`;
+    } catch (err) {
+      console.warn(`[pdf] no se pudo convertir la imagen, se omite: ${url}`, err);
+      return null;
     }
-
-    return `data:${mime};base64,${buffer.toString("base64")}`;
   } catch (err) {
     console.warn(`[pdf] error descargando imagen: ${url}`, err);
     return null;
@@ -175,7 +183,16 @@ export async function GET(request: NextRequest) {
       />
     );
 
-  const buffer = await renderToBuffer(documentoPdf);
+  let buffer: Buffer;
+  try {
+    buffer = await renderToBuffer(documentoPdf);
+  } catch (err) {
+    console.error("[pdf] error al renderizar el PDF:", err);
+    return NextResponse.json(
+      { error: "No se pudo generar el PDF. Intentá de nuevo." },
+      { status: 500 }
+    );
+  }
 
   const sufijo = tipoDocumento.toLowerCase().replace(/_/g, "-");
   const filename = `${sufijo}-${monedaFinal.toLowerCase()}.pdf`;
