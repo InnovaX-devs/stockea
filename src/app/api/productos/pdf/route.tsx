@@ -8,6 +8,7 @@ import { ListaPreciosDocument } from "@/lib/pdf/ListaPreciosDocument";
 import { CatalogoDocument } from "@/lib/pdf/CatalogoDocument";
 import { esFotoPermitida } from "@/lib/fotos";
 import type { Prisma } from "@prisma/client";
+import sharp from "sharp";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
