@@ -15,6 +15,7 @@ import Select from "@/components/ui/select";
 import { RangoFechas } from "@/components/ui/rango-fechas";
 import { useMostrarSucursal } from "@/lib/hooks/use-mostrar-sucursal";
 import { etiquetaVenta, archivoComprobanteVenta } from "@/lib/numeracion";
+import { confirmar, pedirTexto } from "@/components/ui/dialogos";
 
 const PAGE_SIZE = 15;
 
@@ -82,7 +83,7 @@ export function HistorialVentas() {
     setFacturando(ventaId);
     let r = await facturarVenta(ventaId);
     if (!r.success && /identificar al comprador/.test(r.error)) {
-      const dni = window.prompt(`${r.error}\n\nDNI del comprador:`);
+      const dni = await pedirTexto(`${r.error}\n\nDNI del comprador:`, { titulo: "Falta el DNI", confirmar: "Facturar", placeholder: "DNI", inputMode: "numeric" });
       if (dni?.trim()) r = await facturarVenta(ventaId, { tipo: "DNI", numero: dni });
     }
     setFacturando(null);
@@ -97,11 +98,11 @@ export function HistorialVentas() {
   const mostrarSucursal = useMostrarSucursal();
   async function anular(venta: VentaListItem) {
     const conFactura = venta.factura?.estado === "AUTORIZADO";
-    if (!confirm(`¿Anular la venta ${etiquetaVenta(venta.numero)}? Se devuelve la plata a la cuenta y los productos al stock.${conFactura ? " Como tiene factura, se va a emitir una nota de crédito." : ""}`)) return;
+    if (!await confirmar(`¿Anular la venta ${etiquetaVenta(venta.numero)}? Se devuelve la plata a la cuenta y los productos al stock.${conFactura ? " Como tiene factura, se va a emitir una nota de crédito." : ""}`, { titulo: "Anular venta", confirmar: "Anular", peligro: true })) return;
     setFacturando(venta.id);
     let r = await anularVenta(venta.id);
     if (!r.success && r.codigo === "SALDO_NEGATIVO") {
-      if (confirm(`${r.error} ¿Anular igual?`)) r = await anularVenta(venta.id, { forzar: true });
+      if (await confirmar(`${r.error} ¿Anular igual?`, { titulo: "¿Anular igual?", confirmar: "Anular igual", peligro: true })) r = await anularVenta(venta.id, { forzar: true });
     }
     setFacturando(null);
     if (!r.success) {

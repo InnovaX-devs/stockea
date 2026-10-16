@@ -25,6 +25,7 @@ import { confirmarVenta, registrarPedido, descontarStockSinVenta, verificarStock
 import { ModalStockComprometido } from "@/components/ventas/modal-stock-comprometido";
 import { facturacionParaVenta, facturarVenta } from "./facturacion-actions";
 import { Tag, Gift } from "lucide-react";
+import { pedirTexto } from "@/components/ui/dialogos";
 
 
 export default function NuevaVentaPage() {
@@ -293,7 +294,13 @@ function NuevaVentaContenido() {
     let r = await facturarVenta(ventaId);
     // Desde el tope de ARCA hay que identificar al comprador.
     if (!r.success && /identificar al comprador/.test(r.error)) {
-      const dni = window.prompt(`${r.error}\n\nDNI del comprador (o dejalo vacío para facturar después desde el historial):`);
+      const dni = await pedirTexto(`${r.error}\n\nDNI del comprador (o dejalo vacío para facturar después desde el historial):`, {
+        titulo: "Falta el DNI",
+        confirmar: "Facturar",
+        cancelar: "Facturar después",
+        placeholder: "DNI",
+        inputMode: "numeric",
+      });
       if (dni?.trim()) r = await facturarVenta(ventaId, { tipo: "DNI", numero: dni });
     }
     if (r.success) {

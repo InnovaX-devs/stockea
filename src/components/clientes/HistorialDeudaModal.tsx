@@ -6,6 +6,7 @@ import { ModalDetallePedido } from "@/components/ventas/modal-detalle-pedido";
 import { obtenerHistorialDeuda } from "@/app/(dashboard)/clientes/actions";
 import { formatFechaHoraAR } from "@/lib/timezone";
 import { etiquetaVenta, archivoComprobanteVenta } from "@/lib/numeracion";
+import { avisar } from "@/components/ui/dialogos";
 
 type EventoHistorial = {
   id: string;
@@ -52,7 +53,7 @@ export default function HistorialDeudaModal({
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert("No se pudo descargar el comprobante.");
+      await avisar("Intentá de nuevo en unos segundos.", { titulo: "No se pudo descargar el comprobante", variante: "error" });
     } finally {
       setDescargando(null);
     }

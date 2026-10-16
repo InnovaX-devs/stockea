@@ -17,6 +17,7 @@ import {
 } from "@/app/(dashboard)/finanzas/cierre-caja/actions";
 import { recordarEstadoCaja } from "@/lib/offline/db";
 import { hayVentasSinSubir } from "@/lib/offline/cola-ventas";
+import { confirmar } from "@/components/ui/dialogos";
 
 /**
  * Pantalla de Caja: estado del turno arriba, resumen en cuadros, conteo del
@@ -686,8 +687,8 @@ function Historial({ cierres, conSucursal }: { cierres: CierreHistorial[]; conSu
   const [abierto, setAbierto] = useState<number | null>(null);
   const [pendiente, startTransition] = useTransition();
 
-  function anular(id: number) {
-    if (!confirm("¿Anular este cierre? Se revierten el ajuste y el retiro, y la caja vuelve a quedar abierta.")) return;
+  async function anular(id: number) {
+    if (!await confirmar("¿Anular este cierre? Se revierten el ajuste y el retiro, y la caja vuelve a quedar abierta.", { titulo: "Anular cierre", confirmar: "Anular", peligro: true })) return;
     startTransition(async () => {
       const r = await anularUltimoCierre(id);
       if (!r.success) return void toast.error(r.error);

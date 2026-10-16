@@ -15,6 +15,7 @@ import {
   Package,
   Truck,
   ClipboardCheck,
+  Store,
   ArrowRightLeft,
 } from "lucide-react";
 
@@ -81,6 +82,7 @@ export const NAV_ITEMS: NavItem[] = [
     ],
   },
   { label: "Reportes", href: "/reportes", icon: BarChart3, premium: true },
+  { label: "Sucursales", href: "/sucursales", icon: Store, premium: true, multisucursal: true },
 ];
 
 export const EXTRA_TITLES: Record<string, string> = {

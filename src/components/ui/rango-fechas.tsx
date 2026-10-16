@@ -8,6 +8,7 @@ interface RangoFechasProps {
   desde: string | null;
   hasta: string | null;
   onCambiar: (desde: string | null, hasta: string | null) => void;
+  alinear?: "inicio" | "fin";
 }
 
 function formatearFecha(iso: string) {
@@ -15,7 +16,7 @@ function formatearFecha(iso: string) {
   return `${d}/${m}/${y}`;
 }
 
-export function RangoFechas({ desde, hasta, onCambiar }: RangoFechasProps) {
+export function RangoFechas({ desde, hasta, onCambiar, alinear = "inicio" }: RangoFechasProps) {
   const [abierto, setAbierto] = useState(false);
   const [desdeLocal, setDesdeLocal] = useState(desde ?? "");
   const [hastaLocal, setHastaLocal] = useState(hasta ?? "");
@@ -76,8 +77,10 @@ export function RangoFechas({ desde, hasta, onCambiar }: RangoFechasProps) {
 
       {abierto && (
         <div
-          className="fixed inset-x-4 top-1/2 z-40 -translate-y-1/2 rounded-xl border border-border bg-surface p-4 shadow-2xl
-                     sm:absolute sm:inset-x-auto sm:left-0 sm:top-full sm:z-30 sm:mt-2 sm:w-72 sm:translate-y-0"
+          className={`fixed inset-x-4 top-1/2 z-40 -translate-y-1/2 rounded-xl border border-border bg-surface p-4 shadow-2xl
+                     sm:absolute sm:inset-x-auto sm:top-full sm:z-30 sm:mt-2 sm:w-72 sm:translate-y-0 ${
+                       alinear === "fin" ? "sm:right-0" : "sm:left-0"
+                     }`}
         >
           <div className="mb-3 flex items-center justify-between">
             <span className="text-sm font-semibold text-text">Filtrar por fecha</span>

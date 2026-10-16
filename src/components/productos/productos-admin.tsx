@@ -14,6 +14,7 @@ import { Pencil, ImageIcon, Ban, CheckCircle, X } from "lucide-react";
 import { toArs, toUsd, formatCurrency } from "@/lib/currency";
 import Select from "@/components/ui/select";
 import { ProductoDetalleModal } from "@/components/productos/producto-detalle-modal";
+import { avisar } from "@/components/ui/dialogos";
 
 
 
@@ -367,10 +368,11 @@ export default function ProductosAdmin() {
       setProductoADesactivar(null);
     } catch (err) {
       console.warn("Error al cambiar estado del producto:", err);
-      alert(
+      await avisar(
         err instanceof Error
           ? err.message
-          : "No se pudo cambiar el estado del producto"
+          : "No se pudo cambiar el estado del producto",
+        { titulo: "No se pudo cambiar el estado", variante: "error" }
       );
     } finally {
       setDesactivandoId(null);
