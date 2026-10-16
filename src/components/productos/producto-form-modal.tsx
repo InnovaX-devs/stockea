@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { BarcodeInput } from "@/components/ui/barcode-input";
 import Select from "@/components/ui/select";
+import { avisar } from "@/components/ui/dialogos";
 
 function calcularPorcentaje(costo: number, precio: number): number {
   if (!costo || costo <= 0) return 0;
@@ -231,11 +232,11 @@ export function ProductoFormModal({
         setMostrarAltaMarca(false);
       } else {
         const errData = await res.json();
-        alert(errData.message || "Error al crear la marca");
+        await avisar(errData.message || "Error al crear la marca", { titulo: "No se pudo crear la marca", variante: "error" });
       }
     } catch (err) {
       console.error("Error al crear marca rápida:", err);
-      alert("Error de conexión al guardar la marca");
+      await avisar("Revisá tu conexión e intentá de nuevo.", { titulo: "No se pudo guardar la marca", variante: "error" });
     } finally {
       setGuardandoSubitem(false);
     }
@@ -264,11 +265,11 @@ export function ProductoFormModal({
         setMostrarAltaCategoria(false);
       } else {
         const errData = await res.json();
-        alert(errData.message || "Error al crear la categoría");
+        await avisar(errData.message || "Error al crear la categoría", { titulo: "No se pudo crear la categoría", variante: "error" });
       }
     } catch (err) {
       console.error("Error al crear categoría rápida:", err);
-      alert("Error de conexión al guardar la categoría");
+      await avisar("Revisá tu conexión e intentá de nuevo.", { titulo: "No se pudo guardar la categoría", variante: "error" });
     } finally {
       setGuardandoSubitem(false);
     }

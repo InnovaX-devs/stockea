@@ -11,6 +11,7 @@ import {
   restablecerPasswordEmpleado,
   type UsuarioResumen,
 } from "@/app/(dashboard)/configuracion/usuarios-actions";
+import { confirmar } from "@/components/ui/dialogos";
 
 const INPUT =
   "w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary";
@@ -77,8 +78,8 @@ function FilaEmpleado({
     });
   }
 
-  function eliminar() {
-    if (!confirm(`¿Eliminar a ${empleado.nombre}? Va a dejar de poder entrar al sistema en el momento.`)) return;
+  async function eliminar() {
+    if (!await confirmar(`¿Eliminar a ${empleado.nombre}? Va a dejar de poder entrar al sistema en el momento.`, { titulo: "Eliminar empleado", confirmar: "Eliminar", peligro: true })) return;
     startTransition(async () => {
       const r = await eliminarEmpleado(empleado.id);
       if (!r.success) return void toast.error(r.error);

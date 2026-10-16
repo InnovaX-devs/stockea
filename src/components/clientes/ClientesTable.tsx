@@ -9,6 +9,7 @@ import AjustarDeudaModal from "./AjustarDeudaModal";
 import type { ClienteConDeuda } from "@/lib/clientes";
 import type { CuentaOption } from "./CobrarDeudaModal";
 import { useEsAdmin } from "@/components/layout/rol-context";
+import { avisar, confirmar } from "@/components/ui/dialogos";
 
 export default function ClientesTable({
   clientes,
@@ -29,11 +30,11 @@ export default function ClientesTable({
   const esAdmin = useEsAdmin();
 
   async function handleEliminar(id: number, nombre: string) {
-    if (!confirm(`¿Eliminar a ${nombre}? Esta acción no se puede deshacer.`)) return;
+    if (!await confirmar(`¿Eliminar a ${nombre}? Esta acción no se puede deshacer.`, { titulo: "Eliminar cliente", confirmar: "Eliminar", peligro: true })) return;
     setEliminandoId(id);
     const res = await eliminarCliente(id);
     setEliminandoId(null);
-    if (!res.success) alert(res.error);
+    if (!res.success) await avisar(res.error, { titulo: "No se pudo eliminar", variante: "error" });
   }
 
   function nombreCompleto(c: ClienteConDeuda) {

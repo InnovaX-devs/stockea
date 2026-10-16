@@ -16,6 +16,7 @@ import {
   type PasoPrueba,
 } from "@/app/(dashboard)/configuracion/facturacion-actions";
 import { GuiaArca } from "@/components/configuracion/guia-arca";
+import { confirmar } from "@/components/ui/dialogos";
 
 /**
  * Configuración → Facturación electrónica (ARCA). Etapas 1 y 2: datos
@@ -87,8 +88,8 @@ export function FacturacionSection({ estado }: { estado: EstadoFacturacion }) {
     URL.revokeObjectURL(url);
   }
 
-  function generarCsr() {
-    if (estado.certificado === "LISTO" && !confirm("Se va a reemplazar el certificado actual y vas a tener que cargar uno nuevo de ARCA. ¿Seguir?")) return;
+  async function generarCsr() {
+    if (estado.certificado === "LISTO" && !await confirmar("Se va a reemplazar el certificado actual y vas a tener que cargar uno nuevo de ARCA. ¿Seguir?", { titulo: "Reemplazar certificado", confirmar: "Seguir" })) return;
     startTransition(async () => {
       const r = await generarSolicitudCertificado();
       if (!r.success) return void toast.error(r.error);
@@ -108,13 +109,13 @@ export function FacturacionSection({ estado }: { estado: EstadoFacturacion }) {
     });
   }
 
-  function elegirEntorno(entorno: "HOMOLOGACION" | "PRODUCCION") {
+  async function elegirEntorno(entorno: "HOMOLOGACION" | "PRODUCCION") {
     if (entorno === estado.entorno) return;
     const texto =
       entorno === "PRODUCCION"
         ? "En producción las facturas son REALES ante ARCA. Vas a tener que cargar el certificado de producción. ¿Pasar a producción?"
         : "Vas a volver al entorno de prueba y tendrás que cargar el certificado de prueba. ¿Seguir?";
-    if (!confirm(texto)) return;
+    if (!await confirmar(texto, { titulo: entorno === "PRODUCCION" ? "Pasar a producción" : "Volver a prueba", confirmar: "Cambiar" })) return;
     startTransition(async () => {
       const r = await cambiarEntorno(entorno);
       if (!r.success) return void toast.error(r.error);

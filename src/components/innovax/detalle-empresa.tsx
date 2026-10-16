@@ -20,6 +20,7 @@ import {
   type EmpresaDetalle,
 } from "@/app/(dashboard)/innovax/actions";
 import { BOTON_PRIMARIO, BOTON_SECUNDARIO, ChipLicencia, INPUT } from "@/components/innovax/panel-empresas";
+import { confirmar } from "@/components/ui/dialogos";
 
 type Accion = () => Promise<{ success: true } | { success: false; error: string }>;
 
@@ -45,20 +46,20 @@ function Cabecera({ empresa }: { empresa: EmpresaDetalle }) {
   const otraLicencia = empresa.licencia === "PREMIUM" ? "BASICO" : "PREMIUM";
   const activasSucursales = empresa.sucursales.filter((s) => s.activa).length;
 
-  function cambiarLic() {
+  async function cambiarLic() {
     const aviso =
       otraLicencia === "BASICO" && activasSucursales > 1
         ? `\n\nOjo: tiene ${activasSucursales} sucursales activas. Con Básico solo se usa la primera y los empleados dejan de poder entrar.`
         : otraLicencia === "BASICO"
           ? "\n\nLos empleados dejan de poder entrar con Básico."
           : "";
-    if (!confirm(`¿Pasar "${empresa.nombre}" a ${otraLicencia === "PREMIUM" ? "Premium" : "Básico"}?${aviso}`)) return;
+    if (!await confirmar(`¿Pasar "${empresa.nombre}" a ${otraLicencia === "PREMIUM" ? "Premium" : "Básico"}?${aviso}`, { titulo: "Cambiar licencia", confirmar: "Cambiar" })) return;
     correr(() => cambiarLicencia(empresa.id, otraLicencia), "Licencia actualizada.");
   }
 
-  function cambiarEstado() {
+  async function cambiarEstado() {
     const activar = !empresa.activa;
-    if (!activar && !confirm(`¿Suspender "${empresa.nombre}"? Nadie de esa empresa va a poder entrar hasta que la reactives.`)) return;
+    if (!activar && !await confirmar(`¿Suspender "${empresa.nombre}"? Nadie de esa empresa va a poder entrar hasta que la reactives.`, { titulo: "Suspender empresa", confirmar: "Suspender", peligro: true })) return;
     correr(() => cambiarEstadoEmpresa(empresa.id, activar), activar ? "Empresa reactivada." : "Empresa suspendida.");
   }
 
@@ -152,8 +153,8 @@ function FilaSucursal({ sucursal }: { sucursal: EmpresaDetalle["sucursales"][num
         <button
           type="button"
           disabled={pendiente}
-          onClick={() => {
-            if (sucursal.activa && !confirm(`¿Desactivar "${sucursal.nombre}"? Deja de aparecer en el selector; sus datos no se borran.`)) return;
+          onClick={async () => {
+            if (sucursal.activa && !await confirmar(`¿Desactivar "${sucursal.nombre}"? Deja de aparecer en el selector; sus datos no se borran.`, { titulo: "Desactivar sucursal", confirmar: "Desactivar", peligro: true })) return;
             correr(() => cambiarEstadoSucursal(sucursal.id, !sucursal.activa), sucursal.activa ? "Sucursal desactivada." : "Sucursal activada.");
           }}
           className={cn(BOTON_SECUNDARIO, sucursal.activa && "text-danger hover:bg-danger/5")}
@@ -256,8 +257,8 @@ function FilaUsuario({ usuario }: { usuario: EmpresaDetalle["usuarios"][number] 
             <button
               type="button"
               disabled={pendiente}
-              onClick={() => {
-                if (usuario.activo && !confirm(`¿Desactivar a ${usuario.email}? No va a poder entrar hasta que lo actives.`)) return;
+              onClick={async () => {
+                if (usuario.activo && !await confirmar(`¿Desactivar a ${usuario.email}? No va a poder entrar hasta que lo actives.`, { titulo: "Desactivar usuario", confirmar: "Desactivar", peligro: true })) return;
                 correr(() => cambiarEstadoUsuario(usuario.id, !usuario.activo), usuario.activo ? "Usuario desactivado." : "Usuario activado.");
               }}
               className={cn(BOTON_SECUNDARIO, usuario.activo && "text-danger hover:bg-danger/5")}

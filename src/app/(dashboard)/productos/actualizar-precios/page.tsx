@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { avisar } from "@/components/ui/dialogos";
 
 interface Producto {
   id: number;
@@ -203,7 +204,7 @@ export default function ActualizarPreciosPage() {
         throw new Error(data.error || `Error en la solicitud (${res.status})`);
       }
 
-      alert(`✅ Se actualizaron correctamente los precios de ${data.cantidadAfectados} producto(s).`);
+      await avisar(`Se actualizaron los precios de ${data.cantidadAfectados} producto(s).`, { titulo: "Precios actualizados", variante: "exito" });
       router.push("/productos");
     } catch (err: any) {
       console.error("Error al actualizar precios:", err);
