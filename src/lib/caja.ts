@@ -38,6 +38,17 @@ export function aperturaDeHoy(horaApertura: string, momento: Date = ahora()): Da
   return new Date(`${fechaISOAR(momento)}T${hora}:00-03:00`);
 }
 
+
+export function correspondeAperturaAutomatica(
+  ultima: { cerradaFecha: Date | null } | null,
+  horaApertura: string,
+  momento: Date = ahora()
+): boolean {
+  if (!ultima) return true;
+  const apertura = aperturaDeHoy(horaApertura, momento);
+  return momento >= apertura && ultima.cerradaFecha != null && ultima.cerradaFecha < apertura;
+}
+
 export async function sesionAbierta(db: Db, empresaId: number, sucursalId: number) {
   return db.sesionCaja.findFirst({
     where: { empresaId, sucursalId, cerradaFecha: null },
@@ -68,10 +79,7 @@ export async function asegurarAperturaAutomatica(empresaId: number, sucursalId: 
     where: { empresaId },
     select: { horaAperturaCaja: true },
   });
-  const apertura = aperturaDeHoy(config?.horaAperturaCaja ?? "07:00");
-  const corresponde =
-    !ultima || (ahora() >= apertura && ultima.cerradaFecha != null && ultima.cerradaFecha < apertura);
-  if (!corresponde) return null;
+  if (!correspondeAperturaAutomatica(ultima, config?.horaAperturaCaja ?? "07:00")) return null;
 
   await db.sesionCaja.create({
     data: {
