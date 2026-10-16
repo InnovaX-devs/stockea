@@ -6,6 +6,7 @@ import { obtenerConfiguracion } from "@/lib/configuracion";
 import { obtenerEmpresaIdActual, obtenerUsuarioActual } from "@/lib/empresa";
 import { obtenerSucursalIdActual } from "@/lib/sucursal";
 import { conStockDeSucursal, sucursalParaMostrarStock } from "@/lib/stock-sucursal";
+import { esFotoPermitida } from "@/lib/fotos";
 
 export const dynamic = "force-dynamic";
 
@@ -140,6 +141,11 @@ export async function POST(request: NextRequest) {
   try {
     const empresaId = await obtenerEmpresaIdActual();
     const body = await request.json();
+
+    // La foto tiene que venir de nuestro upload (Vercel Blob).
+    if (body.fotoUrl && !esFotoPermitida(body.fotoUrl)) {
+      return NextResponse.json({ error: "La foto no es válida. Subila de nuevo." }, { status: 400 });
+    }
 
     if (
       !body.nombre ||
