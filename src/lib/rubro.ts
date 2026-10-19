@@ -25,7 +25,7 @@ export type ConfigRubro = {
   nombre: string;
   /** Muestra el contenido en ml (contenidoMl) en productos, catálogo y listados. */
   usaMl: boolean;
-  /** Reservado para ropa (talles y colores). Todavía no hay campos que lo usen. */
+  /** Ropa: muestra la lista de talles y colores sugeridos en Configuración y el alta de modelos con variantes. */
   usaTallesColores: boolean;
   /** Ejemplos y textos de ayuda que dependen del tipo de negocio. */
   textos: {

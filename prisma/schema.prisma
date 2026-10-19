@@ -31,6 +31,7 @@ model Empresa {
   marcas           Marca[]
   categorias       Categoria[]
   productos        Producto[]
+  modelos          ProductoModelo[]
   historialPrecios HistorialPrecio[]
   clientes         Cliente[]
   ventas           Venta[]
@@ -120,6 +121,7 @@ model Marca {
   nombre    String
   activa    Boolean    @default(true)
   productos Producto[]
+  modelos   ProductoModelo[]
 
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   empresaId Int
@@ -133,6 +135,7 @@ model Categoria {
   nombre    String
   activa    Boolean    @default(true)
   productos Producto[]
+  modelos   ProductoModelo[]
 
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   empresaId Int
@@ -153,6 +156,16 @@ model Producto {
   ubicacionDeposito String?
   fotoUrl           String?
   contenidoMl       Int?
+
+  // Variantes de ropa (RV-2). Cada combinación talle × color es un Producto
+  // común (así stock por sucursal, ventas, compras, etc. andan sin cambios),
+  // agrupado por un ProductoModelo. Los tres son opcionales: los productos que
+  // no son variantes los dejan en null. El nombre visible ("Remera básica · M
+  // · Negro") se guarda en `nombre`; se arma con src/lib/variantes.ts.
+  modelo   ProductoModelo? @relation(fields: [modeloId], references: [id])
+  modeloId Int?
+  talle    String?
+  color    String?
 
   marca       Marca?     @relation(fields: [marcaId], references: [id])
   marcaId     Int?
@@ -192,9 +205,38 @@ model Producto {
   itemsTransferencia ItemTransferencia[]
 
   @@unique([empresaId, codigoBarras])
+  // Evita repetir una combinación. OJO: en Postgres los NULL no se comparan, así
+  // que un modelo con talle o color vacío NO queda cubierto por este índice; eso
+  // lo valida src/lib/modelos.ts (existeCombinacion) antes de crear.
+  @@unique([empresaId, modeloId, talle, color])
   @@index([nombre])
   @@index([empresaId])
   @@index([empresaId, updatedAt])
+  @@index([modeloId])
+}
+
+// El "modelo" que agrupa las variantes de un producto de ropa (ej. "Remera
+// básica"). Nombre, marca y categoría viven acá y se copian a cada combinación
+// (ver sincronizarVariantesDeModelo en src/lib/modelos.ts).
+model ProductoModelo {
+  id     Int    @id @default(autoincrement())
+  nombre String
+  activo Boolean @default(true)
+
+  marca       Marca?     @relation(fields: [marcaId], references: [id])
+  marcaId     Int?
+  categoria   Categoria? @relation(fields: [categoriaId], references: [id])
+  categoriaId Int?
+
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  productos Producto[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([empresaId])
 }
 
 enum CampoPrecio {
@@ -683,6 +725,12 @@ model Configuracion {
   // NUNCA borra datos: solo oculta/muestra campos (ver src/lib/rubro.ts). Lo
   // elige InnovaX al crear la empresa y lo puede cambiar desde el panel.
   rubro Rubro @default(GENERAL)
+
+  // Talles y colores que se ofrecen al armar las combinaciones de un modelo de
+  // ropa (RV-2). Son SUGERIDOS: la lista es editable en Configuración y los
+  // valores por defecto están en src/lib/variantes.ts.
+  tallesSugeridos  String[] @default(["XS", "S", "M", "L", "XL", "XXL", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45", "46"])
+  coloresSugeridos String[] @default(["Negro", "Blanco", "Gris", "Azul", "Rojo", "Verde", "Beige", "Rosa"])
 
   // Si el negocio no maneja precios en USD, este flag queda apagado y
   // el campo de cotización no se pide en Configuración (queda en su
