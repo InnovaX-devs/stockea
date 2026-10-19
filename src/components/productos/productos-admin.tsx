@@ -10,7 +10,7 @@ import { PdfGeneratorModal } from "@/components/productos/pdf-generator-modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FileText, Search, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
-import { Pencil, ImageIcon, Ban, CheckCircle, X } from "lucide-react";
+import { Pencil, ImageIcon, Ban, CheckCircle, X, ChevronRight, LayoutGrid, Shirt } from "lucide-react";
 import { toArs, toUsd, formatCurrency } from "@/lib/currency";
 import Select from "@/components/ui/select";
 import { ProductoDetalleModal } from "@/components/productos/producto-detalle-modal";
@@ -18,6 +18,8 @@ import { useRubro } from "@/components/layout/rubro-context";
 import { ModeloFormModal } from "@/components/productos/modelo-form-modal";
 import { ModeloEditarModal } from "@/components/productos/modelo-editar-modal";
 import { avisar } from "@/components/ui/dialogos";
+import { StockModeloModal } from "@/components/productos/stock-modelo-modal";
+import { ordenarTalles } from "@/lib/agrupar-variantes";
 
 
 
@@ -29,6 +31,10 @@ interface Producto {
   fotoUrl?: string | null;
   contenidoMl?: number | null;
   modeloId?: number | null;
+  /** Ropa (RV-2): modelo, talle y color de la combinación. */
+  modelo?: { nombre: string } | null;
+  talle?: string | null;
+  color?: string | null;
   marca?: { nombre: string } | null;
   marcaId?: number | null;
   categoriaId?: number | null;
@@ -65,6 +71,10 @@ type OrdenarPor =
   | "ganancia_asc"
   | "ganancia_desc";
 
+// Ropa (RV-4, #63): fila de la tabla, un producto común o un modelo con sus combinaciones.
+type FilaModelo = { tipo: "modelo"; modeloId: number; nombre: string; marca: string | null; variantes: Producto[] };
+type Fila = { tipo: "producto"; producto: Producto } | FilaModelo;
+
 export default function ProductosAdmin() {
   const [busqueda, setBusqueda] = useState("");
   const [paginaActual, setPaginaActual] = useState(1);
@@ -88,6 +98,11 @@ export default function ProductosAdmin() {
   const [filtroFoto, setFiltroFoto] = useState<FiltroFoto>("todas");
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("activos");
   const [ordenarPor, setOrdenarPor] = useState<OrdenarPor>("");
+  // Ropa (RV-4, #63): filtros por talle y color, modelos desplegados y grilla de stock.
+  const [filtroTalle, setFiltroTalle] = useState("");
+  const [filtroColor, setFiltroColor] = useState("");
+  const [expandidos, setExpandidos] = useState<Set<number>>(new Set());
+  const [stockModeloId, setStockModeloId] = useState<number | null>(null);
 
   const [monedaVista, setMonedaVista] = useState<"USD" | "ARS">("ARS");
 
@@ -162,7 +177,7 @@ export default function ProductosAdmin() {
   // Reiniciar a la página 1 cuando cambia cualquier filtro
   useEffect(() => {
     setPaginaActual(1);
-  }, [busqueda, filtroMarcaId, filtroCategoriaId, filtroStock, filtroFoto, filtroEstado, ordenarPor]);
+  }, [busqueda, filtroMarcaId, filtroCategoriaId, filtroStock, filtroFoto, filtroEstado, ordenarPor, filtroTalle, filtroColor]);
 
   // 1. Filtrar por búsqueda de texto (nombre o marca)
   const productosBusqueda = useMemo(() => {
@@ -214,6 +229,9 @@ export default function ProductosAdmin() {
       if (filtroFoto === "con_foto" && !p.fotoUrl) return false;
       if (filtroFoto === "sin_foto" && p.fotoUrl) return false;
 
+      if (filtroTalle && p.talle !== filtroTalle) return false;
+      if (filtroColor && p.color !== filtroColor) return false;
+
       return true;
     });
 
@@ -251,6 +269,8 @@ export default function ProductosAdmin() {
     filtroStock,
     filtroFoto,
     ordenarPor,
+    filtroTalle,
+    filtroColor,
   ]);
 
   // Cantidad de filtros activos (para el badge del botón y "Limpiar filtros")
@@ -262,8 +282,10 @@ export default function ProductosAdmin() {
     if (filtroFoto !== "todas") count++;
     if (filtroEstado !== "activos") count++;
     if (ordenarPor) count++;
+    if (filtroTalle) count++;
+    if (filtroColor) count++;
     return count;
-  }, [filtroMarcaId, filtroCategoriaId, filtroStock, filtroFoto, filtroEstado, ordenarPor]);
+  }, [filtroMarcaId, filtroCategoriaId, filtroStock, filtroFoto, filtroEstado, ordenarPor, filtroTalle, filtroColor]);
 
   const limpiarFiltros = () => {
     setFiltroMarcaId("");
@@ -272,6 +294,8 @@ export default function ProductosAdmin() {
     setFiltroFoto("todas");
     setFiltroEstado("activos");
     setOrdenarPor("");
+    setFiltroTalle("");
+    setFiltroColor("");
   };
 
   // 3. Cálculos para las 3 Tarjetas Resumen (ARS y USD) — sobre el resultado ya filtrado
@@ -301,12 +325,67 @@ export default function ProductosAdmin() {
     };
   }, [productosFiltrados, configProducto.cotizacionUSD]);
 
-  // 4. Paginación
-  const totalPaginas = Math.ceil(productosFiltrados.length / elementosPorPagina) || 1;
-  const productosPaginados = useMemo(() => {
+  // Talles y colores que existen, para los filtros (solo si hay ropa cargada).
+  const opcionesTalles = useMemo(
+    () => ordenarTalles([...new Set(productos.map((p) => p.talle).filter((t): t is string => !!t))]) as string[],
+    [productos]
+  );
+  const opcionesColores = useMemo(
+    () => [...new Set(productos.map((p) => p.color).filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, "es")),
+    [productos]
+  );
+
+  // Ropa (RV-4): las combinaciones de un mismo modelo van en UNA fila, que se
+  // despliega. Los filtros se aplican a cada combinación: el modelo muestra
+  // solo las que pasaron (ej. "Sin stock" → los talles/colores sin stock).
+  const filasFiltradas = useMemo(() => {
+    const filas: Fila[] = [];
+    const porModelo = new Map<number, FilaModelo>();
+    for (const p of productosFiltrados) {
+      if (p.modeloId == null) {
+        filas.push({ tipo: "producto", producto: p });
+        continue;
+      }
+      let fila = porModelo.get(p.modeloId);
+      if (!fila) {
+        fila = {
+          tipo: "modelo",
+          modeloId: p.modeloId,
+          nombre: p.modelo?.nombre ?? p.nombre.split(" · ")[0],
+          marca: p.marca?.nombre ?? null,
+          variantes: [],
+        };
+        porModelo.set(p.modeloId, fila);
+        filas.push(fila);
+      }
+      fila.variantes.push(p);
+    }
+    // Dentro del modelo: por talle en orden natural (S, M, L, XL / 36, 38…) y después por color.
+    for (const fila of porModelo.values()) {
+      const orden = ordenarTalles([...new Set(fila.variantes.map((v) => v.talle ?? null))]);
+      fila.variantes.sort(
+        (a, b) => orden.indexOf(a.talle ?? null) - orden.indexOf(b.talle ?? null) || (a.color ?? "").localeCompare(b.color ?? "", "es")
+      );
+    }
+    return filas;
+  }, [productosFiltrados]);
+  const hayModelos = filasFiltradas.some((f) => f.tipo === "modelo");
+
+  function alternarModelo(modeloId: number) {
+    setExpandidos((prev) => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(modeloId)) nuevo.delete(modeloId);
+      else nuevo.add(modeloId);
+      return nuevo;
+    });
+  }
+
+  // 4. Paginación (por fila: un modelo cuenta como una)
+  const totalPaginas = Math.ceil(filasFiltradas.length / elementosPorPagina) || 1;
+  const filasPaginadas = useMemo(() => {
     const inicio = (paginaActual - 1) * elementosPorPagina;
-    return productosFiltrados.slice(inicio, inicio + elementosPorPagina);
-  }, [productosFiltrados, paginaActual]);
+    return filasFiltradas.slice(inicio, inicio + elementosPorPagina);
+  }, [filasFiltradas, paginaActual]);
 
   const formatMoney = (amount: number, currency: "USD" | "ARS") => {
     return new Intl.NumberFormat("es-AR", {
@@ -386,8 +465,420 @@ export default function ProductosAdmin() {
     }
   }
 
-  const inicioRango = productosFiltrados.length === 0 ? 0 : (paginaActual - 1) * elementosPorPagina + 1;
-  const finRango = Math.min(paginaActual * elementosPorPagina, productosFiltrados.length);
+  const inicioRango = filasFiltradas.length === 0 ? 0 : (paginaActual - 1) * elementosPorPagina + 1;
+  const finRango = Math.min(paginaActual * elementosPorPagina, filasFiltradas.length);
+  const textoCantidad = hayModelos
+    ? `${filasFiltradas.length} fila${filasFiltradas.length !== 1 ? "s" : ""} (${productosFiltrados.length} productos y combinaciones)`
+    : `${productosFiltrados.length} producto${productosFiltrados.length !== 1 ? "s" : ""}`;
+
+  // ---- Filas de la tabla (escritorio) y tarjetas (celular) ----
+  const filaProductoDesktop = (p: Producto, enModelo = false) => {
+                    const cotizacion = configProducto.cotizacionUSD;
+                    const costo = {
+                      usd: toUsd(p.precioCosto, p.monedaPrecio, cotizacion),
+                      ars: toArs(p.precioCosto, p.monedaPrecio, cotizacion),
+                    };
+                    const venta = {
+                      usd: toUsd(p.precioVenta, p.monedaPrecio, cotizacion),
+                      ars: toArs(p.precioVenta, p.monedaPrecio, cotizacion),
+                    };
+                    const mayorista =
+                      p.precioMayorista != null
+                        ? {
+                            usd: toUsd(p.precioMayorista, p.monedaPrecio, cotizacion),
+                            ars: toArs(p.precioMayorista, p.monedaPrecio, cotizacion),
+                          }
+                        : null;
+
+                    const gananciaPct =
+                      p.precioCosto > 0 ? ((p.precioVenta - p.precioCosto) / p.precioCosto) * 100 : 0;
+
+                    const stockColor =
+                      p.stockActual <= 0
+                        ? "bg-danger"
+                        : p.stockMinimo != null && p.stockActual <= p.stockMinimo
+                        ? "bg-[#d97706]"
+                        : "bg-success";
+
+                    return (
+                      <tr
+                        key={p.id}
+                        onClick={() => setProductoDetalle(p)}
+                        className={cn("cursor-pointer border-t border-border hover:bg-surface", enModelo && "bg-surface/50")}
+                      >
+                        <td className={cn("px-4 py-3 font-semibold text-text", enModelo && "pl-12 font-medium")}>
+                          {enModelo ? [p.talle, p.color].filter(Boolean).join(" · ") || p.nombre : p.nombre}
+                        </td>
+                        <td className="px-4 py-3 text-text-dim">{p.marca?.nombre ?? "-"}</td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-1.5 font-medium text-text">
+                            <span className={cn("h-2 w-2 rounded-full", stockColor)} />
+                            {p.stockActual}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {configProducto.usaCotizacionUSD ? (
+                            <>
+                              <div className="font-semibold text-text">
+                                {formatCurrency(costo.usd, "USD")}{" "}
+                                <span className="text-[10px] font-medium text-text-dim">USD</span>
+                              </div>
+                              <div className="text-xs text-text-dim">{formatCurrency(costo.ars, "ARS")}</div>
+                            </>
+                          ) : (
+                            <div className="font-semibold text-text">{formatCurrency(costo.ars, "ARS")}</div>
+                          )}
+                        </td>
+                        <td className="bg-success/10 px-4 py-3">
+                          {configProducto.usaCotizacionUSD ? (
+                            <>
+                              <div className="font-bold text-primary">
+                                {formatCurrency(venta.usd, "USD")}{" "}
+                                <span className="text-[10px] font-medium text-[#4ADE80]">USD</span>
+                              </div>
+                              <div className="text-xs text-[#86D89C]">{formatCurrency(venta.ars, "ARS")}</div>
+                            </>
+                          ) : (
+                            <div className="font-bold text-primary">{formatCurrency(venta.ars, "ARS")}</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={cn("font-bold", gananciaPct >= 0 ? "text-primary" : "text-danger")}>
+                            {gananciaPct >= 0 ? "+" : ""}
+                            {gananciaPct.toFixed(0)}%
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {mayorista ? (
+                            configProducto.usaCotizacionUSD ? (
+                              <>
+                                <div className="font-bold text-primary">
+                                  {formatCurrency(mayorista.usd, "USD")}{" "}
+                                  <span className="text-[10px] font-medium text-primary">USD</span>
+                                </div>
+                                <div className="text-xs text-primary">{formatCurrency(mayorista.ars, "ARS")}</div>
+                              </>
+                            ) : (
+                              <div className="font-bold text-primary">{formatCurrency(mayorista.ars, "ARS")}</div>
+                            )
+                          ) : (
+                            <span className="text-text-dim">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div
+                            className="flex items-center justify-end gap-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleAbrirEditar(p)}
+                              className="rounded-lg p-1.5 text-primary hover:bg-surface-hover"
+                              title="Editar producto"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => p.fotoUrl && setImagenPreview(p.fotoUrl)}
+                              disabled={!p.fotoUrl}
+                              className="rounded-lg p-1.5 text-[#16A34A] hover:bg-success/10 disabled:opacity-30"
+                              title={p.fotoUrl ? "Ver foto" : "Sin foto cargada"}
+                            >
+                              <ImageIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCambiarEstado(p)}
+                              disabled={desactivandoId === p.id}
+                              className={cn(
+                                "rounded-lg p-1.5 disabled:opacity-40",
+                                p.activo
+                                  ? "text-text-dim hover:bg-danger/10 hover:text-danger"
+                                  : "text-success hover:bg-success/10"
+                              )}
+                              title={p.activo ? "Desactivar producto" : "Activar producto"}
+                            >
+                              {p.activo ? (
+                                <Ban className="h-4 w-4" />
+                              ) : (
+                                <CheckCircle className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+  };
+
+  const tarjetaProductoMobile = (p: Producto, enModelo = false) => {
+                const porcentajeGanancia =
+                  p.precioCosto > 0
+                    ? ((p.precioVenta - p.precioCosto) / p.precioCosto) * 100
+                    : 0;
+
+                const cotizacion = configProducto.cotizacionUSD;
+                const convertir = (valor: number) =>
+                  monedaVista === "USD"
+                    ? toUsd(valor, p.monedaPrecio, cotizacion)
+                    : toArs(valor, p.monedaPrecio, cotizacion);
+
+                return (
+                  <div key={p.id} className={cn("p-4", enModelo && "bg-surface/50 pl-8")}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setProductoDetalle(p)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") setProductoDetalle(p);
+                      }}
+                      className="cursor-pointer active:opacity-80"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-text">{enModelo ? [p.talle, p.color].filter(Boolean).join(" · ") || p.nombre : p.nombre}</p>
+                          <p className="truncate text-xs text-text-dim">{p.marca?.nombre ?? "-"}</p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
+                          +{porcentajeGanancia.toFixed(1)}%
+                        </span>
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-y-2 text-sm">
+                        <div>
+                          <p className="text-xs text-text-dim">Stock</p>
+                          <p
+                            className={cn(
+                              "font-medium",
+                              p.stockMinimo != null && p.stockActual <= p.stockMinimo
+                                ? "text-danger"
+                                : "text-text"
+                            )}
+                          >
+                            {p.stockActual} u.
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-text-dim">Costo</p>
+                          <p className="font-mono text-text-dim">
+                            {formatCurrency(convertir(p.precioCosto), monedaVista)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-text-dim">Venta</p>
+                          <p className="font-mono font-medium text-text">
+                            {formatCurrency(convertir(p.precioVenta), monedaVista)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-text-dim">Mayorista</p>
+                          <p className="font-mono text-text-dim">
+                            {p.precioMayorista != null
+                              ? formatCurrency(convertir(p.precioMayorista), monedaVista)
+                              : "-"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-end gap-1 border-t border-border pt-3">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAbrirEditar(p);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-surface-hover"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (p.fotoUrl) setImagenPreview(p.fotoUrl);
+                        }}
+                        disabled={!p.fotoUrl}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-[#16A34A] hover:bg-success/10 disabled:opacity-30"
+                      >
+                        <ImageIcon className="h-3.5 w-3.5" />
+                        Foto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCambiarEstado(p);
+                        }}
+                        disabled={desactivandoId === p.id}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-40",
+                          p.activo
+                            ? "text-text-dim hover:bg-danger/10 hover:text-danger"
+                            : "text-success hover:bg-success/10"
+                        )}
+                      >
+                        {p.activo ? (
+                          <Ban className="h-3.5 w-3.5" />
+                        ) : (
+                          <CheckCircle className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+  };
+
+  /** Resumen de un modelo: stock total, rangos de precio y alerta de stock. */
+  function resumenModelo(variantes: Producto[]) {
+    const cot = configProducto.cotizacionUSD;
+    const enMoneda = (valor: number, p: Producto, moneda: "USD" | "ARS") =>
+      moneda === "USD" ? toUsd(valor, p.monedaPrecio, cot) : toArs(valor, p.monedaPrecio, cot);
+    const rango = (valores: number[], moneda: "USD" | "ARS") => {
+      if (valores.length === 0) return null;
+      const min = Math.min(...valores);
+      const max = Math.max(...valores);
+      return Math.round(min) === Math.round(max)
+        ? formatCurrency(min, moneda)
+        : `${formatCurrency(min, moneda)} – ${formatCurrency(max, moneda)}`;
+    };
+    const precios = (campo: "precioCosto" | "precioVenta", moneda: "USD" | "ARS") =>
+      rango(variantes.map((v) => enMoneda(v[campo], v, moneda)), moneda);
+    const mayoristas = (moneda: "USD" | "ARS") =>
+      rango(variantes.filter((v) => v.precioMayorista != null).map((v) => enMoneda(v.precioMayorista!, v, moneda)), moneda);
+    const stock = variantes.reduce((a, v) => a + v.stockActual, 0);
+    const alguna = variantes.some(
+      (v) => v.stockActual <= 0 || (v.stockMinimo != null && v.stockMinimo > 0 && v.stockActual <= v.stockMinimo)
+    );
+    const gananciaMin = Math.min(
+      ...variantes.map((v) => (v.precioCosto > 0 ? ((v.precioVenta - v.precioCosto) / v.precioCosto) * 100 : 0))
+    );
+    return { precios, mayoristas, stock, alguna, gananciaMin };
+  }
+
+  const filaModeloDesktop = (fila: FilaModelo) => {
+    const r = resumenModelo(fila.variantes);
+    const abierto = expandidos.has(fila.modeloId);
+    const moneda = configProducto.usaCotizacionUSD ? "USD" : "ARS";
+    return (
+      <tr
+        key={`modelo-${fila.modeloId}`}
+        onClick={() => alternarModelo(fila.modeloId)}
+        aria-expanded={abierto}
+        className="cursor-pointer border-t border-border hover:bg-surface"
+      >
+        <td className="px-4 py-3">
+          <span className="flex items-center gap-2">
+            <ChevronRight className={cn("h-4 w-4 shrink-0 text-text-dim transition-transform", abierto && "rotate-90")} />
+            <Shirt className="h-4 w-4 shrink-0 text-primary" />
+            <span className="min-w-0">
+              <span className="block truncate font-semibold text-text">{fila.nombre}</span>
+              <span className="block text-xs font-normal text-text-dim">
+                {fila.variantes.length} combinaci{fila.variantes.length === 1 ? "ón" : "ones"}
+              </span>
+            </span>
+          </span>
+        </td>
+        <td className="px-4 py-3 text-text-dim">{fila.marca ?? "-"}</td>
+        <td className="px-4 py-3">
+          <span className="inline-flex items-center gap-1.5 font-medium text-text" title={r.alguna ? "Hay talles o colores sin stock o debajo del mínimo" : undefined}>
+            <span className={cn("h-2 w-2 rounded-full", r.stock <= 0 ? "bg-danger" : r.alguna ? "bg-[#d97706]" : "bg-success")} />
+            {r.stock}
+          </span>
+        </td>
+        <td className="px-4 py-3 font-semibold text-text">{r.precios("precioCosto", moneda)}</td>
+        <td className="bg-success/10 px-4 py-3 font-bold text-primary">{r.precios("precioVenta", moneda)}</td>
+        <td className="px-4 py-3">
+          <span className={cn("font-bold", r.gananciaMin >= 0 ? "text-primary" : "text-danger")}>
+            {r.gananciaMin >= 0 ? "+" : ""}
+            {r.gananciaMin.toFixed(0)}%
+          </span>
+        </td>
+        <td className="px-4 py-3 font-bold text-primary">{r.mayoristas(moneda) ?? <span className="font-normal text-text-dim">-</span>}</td>
+        <td className="px-4 py-3">
+          {usaTallesColores && (
+          <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setStockModeloId(fila.modeloId)}
+              className="rounded-lg p-1.5 text-primary hover:bg-surface-hover"
+              title="Stock por talle y color"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setModeloEditarId(fila.modeloId)}
+              className="rounded-lg p-1.5 text-primary hover:bg-surface-hover"
+              title="Editar modelo (precios y combinaciones)"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          </div>
+          )}
+        </td>
+      </tr>
+    );
+  };
+
+  const tarjetaModeloMobile = (fila: FilaModelo) => {
+    const r = resumenModelo(fila.variantes);
+    const abierto = expandidos.has(fila.modeloId);
+    return (
+      <div key={`modelo-${fila.modeloId}`} className="p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Shirt className="h-4 w-4 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <p className="truncate font-medium text-text">{fila.nombre}</p>
+              <p className="truncate text-xs text-text-dim">
+                {fila.marca ? `${fila.marca} · ` : ""}
+                {fila.variantes.length} combinaci{fila.variantes.length === 1 ? "ón" : "ones"}
+              </p>
+            </div>
+          </div>
+          <span className={cn("shrink-0 font-medium", r.stock <= 0 ? "text-danger" : r.alguna ? "text-warning" : "text-text")}>
+            {r.stock} u.
+          </span>
+        </div>
+        <p className="mt-2 text-sm text-text">
+          <span className="text-xs text-text-dim">Venta </span>
+          <span className="font-mono font-medium">{r.precios("precioVenta", monedaVista)}</span>
+        </p>
+        <div className="mt-3 flex items-center justify-end gap-1 border-t border-border pt-3">
+          <button
+            type="button"
+            onClick={() => alternarModelo(fila.modeloId)}
+            className="mr-auto inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-text-dim hover:bg-surface-hover"
+          >
+            <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", abierto && "rotate-90")} />
+            {abierto ? "Ocultar" : "Ver talles"}
+          </button>
+          {usaTallesColores && (
+            <>
+              <button
+                type="button"
+                onClick={() => setStockModeloId(fila.modeloId)}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-surface-hover"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Stock
+              </button>
+              <button
+                type="button"
+                onClick={() => setModeloEditarId(fila.modeloId)}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-surface-hover"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Editar
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="p-4 space-y-5 sm:space-y-6">
@@ -552,7 +1043,7 @@ export default function ProductosAdmin() {
           </div>
 
           <p className="text-xs text-text-dim lg:text-right">
-            Mostrando {inicioRango}–{finRango} de {productosFiltrados.length} productos
+            Mostrando {inicioRango}–{finRango} de {textoCantidad}
           </p>
         </div>
 
@@ -645,6 +1136,30 @@ export default function ProductosAdmin() {
                   className="mt-1"
                 />
               </div>
+
+              {opcionesTalles.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-text-dim">Talle</label>
+                  <Select
+                    value={filtroTalle}
+                    onChange={setFiltroTalle}
+                    options={[{ value: "", label: "Todos los talles" }, ...opcionesTalles.map((t) => ({ value: t, label: t }))]}
+                    className="mt-1"
+                  />
+                </div>
+              )}
+
+              {opcionesColores.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-text-dim">Color</label>
+                  <Select
+                    value={filtroColor}
+                    onChange={setFiltroColor}
+                    options={[{ value: "", label: "Todos los colores" }, ...opcionesColores.map((c) => ({ value: c, label: c }))]}
+                    className="mt-1"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Acceso rápido por stock */}
@@ -697,7 +1212,7 @@ export default function ProductosAdmin() {
       <div className="overflow-hidden rounded-2xl border border-border bg-white">
         {cargando ? (
           <p className="p-8 text-center text-sm text-text-dim">Cargando...</p>
-        ) : productosPaginados.length === 0 ? (
+        ) : filasPaginadas.length === 0 ? (
           <p className="p-8 text-center text-sm text-text-dim">
             No se encontraron productos que coincidan con la búsqueda.
           </p>
@@ -718,265 +1233,27 @@ export default function ProductosAdmin() {
                   </tr>
                 </thead>
                 <tbody>
-                  {productosPaginados.map((p) => {
-                    const cotizacion = configProducto.cotizacionUSD;
-                    const costo = {
-                      usd: toUsd(p.precioCosto, p.monedaPrecio, cotizacion),
-                      ars: toArs(p.precioCosto, p.monedaPrecio, cotizacion),
-                    };
-                    const venta = {
-                      usd: toUsd(p.precioVenta, p.monedaPrecio, cotizacion),
-                      ars: toArs(p.precioVenta, p.monedaPrecio, cotizacion),
-                    };
-                    const mayorista =
-                      p.precioMayorista != null
-                        ? {
-                            usd: toUsd(p.precioMayorista, p.monedaPrecio, cotizacion),
-                            ars: toArs(p.precioMayorista, p.monedaPrecio, cotizacion),
-                          }
-                        : null;
-
-                    const gananciaPct =
-                      p.precioCosto > 0 ? ((p.precioVenta - p.precioCosto) / p.precioCosto) * 100 : 0;
-
-                    const stockColor =
-                      p.stockActual <= 0
-                        ? "bg-danger"
-                        : p.stockMinimo != null && p.stockActual <= p.stockMinimo
-                        ? "bg-[#d97706]"
-                        : "bg-success";
-
-                    return (
-                      <tr
-                        key={p.id}
-                        onClick={() => setProductoDetalle(p)}
-                        className="cursor-pointer border-t border-border hover:bg-surface"
-                      >
-                        <td className="px-4 py-3 font-semibold text-text">{p.nombre}</td>
-                        <td className="px-4 py-3 text-text-dim">{p.marca?.nombre ?? "-"}</td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1.5 font-medium text-text">
-                            <span className={cn("h-2 w-2 rounded-full", stockColor)} />
-                            {p.stockActual}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {configProducto.usaCotizacionUSD ? (
-                            <>
-                              <div className="font-semibold text-text">
-                                {formatCurrency(costo.usd, "USD")}{" "}
-                                <span className="text-[10px] font-medium text-text-dim">USD</span>
-                              </div>
-                              <div className="text-xs text-text-dim">{formatCurrency(costo.ars, "ARS")}</div>
-                            </>
-                          ) : (
-                            <div className="font-semibold text-text">{formatCurrency(costo.ars, "ARS")}</div>
-                          )}
-                        </td>
-                        <td className="bg-success/10 px-4 py-3">
-                          {configProducto.usaCotizacionUSD ? (
-                            <>
-                              <div className="font-bold text-primary">
-                                {formatCurrency(venta.usd, "USD")}{" "}
-                                <span className="text-[10px] font-medium text-[#4ADE80]">USD</span>
-                              </div>
-                              <div className="text-xs text-[#86D89C]">{formatCurrency(venta.ars, "ARS")}</div>
-                            </>
-                          ) : (
-                            <div className="font-bold text-primary">{formatCurrency(venta.ars, "ARS")}</div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={cn("font-bold", gananciaPct >= 0 ? "text-primary" : "text-danger")}>
-                            {gananciaPct >= 0 ? "+" : ""}
-                            {gananciaPct.toFixed(0)}%
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {mayorista ? (
-                            configProducto.usaCotizacionUSD ? (
-                              <>
-                                <div className="font-bold text-primary">
-                                  {formatCurrency(mayorista.usd, "USD")}{" "}
-                                  <span className="text-[10px] font-medium text-primary">USD</span>
-                                </div>
-                                <div className="text-xs text-primary">{formatCurrency(mayorista.ars, "ARS")}</div>
-                              </>
-                            ) : (
-                              <div className="font-bold text-primary">{formatCurrency(mayorista.ars, "ARS")}</div>
-                            )
-                          ) : (
-                            <span className="text-text-dim">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div
-                            className="flex items-center justify-end gap-2"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => handleAbrirEditar(p)}
-                              className="rounded-lg p-1.5 text-primary hover:bg-surface-hover"
-                              title="Editar producto"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => p.fotoUrl && setImagenPreview(p.fotoUrl)}
-                              disabled={!p.fotoUrl}
-                              className="rounded-lg p-1.5 text-[#16A34A] hover:bg-success/10 disabled:opacity-30"
-                              title={p.fotoUrl ? "Ver foto" : "Sin foto cargada"}
-                            >
-                              <ImageIcon className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleCambiarEstado(p)}
-                              disabled={desactivandoId === p.id}
-                              className={cn(
-                                "rounded-lg p-1.5 disabled:opacity-40",
-                                p.activo
-                                  ? "text-text-dim hover:bg-danger/10 hover:text-danger"
-                                  : "text-success hover:bg-success/10"
-                              )}
-                              title={p.activo ? "Desactivar producto" : "Activar producto"}
-                            >
-                              {p.activo ? (
-                                <Ban className="h-4 w-4" />
-                              ) : (
-                                <CheckCircle className="h-4 w-4" />
-                              )}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {filasPaginadas.map((fila) =>
+                    fila.tipo === "producto"
+                      ? filaProductoDesktop(fila.producto)
+                      : [
+                          filaModeloDesktop(fila),
+                          ...(expandidos.has(fila.modeloId) ? fila.variantes.map((v) => filaProductoDesktop(v, true)) : []),
+                        ]
+                  )}
                 </tbody>
               </table>
             </div>
 
             <div className="divide-y divide-border md:hidden">
-              {productosPaginados.map((p) => {
-                const porcentajeGanancia =
-                  p.precioCosto > 0
-                    ? ((p.precioVenta - p.precioCosto) / p.precioCosto) * 100
-                    : 0;
-
-                const cotizacion = configProducto.cotizacionUSD;
-                const convertir = (valor: number) =>
-                  monedaVista === "USD"
-                    ? toUsd(valor, p.monedaPrecio, cotizacion)
-                    : toArs(valor, p.monedaPrecio, cotizacion);
-
-                return (
-                  <div key={p.id} className="p-4">
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setProductoDetalle(p)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") setProductoDetalle(p);
-                      }}
-                      className="cursor-pointer active:opacity-80"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-text">{p.nombre}</p>
-                          <p className="truncate text-xs text-text-dim">{p.marca?.nombre ?? "-"}</p>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
-                          +{porcentajeGanancia.toFixed(1)}%
-                        </span>
-                      </div>
-
-                      <div className="mt-3 grid grid-cols-2 gap-y-2 text-sm">
-                        <div>
-                          <p className="text-xs text-text-dim">Stock</p>
-                          <p
-                            className={cn(
-                              "font-medium",
-                              p.stockMinimo != null && p.stockActual <= p.stockMinimo
-                                ? "text-danger"
-                                : "text-text"
-                            )}
-                          >
-                            {p.stockActual} u.
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-text-dim">Costo</p>
-                          <p className="font-mono text-text-dim">
-                            {formatCurrency(convertir(p.precioCosto), monedaVista)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-text-dim">Venta</p>
-                          <p className="font-mono font-medium text-text">
-                            {formatCurrency(convertir(p.precioVenta), monedaVista)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-text-dim">Mayorista</p>
-                          <p className="font-mono text-text-dim">
-                            {p.precioMayorista != null
-                              ? formatCurrency(convertir(p.precioMayorista), monedaVista)
-                              : "-"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-end gap-1 border-t border-border pt-3">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAbrirEditar(p);
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-surface-hover"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (p.fotoUrl) setImagenPreview(p.fotoUrl);
-                        }}
-                        disabled={!p.fotoUrl}
-                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-[#16A34A] hover:bg-success/10 disabled:opacity-30"
-                      >
-                        <ImageIcon className="h-3.5 w-3.5" />
-                        Foto
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCambiarEstado(p);
-                        }}
-                        disabled={desactivandoId === p.id}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-40",
-                          p.activo
-                            ? "text-text-dim hover:bg-danger/10 hover:text-danger"
-                            : "text-success hover:bg-success/10"
-                        )}
-                      >
-                        {p.activo ? (
-                          <Ban className="h-3.5 w-3.5" />
-                        ) : (
-                          <CheckCircle className="h-3.5 w-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              {filasPaginadas.map((fila) =>
+                fila.tipo === "producto"
+                  ? tarjetaProductoMobile(fila.producto)
+                  : [
+                      tarjetaModeloMobile(fila),
+                      ...(expandidos.has(fila.modeloId) ? fila.variantes.map((v) => tarjetaProductoMobile(v, true)) : []),
+                    ]
+              )}
             </div>
           </>
         )}
@@ -985,9 +1262,7 @@ export default function ProductosAdmin() {
       {/* Paginación */}
       {productosFiltrados.length > 0 && (
         <div className="flex flex-col gap-2 text-sm text-text-dim sm:flex-row sm:items-center sm:justify-between">
-          <span>
-            {productosFiltrados.length} producto{productosFiltrados.length !== 1 ? "s" : ""}
-          </span>
+          <span>{textoCantidad}</span>
           <div className="flex items-center gap-2">
             <button
               disabled={paginaActual === 1}
@@ -1044,6 +1319,18 @@ export default function ProductosAdmin() {
       />
       {usaTallesColores && (
         <ModeloFormModal isOpen={modeloNuevoAbierto} onClose={() => setModeloNuevoAbierto(false)} onSuccess={cargarProductos} />
+      )}
+      {stockModeloId !== null && (
+        <StockModeloModal
+          key={`stock-${stockModeloId}`}
+          modeloId={stockModeloId}
+          onClose={() => setStockModeloId(null)}
+          onChanged={cargarProductos}
+          onEditarModelo={() => {
+            setModeloEditarId(stockModeloId);
+            setStockModeloId(null);
+          }}
+        />
       )}
       {usaTallesColores && modeloEditarId !== null && (
         <ModeloEditarModal
