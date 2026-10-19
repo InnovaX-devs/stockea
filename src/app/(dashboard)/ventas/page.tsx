@@ -487,6 +487,7 @@ function NuevaVentaContenido() {
               onCambiarModo={setModoCobro}
               onCambiarPagos={setPagos}
               cotizacionUSD={usaCotizacionUSD ? cotizacionUSD : 1}
+              onConfirmarRapido={procesando ? undefined : handleConfirmarVenta}
             />
             <ResumenVenta
               subtotal={subtotal}
