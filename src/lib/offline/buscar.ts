@@ -4,6 +4,8 @@ import { buscarClientesRapido, type ClienteBusquedaResult } from "@/lib/clientes
 import { db, leerMeta, normalizar, type ProductoLocal } from "./db";
 
 const MAX_RESULTADOS = 10;
+/** Productos: se traen más porque las combinaciones de un modelo se agrupan en una fila (ver agrupar-variantes.ts). */
+const MAX_PRODUCTOS = 50;
 
 function aDTO(p: ProductoLocal): ProductoBusquedaDTO {
   return {
@@ -17,6 +19,10 @@ function aDTO(p: ProductoLocal): ProductoBusquedaDTO {
     precioMayorista: p.precioMayorista,
     contenidoMl: p.contenidoMl,
     marca: p.marcaNombre ? { nombre: p.marcaNombre } : null,
+    modeloId: p.modeloId ?? null,
+    modeloNombre: p.modeloNombre ?? null,
+    talle: p.talle ?? null,
+    color: p.color ?? null,
   };
 }
 
@@ -29,7 +35,25 @@ export async function buscarProductosLocal(q: string): Promise<ProductoBusquedaD
     db.productos.filter((p) => p.busqueda.includes(n)).sortBy("nombre"),
   ]);
   const lista = exacto ? [exacto, ...coincidencias.filter((p) => p.id !== exacto.id)] : coincidencias;
-  return lista.slice(0, MAX_RESULTADOS).map(aDTO);
+  return lista.slice(0, MAX_PRODUCTOS).map(aDTO);
+}
+
+/** Todas las combinaciones (talle × color) de un modelo en la copia local. */
+export async function buscarVariantesLocal(modeloId: number): Promise<ProductoBusquedaDTO[]> {
+  return (await db.productos.where("modeloId").equals(modeloId).sortBy("nombre")).map(aDTO);
+}
+
+/** Combinaciones de un modelo: red primero, copia local si no hay red o falla. */
+export async function buscarVariantes(modeloId: number, signal?: AbortSignal) {
+  if (navigator.onLine) {
+    try {
+      const res = await fetch(`/api/productos/buscar?modeloId=${modeloId}`, { signal });
+      if (res.ok) return { items: ((await res.json()).items ?? []) as ProductoBusquedaDTO[], local: false };
+    } catch (err) {
+      if ((err as Error).name === "AbortError") throw err;
+    }
+  }
+  return { items: await buscarVariantesLocal(modeloId), local: true };
 }
 
 export async function buscarClientesLocal(q: string): Promise<ClienteBusquedaResult[]> {
@@ -46,7 +70,7 @@ export async function buscarClientesLocal(q: string): Promise<ClienteBusquedaRes
 export async function buscarProductos(q: string, signal?: AbortSignal) {
   if (navigator.onLine) {
     try {
-      const res = await fetch(`/api/productos/buscar?q=${encodeURIComponent(q)}`, { signal });
+      const res = await fetch(`/api/productos/buscar?q=${encodeURIComponent(q)}&agrupar=1`, { signal });
       if (res.ok) return { items: ((await res.json()).items ?? []) as ProductoBusquedaDTO[], local: false };
     } catch (err) {
       if ((err as Error).name === "AbortError") throw err;

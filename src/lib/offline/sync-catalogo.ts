@@ -51,7 +51,15 @@ async function ejecutar() {
     await db.productos.bulkPut(
       activos.map(({ activo, ...p }) => {
         void activo;
-        return { ...p, busqueda: normalizar(`${p.nombre} ${p.marcaNombre ?? ""} ${p.codigoBarras ?? ""}`) };
+        return {
+          ...p,
+          // Respuestas de un servidor viejo (sin RV-5) no traen estos campos.
+          modeloId: p.modeloId ?? null,
+          modeloNombre: p.modeloNombre ?? null,
+          talle: p.talle ?? null,
+          color: p.color ?? null,
+          busqueda: normalizar(`${p.nombre} ${p.marcaNombre ?? ""} ${p.codigoBarras ?? ""}`),
+        };
       })
     );
     await db.clientes.bulkPut(

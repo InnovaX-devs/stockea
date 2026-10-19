@@ -63,6 +63,10 @@ export async function GET(request: NextRequest) {
         contenidoMl: true,
         activo: true,
         marca: { select: { nombre: true } },
+        modeloId: true,
+        talle: true,
+        color: true,
+        modelo: { select: { nombre: true } },
       },
     }),
     prisma.cliente.findMany({
@@ -81,9 +85,10 @@ export async function GET(request: NextRequest) {
   ]);
 
   // Stock de la sucursal actual (o total si es "Todas" / sucursal única).
-  const productos = (await conStockDeSucursal(productosDb)).map(({ marca, ...p }) => ({
+  const productos = (await conStockDeSucursal(productosDb)).map(({ marca, modelo, ...p }) => ({
     ...p,
     marcaNombre: marca?.nombre ?? null,
+    modeloNombre: modelo?.nombre ?? null,
   }));
 
   return NextResponse.json(

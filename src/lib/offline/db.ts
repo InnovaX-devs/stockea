@@ -12,6 +12,11 @@ export type ProductoLocal = {
   precioMayorista: number | null;
   contenidoMl: number | null;
   marcaNombre: string | null;
+  /** Ropa (RV-5): modelo, talle y color de esta combinación (null en el resto). */
+  modeloId: number | null;
+  modeloNombre: string | null;
+  talle: string | null;
+  color: string | null;
   /** nombre + marca + código, en minúsculas y sin acentos, para buscar. */
   busqueda: string;
 };
@@ -104,6 +109,19 @@ class StockeaDB extends Dexie {
       meta: "clave",
       outbox: "++id, &idCliente, estado, empresaId",
     });
+    // v3 (RV-5, #64): talles y colores de ropa. Índice por modelo para traer
+    // todas las combinaciones al elegir talle y color sin conexión. Los
+    // productos guardados antes no tienen esos datos: se fuerza una
+    // sincronización completa la próxima vez (se borra la marca de la última).
+    this.version(3)
+      .stores({
+        productos: "id, codigoBarras, modeloId",
+        clientes: "id, telefono",
+        cuentas: "id",
+        meta: "clave",
+        outbox: "++id, &idCliente, estado, empresaId",
+      })
+      .upgrade((tx) => tx.table("meta").delete("ultimaCompleta"));
   }
 }
 

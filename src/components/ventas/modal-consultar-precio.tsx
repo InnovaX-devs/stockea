@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Search, X, Loader2, PackageX } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Search, X, Loader2, PackageX, Shirt, ChevronDown } from "lucide-react";
 import { useDebounce } from "@/lib/hooks/use-debounce";
 import type { ProductoBusquedaDTO } from "@/types/producto";
 import { formatCurrency, toUsd, toArs } from "@/lib/currency";
-import { buscarProductos, cargarConfig } from "@/lib/offline/buscar";
+import { buscarProductos, buscarVariantes, cargarConfig } from "@/lib/offline/buscar";
+import { agruparResultados } from "@/lib/agrupar-variantes";
+import { GrillaVariantes } from "@/components/ventas/grilla-variantes";
 
 interface Props {
   onClose: () => void;
@@ -20,6 +22,60 @@ function Iniciales(nombre: string) {
     .join("");
 }
 
+/** Ropa (RV-5): un modelo en "Consultar precio", con su grilla de talle × color desplegable. */
+function ModeloConsulta({
+  modeloId,
+  nombre,
+  marca,
+  stock,
+  cotizacionUSD,
+}: {
+  modeloId: number;
+  nombre: string;
+  marca: string | null;
+  stock: number;
+  cotizacionUSD: number;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [variantes, setVariantes] = useState<ProductoBusquedaDTO[] | null>(null);
+
+  function alternar() {
+    setAbierto((a) => !a);
+    if (variantes == null) {
+      buscarVariantes(modeloId)
+        .then((r) => setVariantes(r.items))
+        .catch(() => setVariantes([]));
+    }
+  }
+
+  return (
+    <div className="rounded-xl p-3 hover:bg-surface-hover">
+      <button type="button" onClick={alternar} className="flex w-full items-center gap-3 text-left" aria-expanded={abierto}>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Shirt size={16} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-text">
+            {nombre}
+            {marca && <span className="ml-1 font-normal text-text-dim">· {marca}</span>}
+          </p>
+          <p className="text-xs text-text-dim">Ver talles, colores y precios · Stock total: {stock}</p>
+        </div>
+        <ChevronDown size={16} className={`shrink-0 text-text-dim transition-transform ${abierto ? "rotate-180" : ""}`} />
+      </button>
+      {abierto && (
+        <div className="mt-3">
+          {variantes == null ? (
+            <Loader2 className="mx-auto h-4 w-4 animate-spin text-text-dim" />
+          ) : (
+            <GrillaVariantes variantes={variantes} cotizacionUSD={cotizacionUSD} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ModalConsultarPrecio({ onClose }: Props) {
   const [query, setQuery] = useState("");
   const [resultados, setResultados] = useState<ProductoBusquedaDTO[]>([]);
@@ -29,6 +85,7 @@ export function ModalConsultarPrecio({ onClose }: Props) {
   const [desdeCopia, setDesdeCopia] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debouncedQuery = useDebounce(query, 250);
+  const filas = useMemo(() => agruparResultados(resultados, 20), [resultados]);
 
   useEffect(() => {
     cargarConfig().then((c) => {
@@ -108,7 +165,20 @@ export function ModalConsultarPrecio({ onClose }: Props) {
           )}
 
           <div className="divide-y divide-border">
-            {resultados.map((p, i) => {
+            {filas.map((fila, i) => {
+              if (fila.tipo === "modelo") {
+                return (
+                  <ModeloConsulta
+                    key={`m-${fila.modeloId}`}
+                    modeloId={fila.modeloId}
+                    nombre={fila.nombre}
+                    marca={fila.marca}
+                    stock={fila.stock}
+                    cotizacionUSD={cotizacionUSD}
+                  />
+                );
+              }
+              const p = fila.producto;
               const minoristaUsd = toUsd(p.precioVenta, p.monedaPrecio, cotizacionUSD);
               const minoristaArs = toArs(p.precioVenta, p.monedaPrecio, cotizacionUSD);
               const mayoristaUsd = p.precioMayorista != null ? toUsd(p.precioMayorista, p.monedaPrecio, cotizacionUSD) : null;
