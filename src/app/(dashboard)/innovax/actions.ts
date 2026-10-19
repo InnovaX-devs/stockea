@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requerirDesarrollador } from "@/lib/desarrollador";
 import { isPasswordValid } from "@/lib/password-validation";
+import { normalizarRubro, RUBROS, type Rubro } from "@/lib/rubro";
 
 /**
  * Panel de InnovaX: alta y mantenimiento de empresas, sucursales y usuarios
@@ -37,6 +38,7 @@ export type EmpresaFila = {
   activa: boolean;
   createdAt: string;
   licencia: "BASICO" | "PREMIUM";
+  rubro: Rubro;
   sucursales: number;
   usuarios: number;
   adminEmail: string | null;
@@ -51,7 +53,7 @@ export async function listarEmpresas(): Promise<EmpresaFila[]> {
       nombre: true,
       activa: true,
       createdAt: true,
-      configuracion: { select: { licencia: true } },
+      configuracion: { select: { licencia: true, rubro: true } },
       sucursales: { where: { activa: true }, select: { id: true } },
       usuarios: { where: { activo: true }, orderBy: { id: "asc" }, select: { email: true, rol: true } },
     },
@@ -62,6 +64,7 @@ export async function listarEmpresas(): Promise<EmpresaFila[]> {
     activa: e.activa,
     createdAt: e.createdAt.toISOString(),
     licencia: e.configuracion?.licencia ?? "BASICO",
+    rubro: e.configuracion?.rubro ?? "GENERAL",
     sucursales: e.sucursales.length,
     usuarios: e.usuarios.length,
     adminEmail: e.usuarios.find((u) => u.rol === "ADMIN")?.email ?? null,
@@ -74,6 +77,7 @@ export type EmpresaDetalle = {
   activa: boolean;
   createdAt: string;
   licencia: "BASICO" | "PREMIUM";
+  rubro: Rubro;
   esLaMia: boolean;
   sucursales: { id: number; nombre: string; direccion: string | null; activa: boolean; empleados: number }[];
   usuarios: {
@@ -96,7 +100,7 @@ export async function obtenerEmpresa(empresaId: number): Promise<EmpresaDetalle 
       nombre: true,
       activa: true,
       createdAt: true,
-      configuracion: { select: { licencia: true } },
+      configuracion: { select: { licencia: true, rubro: true } },
       sucursales: {
         orderBy: { id: "asc" },
         select: { id: true, nombre: true, direccion: true, activa: true, usuarios: { where: { rol: "EMPLEADO" }, select: { id: true } } },
@@ -114,6 +118,7 @@ export async function obtenerEmpresa(empresaId: number): Promise<EmpresaDetalle 
     activa: e.activa,
     createdAt: e.createdAt.toISOString(),
     licencia: e.configuracion?.licencia ?? "BASICO",
+    rubro: e.configuracion?.rubro ?? "GENERAL",
     esLaMia: e.id === yo.empresaId,
     sucursales: e.sucursales.map((s) => ({ id: s.id, nombre: s.nombre, direccion: s.direccion, activa: s.activa, empleados: s.usuarios.length })),
     usuarios: e.usuarios.map(({ sucursal, ...u }) => ({ ...u, sucursalNombre: sucursal?.nombre ?? null })),
@@ -128,6 +133,7 @@ export async function crearEmpresa(input: {
   adminEmail: string;
   adminPassword: string;
   licencia: "BASICO" | "PREMIUM";
+  rubro?: Rubro;
   cotizacionUSD?: number;
 }): Promise<Resultado<{ empresaId: number }>> {
   try {
@@ -135,6 +141,7 @@ export async function crearEmpresa(input: {
     const nombreNegocio = input.nombreNegocio.trim();
     const email = input.adminEmail.trim().toLowerCase();
     const licencia = input.licencia === "PREMIUM" ? "PREMIUM" : "BASICO";
+    const rubro = normalizarRubro(input.rubro);
     const cotizacionUSD = input.cotizacionUSD && input.cotizacionUSD > 0 ? input.cotizacionUSD : 1000;
 
     if (!nombreNegocio) throw new Error("Ingresá el nombre del negocio.");
@@ -145,7 +152,7 @@ export async function crearEmpresa(input: {
     const passwordHash = await bcrypt.hash(input.adminPassword, 10);
     const empresa = await prisma.$transaction(async (tx) => {
       const empresa = await tx.empresa.create({ data: { nombre: nombreNegocio } });
-      await tx.configuracion.create({ data: { empresaId: empresa.id, nombreNegocio, cotizacionUSD, licencia } });
+      await tx.configuracion.create({ data: { empresaId: empresa.id, nombreNegocio, cotizacionUSD, licencia, rubro } });
       await tx.sucursal.create({ data: { empresaId: empresa.id, nombre: "Principal" } });
       await tx.usuario.create({
         data: {
@@ -177,6 +184,20 @@ export async function cambiarLicencia(empresaId: number, licencia: "BASICO" | "P
     return ok;
   } catch (e) {
     return error(e, "No se pudo cambiar la licencia.");
+  }
+}
+
+/** Cambia el rubro del negocio. No toca datos: solo cambia qué campos y textos se muestran. */
+export async function cambiarRubro(empresaId: number, rubro: Rubro): Promise<Resultado> {
+  try {
+    await requerirDesarrollador();
+    if (!(RUBROS as readonly string[]).includes(rubro)) throw new Error("Rubro inválido.");
+    const actualizada = await prisma.configuracion.updateMany({ where: { empresaId }, data: { rubro } });
+    if (actualizada.count === 0) throw new Error("La empresa no tiene configuración.");
+    refrescar(empresaId);
+    return ok;
+  } catch (e) {
+    return error(e, "No se pudo cambiar el rubro.");
   }
 }
 

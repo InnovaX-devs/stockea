@@ -2,6 +2,7 @@
 
 import { Pencil, Ban, X, CheckCircle, ImageIcon } from "lucide-react";
 import { toArs, toUsd, formatCurrency } from "@/lib/currency";
+import { useRubro } from "@/components/layout/rubro-context";
 
 interface ProductoDetalle {
   id: string | number;
@@ -41,6 +42,7 @@ export function ProductoDetalleModal({
   onEditar,
   onDesactivar,
 }: ProductoDetalleModalProps) {
+  const { usaMl } = useRubro();
   if (!isOpen || !producto) return null;
 
   const cotizacion = configProducto.cotizacionUSD;
@@ -126,7 +128,7 @@ export function ProductoDetalleModal({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5">
-          <div className="grid grid-cols-3 gap-2">
+          <div className={`grid gap-2 ${usaMl ? "grid-cols-3" : "grid-cols-2"}`}>
             <div className="rounded-xl bg-success/10 p-3 text-center">
               <p className="text-[10px] uppercase tracking-wide text-text-dim">
                 Stock actual
@@ -143,14 +145,16 @@ export function ProductoDetalleModal({
                 {producto.stockMinimo ?? 0}
               </p>
             </div>
-            <div className="rounded-xl bg-surface p-3 text-center">
-              <p className="text-[10px] uppercase tracking-wide text-text-dim">
-                Volumen
-              </p>
-              <p className="mt-1 text-lg font-bold text-text">
-                {producto.contenidoMl ? `${producto.contenidoMl}ml` : "-"}
-              </p>
-            </div>
+            {usaMl && (
+              <div className="rounded-xl bg-surface p-3 text-center">
+                <p className="text-[10px] uppercase tracking-wide text-text-dim">
+                  Volumen
+                </p>
+                <p className="mt-1 text-lg font-bold text-text">
+                  {producto.contenidoMl ? `${producto.contenidoMl}ml` : "-"}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="mt-4 overflow-hidden rounded-xl border border-border">

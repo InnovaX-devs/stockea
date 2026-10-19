@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Search } from "lucide-react";
 import { avisar, confirmar } from "@/components/ui/dialogos";
+import { useRubro } from "@/components/layout/rubro-context";
 
 interface Elemento {
   id: number;
@@ -18,6 +19,7 @@ interface SeccionProps {
 }
 
 function TablaSeccion({ titulo, singular, endpoint }: SeccionProps) {
+  const { textos, categoriasSugeridas } = useRubro();
   const [items, setItems] = useState<Elemento[]>([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState("");
@@ -52,6 +54,12 @@ function TablaSeccion({ titulo, singular, endpoint }: SeccionProps) {
   const itemsFiltrados = items.filter((item) =>
     item.nombre.toLowerCase().includes(busqueda.toLowerCase())
   );
+
+  // Categorías sugeridas según el rubro (solo al crear, sin las que ya existen).
+  const sugeridas =
+    singular === "Categoría" && !itemEditar
+      ? categoriasSugeridas.filter((n) => !items.some((i) => i.nombre.toLowerCase() === n.toLowerCase()))
+      : [];
 
   // Abrir Modal Crear
   const handleOpenCrear = () => {
@@ -285,11 +293,26 @@ function TablaSeccion({ titulo, singular, endpoint }: SeccionProps) {
                   type="text"
                   required
                   autoFocus
-                  placeholder={`Ej: ${singular === "Marca" ? "Chanel" : "Perfumes"}`}
+                  placeholder={singular === "Marca" ? textos.ejemploMarca : textos.ejemploCategoria}
                   value={nombreForm}
                   onChange={(e) => setNombreForm(e.target.value)}
                   className="w-full rounded-lg border border-border px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary"
                 />
+                {sugeridas.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-text-dim">Sugeridas:</span>
+                    {sugeridas.map((nombre) => (
+                      <button
+                        key={nombre}
+                        type="button"
+                        onClick={() => setNombreForm(nombre)}
+                        className="rounded-full border border-border px-2 py-0.5 text-xs text-text hover:bg-surface-hover"
+                      >
+                        {nombre}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-2">

@@ -14,6 +14,7 @@ import { Pencil, ImageIcon, Ban, CheckCircle, X } from "lucide-react";
 import { toArs, toUsd, formatCurrency } from "@/lib/currency";
 import Select from "@/components/ui/select";
 import { ProductoDetalleModal } from "@/components/productos/producto-detalle-modal";
+import { useRubro } from "@/components/layout/rubro-context";
 import { avisar } from "@/components/ui/dialogos";
 
 
@@ -94,6 +95,7 @@ export default function ProductosAdmin() {
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
   const [desactivandoId, setDesactivandoId] = useState<string | null>(null);
   const [productoADesactivar, setProductoADesactivar] = useState<Producto | null>(null);
+  const { textos } = useRubro();
   const [configProducto, setConfigProducto] = useState({
     cotizacionUSD: 1200,
     usaCotizacionUSD: false,
@@ -473,7 +475,7 @@ export default function ProductosAdmin() {
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" />
               <input
                 type="text"
-                placeholder="Buscar por nombre o marca..."
+                placeholder={textos.buscarProductoListado}
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
                 className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-primary"

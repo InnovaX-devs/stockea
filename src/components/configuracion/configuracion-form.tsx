@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { guardarConfiguracion } from "@/app/(dashboard)/configuracion/actions";
 import { CambiarPasswordModal } from "@/components/layout/cambiar-password-modal";
+import { useRubro } from "@/components/layout/rubro-context";
 
 interface ConfiguracionFormProps {
   configuracion: {
@@ -28,6 +29,7 @@ interface ConfiguracionFormProps {
 
 export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { textos } = useRubro();
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(configuracion.logoUrl);
   const [logoRemovido, setLogoRemovido] = useState(false);
@@ -105,7 +107,7 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
             id="eslogan"
             type="text"
             name="eslogan"
-            placeholder="Ej: Perfumería de Lujo"
+            placeholder={textos.ejemploEslogan}
             defaultValue={configuracion.eslogan ?? ""}
             className="w-full rounded-md border border-border bg-white px-3 py-2 text-text focus:outline-none focus:ring-1 focus:ring-primary"
           />

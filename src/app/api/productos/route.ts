@@ -7,6 +7,7 @@ import { obtenerEmpresaIdActual, obtenerUsuarioActual } from "@/lib/empresa";
 import { obtenerSucursalIdActual } from "@/lib/sucursal";
 import { conStockDeSucursal, sucursalParaMostrarStock } from "@/lib/stock-sucursal";
 import { esFotoPermitida } from "@/lib/fotos";
+import { configRubro } from "@/lib/rubro";
 
 export const dynamic = "force-dynamic";
 
@@ -172,9 +173,12 @@ export async function POST(request: NextRequest) {
       ? String(body.ubicacion).trim() 
       : null;
 
-    const contenidoMl = body.contenidoMl !== undefined && body.contenidoMl !== "" && body.contenidoMl !== null
-      ? Number(body.contenidoMl)
-      : null;
+    // Solo el rubro Perfumería usa ml; en los demás el campo está oculto.
+    const contenidoMl =
+      configRubro((await obtenerConfiguracion()).rubro).usaMl &&
+      body.contenidoMl !== undefined && body.contenidoMl !== "" && body.contenidoMl !== null
+        ? Number(body.contenidoMl)
+        : null;
 
     const marcaId = body.marcaId && String(body.marcaId).trim() !== "" 
       ? Number(body.marcaId) 

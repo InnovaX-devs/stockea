@@ -7,6 +7,7 @@ import type { ProductoBusquedaDTO } from "@/types/producto";
 import { formatCurrency, toArs } from "@/lib/currency";
 import { useVenta } from "@/components/ventas/venta-context";
 import { buscarProductos } from "@/lib/offline/buscar";
+import { useRubro } from "@/components/layout/rubro-context";
 
 
 const UMBRAL_LECTORA_MS = 40;
@@ -15,6 +16,7 @@ type Props = { onSeleccionar: (producto: ProductoBusquedaDTO) => void };
 
 export function BuscadorProducto({ onSeleccionar }: Props) {
   const { cotizacionUSD } = useVenta();
+  const { textos } = useRubro();
   const [query, setQuery] = useState("");
   const [resultados, setResultados] = useState<ProductoBusquedaDTO[]>([]);
   const [abierto, setAbierto] = useState(false);
@@ -126,7 +128,7 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
           onChange={handleChange}
           onFocus={() => setAbierto(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Buscar producto o escanear código de barras..."
+          placeholder={textos.buscarProductoVenta}
           className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-9 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none"
         />
         {cargando && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-text-dim" />}

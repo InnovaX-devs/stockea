@@ -14,13 +14,15 @@ import {
   cambiarEstadoSucursal,
   cambiarEstadoUsuario,
   cambiarLicencia,
+  cambiarRubro,
   crearAdmin,
   crearSucursal,
   restablecerPassword,
   type EmpresaDetalle,
 } from "@/app/(dashboard)/innovax/actions";
-import { BOTON_PRIMARIO, BOTON_SECUNDARIO, ChipLicencia, INPUT } from "@/components/innovax/panel-empresas";
+import { BOTON_PRIMARIO, BOTON_SECUNDARIO, ChipLicencia, ChipRubro, INPUT } from "@/components/innovax/panel-empresas";
 import { confirmar } from "@/components/ui/dialogos";
+import { configRubro, NOMBRES_RUBRO, RUBROS, type Rubro } from "@/lib/rubro";
 
 type Accion = () => Promise<{ success: true } | { success: false; error: string }>;
 
@@ -73,6 +75,7 @@ function Cabecera({ empresa }: { empresa: EmpresaDetalle }) {
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold text-text">{empresa.nombre}</h1>
             <ChipLicencia licencia={empresa.licencia} />
+            <ChipRubro rubro={empresa.rubro} />
             {!empresa.activa && <span className="rounded-full bg-danger/10 px-2 py-0.5 text-xs text-danger">Suspendida</span>}
             {empresa.esLaMia && <span className="rounded-full bg-surface-hover px-2 py-0.5 text-xs text-text-dim">Tu empresa</span>}
           </div>
@@ -95,6 +98,42 @@ function Cabecera({ empresa }: { empresa: EmpresaDetalle }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/* --------------------------------- Rubro ---------------------------------- */
+
+function RubroEmpresa({ empresa }: { empresa: EmpresaDetalle }) {
+  const { pendiente, correr } = useAccion();
+  const [rubro, setRubro] = useState<Rubro>(empresa.rubro);
+  const cambio = rubro !== empresa.rubro;
+
+  async function guardar() {
+    const aviso = configRubro(empresa.rubro).usaMl && !configRubro(rubro).usaMl
+      ? "\n\nSe deja de mostrar el contenido en ml. Los datos no se borran: si vuelve a Perfumería, siguen ahí."
+      : "\n\nNo se borra ningún dato, solo cambia qué se muestra.";
+    if (!await confirmar(`¿Pasar "${empresa.nombre}" a ${NOMBRES_RUBRO[rubro]}?${aviso}`, { titulo: "Cambiar rubro", confirmar: "Cambiar" })) return;
+    correr(() => cambiarRubro(empresa.id, rubro), "Rubro actualizado.");
+  }
+
+  return (
+    <section className="rounded-2xl border border-border bg-white p-4">
+      <h2 className="text-base font-semibold text-text">Rubro</h2>
+      <p className="text-xs text-text-dim">Define qué campos y textos de ejemplo ve el negocio (ej. el contenido en ml es solo de Perfumería). No cambia el plan.</p>
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+        <div className="flex-1">
+          <label htmlFor="rubro-empresa" className="mb-1 block text-xs text-text-dim">Rubro del negocio</label>
+          <select id="rubro-empresa" value={rubro} onChange={(e) => setRubro(e.target.value as Rubro)} className={INPUT}>
+            {RUBROS.map((r) => (
+              <option key={r} value={r}>{NOMBRES_RUBRO[r]}</option>
+            ))}
+          </select>
+        </div>
+        <button type="button" onClick={guardar} disabled={pendiente || !cambio} className={BOTON_PRIMARIO}>
+          Guardar rubro
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -367,6 +406,7 @@ export function DetalleEmpresa({ empresa }: { empresa: EmpresaDetalle }) {
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       <Cabecera empresa={empresa} />
+      <RubroEmpresa key={empresa.rubro} empresa={empresa} />
       <Sucursales empresa={empresa} />
       <Usuarios empresa={empresa} />
     </div>

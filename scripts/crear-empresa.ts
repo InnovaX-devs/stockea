@@ -10,9 +10,11 @@
  *   npx tsx scripts/crear-empresa.ts
  *
  * LICENCIA es opcional: BASICO (default) o PREMIUM.
+ * RUBRO es opcional: GENERAL (default), ALMACEN, PERFUMERIA o ROPA.
  */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { normalizarRubro } from "../src/lib/rubro";
 
 const prisma = new PrismaClient();
 
@@ -22,6 +24,7 @@ async function main() {
   const password = process.env.ADMIN_PASSWORD;
   const cotizacionUSD = process.env.COTIZACION_USD ? Number(process.env.COTIZACION_USD) : 1000;
   const licencia = process.env.LICENCIA === "PREMIUM" ? "PREMIUM" : "BASICO";
+  const rubro = normalizarRubro(process.env.RUBRO);
 
   if (!nombreNegocio || !email || !password) {
     console.error(
@@ -44,7 +47,7 @@ async function main() {
   });
 
   await prisma.configuracion.create({
-    data: { empresaId: empresa.id, nombreNegocio, cotizacionUSD, licencia },
+    data: { empresaId: empresa.id, nombreNegocio, cotizacionUSD, licencia, rubro },
   });
 
   // Toda empresa arranca con una sucursal. Las adicionales (solo PREMIUM)
@@ -63,6 +66,7 @@ async function main() {
 
   console.log("✅ Empresa creada:", empresa.nombre, `(id ${empresa.id})`);
   console.log("✅ Licencia:", licencia);
+  console.log("✅ Rubro:", rubro);
   console.log("✅ Usuario admin:", admin.email);
   console.log(`   Ya puede loguearse con el email y la contraseña que definiste.`);
 }
