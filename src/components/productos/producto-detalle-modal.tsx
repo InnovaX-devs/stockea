@@ -9,6 +9,7 @@ interface ProductoDetalle {
   nombre: string;
   fotoUrl?: string | null;
   contenidoMl?: number | null;
+  modeloId?: number | null;
   marca?: { nombre: string } | null;
   categoria?: { nombre: string } | null;
   stockActual: number;
@@ -31,6 +32,8 @@ interface ProductoDetalleModalProps {
   configProducto: ConfigProducto;
   onClose: () => void;
   onEditar: () => void;
+  /** Solo para combinaciones de un modelo de ropa: abre la edición del modelo. */
+  onEditarModelo?: () => void;
   onDesactivar: () => void;
 }
 
@@ -40,6 +43,7 @@ export function ProductoDetalleModal({
   configProducto,
   onClose,
   onEditar,
+  onEditarModelo,
   onDesactivar,
 }: ProductoDetalleModalProps) {
   const { usaMl } = useRubro();
@@ -229,6 +233,15 @@ export function ProductoDetalleModal({
             <Pencil className="h-4 w-4" />
             Editar producto
           </button>
+          {onEditarModelo && (
+            <button
+              type="button"
+              onClick={onEditarModelo}
+              className="flex items-center justify-center gap-2 rounded-lg border border-primary px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/10"
+            >
+              Editar modelo
+            </button>
+          )}
           <button
             type="button"
             onClick={onDesactivar}

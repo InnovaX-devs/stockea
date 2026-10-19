@@ -15,6 +15,8 @@ import { toArs, toUsd, formatCurrency } from "@/lib/currency";
 import Select from "@/components/ui/select";
 import { ProductoDetalleModal } from "@/components/productos/producto-detalle-modal";
 import { useRubro } from "@/components/layout/rubro-context";
+import { ModeloFormModal } from "@/components/productos/modelo-form-modal";
+import { ModeloEditarModal } from "@/components/productos/modelo-editar-modal";
 import { avisar } from "@/components/ui/dialogos";
 
 
@@ -26,6 +28,7 @@ interface Producto {
   ubicacionDeposito?: string | null;
   fotoUrl?: string | null;
   contenidoMl?: number | null;
+  modeloId?: number | null;
   marca?: { nombre: string } | null;
   marcaId?: number | null;
   categoriaId?: number | null;
@@ -95,7 +98,9 @@ export default function ProductosAdmin() {
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
   const [desactivandoId, setDesactivandoId] = useState<string | null>(null);
   const [productoADesactivar, setProductoADesactivar] = useState<Producto | null>(null);
-  const { textos } = useRubro();
+  const { textos, usaTallesColores } = useRubro();
+  const [modeloNuevoAbierto, setModeloNuevoAbierto] = useState(false);
+  const [modeloEditarId, setModeloEditarId] = useState<number | null>(null);
   const [configProducto, setConfigProducto] = useState({
     cotizacionUSD: 1200,
     usaCotizacionUSD: false,
@@ -419,6 +424,15 @@ export default function ProductosAdmin() {
           >
             + Nuevo Producto
           </button>
+          {usaTallesColores && (
+            <button
+              type="button"
+              onClick={() => setModeloNuevoAbierto(true)}
+              className="inline-flex items-center justify-center rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 cursor-pointer"
+            >
+              + Nuevo Modelo
+            </button>
+          )}
         </div>
       </div>
 
@@ -1028,11 +1042,31 @@ export default function ProductosAdmin() {
         variant={productoADesactivar?.activo ? "danger" : "default"}
         loading={desactivandoId === productoADesactivar?.id}
       />
+      {usaTallesColores && (
+        <ModeloFormModal isOpen={modeloNuevoAbierto} onClose={() => setModeloNuevoAbierto(false)} onSuccess={cargarProductos} />
+      )}
+      {usaTallesColores && modeloEditarId !== null && (
+        <ModeloEditarModal
+          key={modeloEditarId}
+          modeloId={modeloEditarId}
+          onClose={() => setModeloEditarId(null)}
+          onChanged={cargarProductos}
+        />
+      )}
+
       <ProductoDetalleModal
         isOpen={!!productoDetalle}
         producto={productoDetalle}
         configProducto={configProducto}
         onClose={() => setProductoDetalle(null)}
+        onEditarModelo={
+          usaTallesColores && productoDetalle?.modeloId
+            ? () => {
+                setModeloEditarId(productoDetalle.modeloId ?? null);
+                setProductoDetalle(null);
+              }
+            : undefined
+        }
         onEditar={() => {
           if (productoDetalle) handleAbrirEditar(productoDetalle);
           setProductoDetalle(null);
