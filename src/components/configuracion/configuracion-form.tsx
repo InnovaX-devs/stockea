@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { guardarConfiguracion } from "@/app/(dashboard)/configuracion/actions";
 import { CambiarPasswordModal } from "@/components/layout/cambiar-password-modal";
 import { useRubro } from "@/components/layout/rubro-context";
+import { listaATexto } from "@/lib/variantes";
 
 interface ConfiguracionFormProps {
   configuracion: {
@@ -24,12 +25,14 @@ interface ConfiguracionFormProps {
     colorPrimario: string | null;
     colorSecundario: string | null;
     licencia: "BASICO" | "PREMIUM";
+    tallesSugeridos: string[];
+    coloresSugeridos: string[];
   };
 }
 
 export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { textos } = useRubro();
+  const { textos, usaTallesColores } = useRubro();
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(configuracion.logoUrl);
   const [logoRemovido, setLogoRemovido] = useState(false);
@@ -349,6 +352,41 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
           </div>
         </div>
       </div>
+
+      {/* Talles y colores sugeridos (solo rubro Ropa) */}
+      {usaTallesColores && (
+        <div className="rounded-2xl border border-border bg-white p-6">
+          <h2 className="mb-1 text-base font-semibold text-text">Talles y colores</h2>
+          <p className="mb-4 text-xs text-text-dim">
+            Son los que se ofrecen al cargar un modelo de ropa. Escribilos separados por coma: podés agregar,
+            sacar o reordenar. No afecta a los productos que ya cargaste.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm text-text-dim" htmlFor="tallesSugeridos">Talles</label>
+              <textarea
+                id="tallesSugeridos"
+                name="tallesSugeridos"
+                rows={3}
+                defaultValue={listaATexto(configuracion.tallesSugeridos)}
+                placeholder="XS, S, M, L, XL"
+                className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-text-dim" htmlFor="coloresSugeridos">Colores</label>
+              <textarea
+                id="coloresSugeridos"
+                name="coloresSugeridos"
+                rows={3}
+                defaultValue={listaATexto(configuracion.coloresSugeridos)}
+                placeholder="Negro, Blanco, Azul"
+                className="w-full rounded-md border border-border bg-white px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Preferencias */}
       <div className="rounded-2xl border border-border bg-white p-6">

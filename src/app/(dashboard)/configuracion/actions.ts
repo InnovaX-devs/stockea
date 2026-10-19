@@ -9,6 +9,8 @@ import bcrypt from "bcryptjs";
 import { auth } from "@/auth"; // ⚠️ ajustar si tu ruta real es otra
 import { prisma } from "@/lib/prisma";
 import { isPasswordValid } from "@/lib/password-validation";
+import { configRubro } from "@/lib/rubro";
+import { limpiarLista } from "@/lib/variantes";
 
 export async function guardarConfiguracion(formData: FormData) {
   await requerirAdmin(); // solo admin (ver src/lib/permisos.ts)
@@ -48,6 +50,12 @@ export async function guardarConfiguracion(formData: FormData) {
     }
   }
 
+  // Talles y colores sugeridos: solo los usa el rubro Ropa. En los demás rubros
+  // el formulario no los muestra y acá no se tocan.
+  const usaTallesColores = configRubro(configuracionActual.rubro).usaTallesColores;
+  const tallesSugeridos = usaTallesColores ? limpiarLista(formData.get("tallesSugeridos") as string | null) : undefined;
+  const coloresSugeridos = usaTallesColores ? limpiarLista(formData.get("coloresSugeridos") as string | null) : undefined;
+
   const costoPromedioPonderado = formData.get("costoPromedioPonderado") === "on";
 
   const cajaTurnoContinuo = formData.get("cajaTurnoContinuo") === "on";
@@ -82,6 +90,8 @@ export async function guardarConfiguracion(formData: FormData) {
     costoPromedioPonderado,
     horaAperturaCaja,
     cajaTurnoContinuo,
+    ...(tallesSugeridos !== undefined ? { tallesSugeridos } : {}),
+    ...(coloresSugeridos !== undefined ? { coloresSugeridos } : {}),
     ...(usaCotizacionUSD !== undefined ? { usaCotizacionUSD } : {}),
     ...(cotizacionUSD !== undefined ? { cotizacionUSD } : {}),
     ...(logoUrl !== undefined ? { logoUrl } : {}),
