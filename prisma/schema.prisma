@@ -624,6 +624,16 @@ enum Licencia {
   PREMIUM
 }
 
+// Tipo de negocio. La licencia dice CUÁNTO se puede usar; el rubro dice QUÉ
+// tipo de negocio es y qué campos/textos se muestran. Todo lo que cambia según
+// el rubro vive en src/lib/rubro.ts.
+enum Rubro {
+  GENERAL
+  ALMACEN
+  PERFUMERIA
+  ROPA
+}
+
 model Configuracion {
   id              Int     @id @default(autoincrement())
   nombreNegocio   String
@@ -668,6 +678,11 @@ model Configuracion {
   // dar de alta cada empresa (scripts/crear-empresa.ts), no hay UI para
   // que el cliente final la cambie.
   licencia Licencia @default(BASICO)
+
+  // Rubro del negocio (qué se muestra, no cuánto se puede usar). Cambiarlo
+  // NUNCA borra datos: solo oculta/muestra campos (ver src/lib/rubro.ts). Lo
+  // elige InnovaX al crear la empresa y lo puede cambiar desde el panel.
+  rubro Rubro @default(GENERAL)
 
   // Si el negocio no maneja precios en USD, este flag queda apagado y
   // el campo de cotización no se pide en Configuración (queda en su

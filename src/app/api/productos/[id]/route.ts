@@ -6,6 +6,8 @@ import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
 import { ajustarStock } from "@/lib/stock";
 import { esFotoPermitida } from "@/lib/fotos";
+import { obtenerConfiguracion } from "@/lib/configuracion";
+import { configRubro } from "@/lib/rubro";
 
 export async function PUT(
   request: NextRequest,
@@ -74,12 +76,16 @@ export async function PUT(
         ? String(body.ubicacion).trim()
         : null;
 
-    // Contenido en ml de la botella
-    const contenidoMl =
-      body.contenidoMl !== undefined &&
-      body.contenidoMl !== "" &&
-      body.contenidoMl !== null &&
-      !isNaN(Number(body.contenidoMl))
+    // Contenido en ml de la botella. Si el rubro no usa ml, el campo está oculto:
+    // se deja como está (undefined = Prisma no lo toca) para que cambiar de
+    // rubro y volver no pierda los datos.
+    const usaMl = configRubro((await obtenerConfiguracion()).rubro).usaMl;
+    const contenidoMl = !usaMl
+      ? undefined
+      : body.contenidoMl !== undefined &&
+          body.contenidoMl !== "" &&
+          body.contenidoMl !== null &&
+          !isNaN(Number(body.contenidoMl))
         ? Number(body.contenidoMl)
         : null;
 

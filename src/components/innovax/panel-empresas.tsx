@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 import { formatFechaAR } from "@/lib/timezone";
 import { isPasswordValid } from "@/lib/password-validation";
 import { crearEmpresa, type EmpresaFila } from "@/app/(dashboard)/innovax/actions";
+import { NOMBRES_RUBRO, RUBROS, type Rubro } from "@/lib/rubro";
 
 export const INPUT =
   "w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary";
@@ -30,6 +31,10 @@ export function ChipLicencia({ licencia }: { licencia: "BASICO" | "PREMIUM" }) {
   );
 }
 
+export function ChipRubro({ rubro }: { rubro: Rubro }) {
+  return <span className="rounded-full bg-surface-hover px-2 py-0.5 text-xs font-medium text-text-dim">{NOMBRES_RUBRO[rubro]}</span>;
+}
+
 function NuevaEmpresa({ onCerrar }: { onCerrar: () => void }) {
   const router = useRouter();
   const [pendiente, startTransition] = useTransition();
@@ -38,6 +43,7 @@ function NuevaEmpresa({ onCerrar }: { onCerrar: () => void }) {
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [licencia, setLicencia] = useState<"BASICO" | "PREMIUM">("BASICO");
+  const [rubro, setRubro] = useState<Rubro>("GENERAL");
   const [cotizacion, setCotizacion] = useState("");
 
   const valido = nombreNegocio.trim() && adminEmail.trim() && isPasswordValid(adminPassword);
@@ -50,6 +56,7 @@ function NuevaEmpresa({ onCerrar }: { onCerrar: () => void }) {
         adminEmail,
         adminPassword,
         licencia,
+        rubro,
         cotizacionUSD: cotizacion ? Number(cotizacion) : undefined,
       });
       if (!r.success) return void toast.error(r.error);
@@ -72,6 +79,14 @@ function NuevaEmpresa({ onCerrar }: { onCerrar: () => void }) {
           <select id="ne-licencia" value={licencia} onChange={(e) => setLicencia(e.target.value as "BASICO" | "PREMIUM")} className={INPUT}>
             <option value="BASICO">Básico</option>
             <option value="PREMIUM">Premium</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="ne-rubro" className="mb-1 block text-sm text-text-dim">Rubro</label>
+          <select id="ne-rubro" value={rubro} onChange={(e) => setRubro(e.target.value as Rubro)} className={INPUT}>
+            {RUBROS.map((r) => (
+              <option key={r} value={r}>{NOMBRES_RUBRO[r]}</option>
+            ))}
           </select>
         </div>
         <div>
@@ -152,6 +167,7 @@ export function PanelEmpresas({ empresas }: { empresas: EmpresaFila[] }) {
                 <th className="px-4 py-3">ID</th>
                 <th className="px-4 py-3">Empresa</th>
                 <th className="px-4 py-3">Licencia</th>
+                <th className="px-4 py-3">Rubro</th>
                 <th className="px-4 py-3 text-right">Sucursales</th>
                 <th className="px-4 py-3 text-right">Usuarios</th>
                 <th className="px-4 py-3">Admin</th>
@@ -170,6 +186,7 @@ export function PanelEmpresas({ empresas }: { empresas: EmpresaFila[] }) {
                     {!e.activa && <span className="ml-2 rounded-full bg-danger/10 px-2 py-0.5 text-xs text-danger">Suspendida</span>}
                   </td>
                   <td className="px-4 py-3"><ChipLicencia licencia={e.licencia} /></td>
+                  <td className="px-4 py-3"><ChipRubro rubro={e.rubro} /></td>
                   <td className="px-4 py-3 text-right tabular-nums">{e.sucursales}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{e.usuarios}</td>
                   <td className="px-4 py-3 text-text-dim">{e.adminEmail ?? "—"}</td>
@@ -183,7 +200,7 @@ export function PanelEmpresas({ empresas }: { empresas: EmpresaFila[] }) {
               ))}
               {filtradas.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-text-dim">No hay empresas que coincidan.</td>
+                  <td colSpan={9} className="px-4 py-8 text-center text-text-dim">No hay empresas que coincidan.</td>
                 </tr>
               )}
             </tbody>
