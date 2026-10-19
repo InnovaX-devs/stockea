@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       fotoUrl: true,
       contenidoMl: true,
       modeloId: true,
+      modelo: { select: { nombre: true } },
       talle: true,
       color: true,
       stockActual: true,

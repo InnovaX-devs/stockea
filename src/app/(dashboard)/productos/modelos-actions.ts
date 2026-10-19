@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { requerirAdmin } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { configRubro } from "@/lib/rubro";
-import { obtenerSucursalIdActual } from "@/lib/sucursal";
+import { obtenerContextoSucursal, obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
+import { conStockDeSucursal, sucursalParaMostrarStock } from "@/lib/stock-sucursal";
+import { fijarStockVariante, stockDeModelo, type CeldaStock } from "@/lib/modelos-stock";
 import {
   actualizarModelo,
   actualizarPreciosDeModelo,
@@ -59,7 +61,9 @@ export async function obtenerModeloAction(modeloId: number): Promise<Resultado<M
     const empresaId = await contexto();
     const modelo = await obtenerModeloDetalle(empresaId, Number(modeloId));
     if (!modelo) throw new Error("El modelo no existe.");
-    return { success: true, data: modelo };
+    // Stock de la sucursal en la que se trabaja (antes mostraba el total de
+    // todas las sucursales aunque hubiera una elegida).
+    return { success: true, data: { ...modelo, variantes: await conStockDeSucursal(modelo.variantes) } };
   } catch (e) {
     return error(e, "No se pudo cargar el modelo.");
   }
@@ -120,5 +124,52 @@ export async function eliminarCombinacionAction(modeloId: number, productoId: nu
     return { success: true, data };
   } catch (e) {
     return error(e, "No se pudo borrar la combinación.");
+  }
+}
+
+export type StockModelo = {
+  nombre: string;
+  /** Sucursal cuyo stock se muestra; null = total de todas (no se puede editar). */
+  sucursal: string | null;
+  /** Se puede editar el stock (hay una sucursal concreta). */
+  editable: boolean;
+  variantes: CeldaStock[];
+};
+
+/** Grilla de stock talle × color de un modelo (RV-4, #63). */
+export async function stockModeloAction(modeloId: number): Promise<Resultado<StockModelo>> {
+  try {
+    const empresaId = await contexto();
+    const [{ actual, multisucursal }, sucursalStock] = await Promise.all([obtenerContextoSucursal(), sucursalParaMostrarStock()]);
+    const datos = await stockDeModelo(empresaId, Number(modeloId), sucursalStock);
+    if (!datos) throw new Error("El modelo no existe.");
+    return {
+      success: true,
+      data: {
+        nombre: datos.nombre,
+        sucursal: multisucursal ? (actual?.nombre ?? null) : null,
+        editable: actual != null,
+        variantes: datos.variantes,
+      },
+    };
+  } catch (e) {
+    return error(e, "No se pudo cargar el stock del modelo.");
+  }
+}
+
+/** Cambia el stock de una combinación en la sucursal actual (edición rápida de la grilla). */
+export async function fijarStockVarianteAction(
+  modeloId: number,
+  productoId: number,
+  cantidad: number
+): Promise<Resultado<{ nombre: string; anterior: number; nuevo: number }>> {
+  try {
+    const empresaId = await contexto();
+    const sucursalId = await requerirSucursalId();
+    const data = await fijarStockVariante(empresaId, sucursalId, Number(modeloId), Number(productoId), Number(cantidad));
+    revalidatePath("/productos");
+    return { success: true, data };
+  } catch (e) {
+    return error(e, "No se pudo cambiar el stock.");
   }
 }

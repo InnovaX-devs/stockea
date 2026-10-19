@@ -67,16 +67,18 @@ export function ordenarTalles(talles: (string | null)[]): (string | null)[] {
   });
 }
 
-export type Grilla = {
+type ConTalleColor = { talle?: string | null; color?: string | null };
+
+export type Grilla<T extends ConTalleColor = ProductoBusquedaDTO> = {
   /** Filas (null = sin talle). */
   talles: (string | null)[];
   /** Columnas (null = sin color). */
   colores: (string | null)[];
-  celda: (talle: string | null, color: string | null) => ProductoBusquedaDTO | undefined;
+  celda: (talle: string | null, color: string | null) => T | undefined;
 };
 
 /** Arma la grilla talle × color de las combinaciones de un modelo. */
-export function armarGrilla(variantes: ProductoBusquedaDTO[]): Grilla {
+export function armarGrilla<T extends ConTalleColor>(variantes: T[]): Grilla<T> {
   const clave = (t: string | null | undefined, c: string | null | undefined) => `${t ?? ""}\u0000${c ?? ""}`;
   const mapa = new Map(variantes.map((v) => [clave(v.talle, v.color), v]));
   const talles = ordenarTalles([...new Set(variantes.map((v) => v.talle ?? null))]);
