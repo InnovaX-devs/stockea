@@ -39,12 +39,12 @@ export interface ProductoFormData {
 }
 
 interface Marca {
-  id: string;
+  id: string | number;
   nombre: string;
 }
 
 interface Categoria {
-  id: string;
+  id: string | number;
   nombre: string;
 }
 
@@ -227,7 +227,7 @@ export function ProductoFormModal({
       if (res.ok) {
         const marcaCreada = await res.json();
         setMarcas((prev) => [...prev, marcaCreada]);
-        setFormData((prev) => ({ ...prev, marcaId: marcaCreada.id }));
+        setFormData((prev) => ({ ...prev, marcaId: String(marcaCreada.id) }));
         setNuevaMarcaNombre("");
         setMostrarAltaMarca(false);
       } else {
@@ -260,7 +260,7 @@ export function ProductoFormModal({
       if (res.ok) {
         const catCreada = await res.json();
         setCategorias((prev) => [...prev, catCreada]);
-        setFormData((prev) => ({ ...prev, categoriaId: catCreada.id }));
+        setFormData((prev) => ({ ...prev, categoriaId: String(catCreada.id) }));
         setNuevaCategoriaNombre("");
         setMostrarAltaCategoria(false);
       } else {
@@ -622,7 +622,7 @@ export function ProductoFormModal({
                 onChange={(v) => setFormData({ ...formData, marcaId: v })}
                 options={[
                   { value: "", label: "Seleccionar marca..." },
-                  ...marcas.map((m) => ({ value: m.id, label: m.nombre })),
+                  ...marcas.map((m) => ({ value: String(m.id), label: m.nombre })),
                 ]}
                 className="mt-1"
               />
@@ -647,7 +647,7 @@ export function ProductoFormModal({
                 onChange={(v) => setFormData({ ...formData, categoriaId: v })}
                 options={[
                   { value: "", label: "Seleccionar categoría..." },
-                  ...categorias.map((c) => ({ value: c.id, label: c.nombre })),
+                  ...categorias.map((c) => ({ value: String(c.id), label: c.nombre })),
                 ]}
                 className="mt-1"
               />
