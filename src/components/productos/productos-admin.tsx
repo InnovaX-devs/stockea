@@ -15,6 +15,7 @@ import { toArs, toUsd, formatCurrency } from "@/lib/currency";
 import Select from "@/components/ui/select";
 import { ProductoDetalleModal } from "@/components/productos/producto-detalle-modal";
 import { useRubro } from "@/components/layout/rubro-context";
+import { contenidoVisible } from "@/lib/rubro";
 import { ModeloFormModal } from "@/components/productos/modelo-form-modal";
 import { ModeloEditarModal } from "@/components/productos/modelo-editar-modal";
 import { avisar } from "@/components/ui/dialogos";
@@ -29,7 +30,8 @@ interface Producto {
   codigoBarras?: string | null;
   ubicacionDeposito?: string | null;
   fotoUrl?: string | null;
-  contenidoMl?: number | null;
+  contenido?: number | null;
+  unidadContenido?: string | null;
   modeloId?: number | null;
   /** Ropa (RV-2): modelo, talle y color de la combinación. */
   modelo?: { nombre: string } | null;
@@ -113,7 +115,7 @@ export default function ProductosAdmin() {
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
   const [desactivandoId, setDesactivandoId] = useState<string | null>(null);
   const [productoADesactivar, setProductoADesactivar] = useState<Producto | null>(null);
-  const { textos, usaTallesColores } = useRubro();
+  const { textos, usaTallesColores, rubro } = useRubro();
   const [modeloNuevoAbierto, setModeloNuevoAbierto] = useState(false);
   const [modeloEditarId, setModeloEditarId] = useState<number | null>(null);
   const [configProducto, setConfigProducto] = useState({
@@ -408,7 +410,8 @@ export default function ProductosAdmin() {
       ubicacion: producto.ubicacionDeposito ?? "",
       marcaId: producto.marcaId ? String(producto.marcaId) : "",
       categoriaId: producto.categoriaId ? String(producto.categoriaId) : "",
-      contenidoMl: producto.contenidoMl ?? "",
+      contenido: producto.contenido ?? "",
+      unidadContenido: (producto.unidadContenido as ProductoFormData["unidadContenido"]) ?? "",
       stockActual: producto.stockActual ?? "",
       stockMinimo: producto.stockMinimo ?? "",
       destacado: producto.destacado ?? false,
@@ -508,6 +511,9 @@ export default function ProductosAdmin() {
                       >
                         <td className={cn("px-4 py-3 font-semibold text-text", enModelo && "pl-12 font-medium")}>
                           {enModelo ? [p.talle, p.color].filter(Boolean).join(" · ") || p.nombre : p.nombre}
+                          {contenidoVisible(rubro, p.contenido, p.unidadContenido) && (
+                            <span className="ml-2 text-sm font-normal text-text-dim">{contenidoVisible(rubro, p.contenido, p.unidadContenido)}</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-text-dim">{p.marca?.nombre ?? "-"}</td>
                         <td className="px-4 py-3">
@@ -636,7 +642,12 @@ export default function ProductosAdmin() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-text">{enModelo ? [p.talle, p.color].filter(Boolean).join(" · ") || p.nombre : p.nombre}</p>
+                          <p className="truncate font-medium text-text">
+                            {enModelo ? [p.talle, p.color].filter(Boolean).join(" · ") || p.nombre : p.nombre}
+                            {contenidoVisible(rubro, p.contenido, p.unidadContenido) && (
+                              <span className="ml-1.5 font-normal text-text-dim">{contenidoVisible(rubro, p.contenido, p.unidadContenido)}</span>
+                            )}
+                          </p>
                           <p className="truncate text-xs text-text-dim">{p.marca?.nombre ?? "-"}</p>
                         </div>
                         <span className="shrink-0 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">

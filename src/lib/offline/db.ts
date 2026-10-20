@@ -1,5 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import type { Moneda } from "@/lib/currency";
+import type { UnidadContenido } from "@/lib/rubro";
 
 /** Copia local del catálogo (issue #40). Sin precioCosto a propósito. */
 export type ProductoLocal = {
@@ -10,7 +11,9 @@ export type ProductoLocal = {
   monedaPrecio: Moneda;
   precioVenta: number;
   precioMayorista: number | null;
-  contenidoMl: number | null;
+  /** Contenido (RV-8): cantidad + unidad ("500 g", "1,5 l"). */
+  contenido: number | null;
+  unidadContenido: UnidadContenido | null;
   marcaNombre: string | null;
   /** Ropa (RV-5): modelo, talle y color de esta combinación (null en el resto). */
   modeloId: number | null;
@@ -114,6 +117,18 @@ class StockeaDB extends Dexie {
     // productos guardados antes no tienen esos datos: se fuerza una
     // sincronización completa la próxima vez (se borra la marca de la última).
     this.version(3)
+      .stores({
+        productos: "id, codigoBarras, modeloId",
+        clientes: "id, telefono",
+        cuentas: "id",
+        meta: "clave",
+        outbox: "++id, &idCliente, estado, empresaId",
+      })
+      .upgrade((tx) => tx.table("meta").delete("ultimaCompleta"));
+    // v4 (RV-8, #67): contenido con unidad (antes solo contenidoMl). Mismos
+    // índices; las copias guardadas antes no tienen `contenido`, así que se
+    // fuerza una sincronización completa la próxima vez.
+    this.version(4)
       .stores({
         productos: "id, codigoBarras, modeloId",
         clientes: "id, telefono",

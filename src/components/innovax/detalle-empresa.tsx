@@ -109,8 +109,8 @@ function RubroEmpresa({ empresa }: { empresa: EmpresaDetalle }) {
   const cambio = rubro !== empresa.rubro;
 
   async function guardar() {
-    const aviso = configRubro(empresa.rubro).usaMl && !configRubro(rubro).usaMl
-      ? "\n\nSe deja de mostrar el contenido en ml. Los datos no se borran: si vuelve a Perfumería, siguen ahí."
+    const aviso = configRubro(empresa.rubro).usaContenido && !configRubro(rubro).usaContenido
+      ? "\n\nSe deja de mostrar el contenido (ml, g, etc.). Los datos no se borran: si vuelve a un rubro que lo usa, siguen ahí."
       : "\n\nNo se borra ningún dato, solo cambia qué se muestra.";
     if (!await confirmar(`¿Pasar "${empresa.nombre}" a ${NOMBRES_RUBRO[rubro]}?${aviso}`, { titulo: "Cambiar rubro", confirmar: "Cambiar" })) return;
     correr(() => cambiarRubro(empresa.id, rubro), "Rubro actualizado.");
@@ -119,7 +119,7 @@ function RubroEmpresa({ empresa }: { empresa: EmpresaDetalle }) {
   return (
     <section className="rounded-2xl border border-border bg-white p-4">
       <h2 className="text-base font-semibold text-text">Rubro</h2>
-      <p className="text-xs text-text-dim">Define qué campos y textos de ejemplo ve el negocio (ej. el contenido en ml es solo de Perfumería). No cambia el plan.</p>
+      <p className="text-xs text-text-dim">Define qué campos y textos de ejemplo ve el negocio (ej. el contenido en ml/g/l no se muestra en Ropa). No cambia el plan.</p>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="flex-1">
           <label htmlFor="rubro-empresa" className="mb-1 block text-xs text-text-dim">Rubro del negocio</label>

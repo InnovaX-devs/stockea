@@ -9,6 +9,10 @@ import { validarCuentaParaSucursal } from "@/lib/cuenta-sucursal";
 const FILTROS_VALIDOS = ["pendientes", "confirmadas", "canceladas"] as const;
 type Filtro = (typeof FILTROS_VALIDOS)[number];
 
+// Estado de pago (CP-1).
+const FILTROS_PAGO = ["pagadas", "parciales", "sin-pagar"] as const;
+type FiltroPago = (typeof FILTROS_PAGO)[number];
+
 const PAGE_SIZE_DEFAULT = 15;
 const PAGE_SIZE_MAX = 100;
 
@@ -16,7 +20,8 @@ function armarWhere(
   empresaId: number,
   sucursalId: number | null,
   filtro: string | null,
-  busqueda: string | null
+  busqueda: string | null,
+  pago: string | null = null
 ): Prisma.CompraWhereInput {
   const where: Prisma.CompraWhereInput = { empresaId, ...filtroPorSucursal(sucursalId) };
 
@@ -32,6 +37,15 @@ function armarWhere(
       break;
     default:
       break;
+  }
+
+  // Solo tiene sentido en compras confirmadas. `pagada` se guarda al
+  // confirmar como "montoPagado cubre el total".
+  if (FILTROS_PAGO.includes(pago as FiltroPago)) {
+    Object.assign(where, { confirmada: true, cancelada: false });
+    if (pago === "pagadas") where.pagada = true;
+    if (pago === "parciales") Object.assign(where, { pagada: false, montoPagado: { gt: 0 } });
+    if (pago === "sin-pagar") Object.assign(where, { pagada: false, montoPagado: { lte: 0 } });
   }
 
   const q = busqueda?.trim();
@@ -58,7 +72,8 @@ export async function GET(request: NextRequest) {
         : PAGE_SIZE_DEFAULT;
 
     const sucursalId = await obtenerSucursalIdActual(); // null = "Todas" (solo admin)
-    const where = armarWhere(empresaId, sucursalId, filtro, busqueda);
+    const pago = request.nextUrl.searchParams.get("pago");
+    const where = armarWhere(empresaId, sucursalId, filtro, busqueda, pago);
 
     const [compras, totalCount] = await Promise.all([
       prisma.compra.findMany({
@@ -108,32 +123,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const cuentaId = Number(body.cuentaId);
-    if (!Number.isFinite(cuentaId)) {
-      return NextResponse.json(
-        { error: "Tenés que elegir una cuenta desde la que se va a pagar la compra" },
-        { status: 400 }
-      );
+    // Cuenta opcional (CP-1): es la que aparece sugerida al confirmar. Cuánto
+    // se paga y desde dónde se decide recién al confirmar la compra.
+    const cuentaId =
+      body.cuentaId != null && String(body.cuentaId).trim() !== "" ? Number(body.cuentaId) : null;
+    if (cuentaId != null && !Number.isInteger(cuentaId)) {
+      return NextResponse.json({ error: "La cuenta seleccionada no es válida" }, { status: 400 });
     }
 
     // La compra se carga en una sucursal concreta (ahí entra la mercadería).
     let sucursalId: number;
     try {
       sucursalId = await requerirSucursalId();
-      await validarCuentaParaSucursal(prisma, empresaId, cuentaId, sucursalId);
+      if (cuentaId != null) await validarCuentaParaSucursal(prisma, empresaId, cuentaId, sucursalId);
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "Elegí una sucursal." }, { status: 400 });
     }
 
-    const cuenta = await prisma.cuenta.findFirst({ where: { id: cuentaId, empresaId } });
-    if (!cuenta) {
-      return NextResponse.json({ error: "La cuenta seleccionada no existe" }, { status: 400 });
-    }
-    if (!cuenta.activa) {
-      return NextResponse.json(
-        { error: "La cuenta seleccionada está inactiva" },
-        { status: 400 }
-      );
+    if (cuentaId != null) {
+      const cuenta = await prisma.cuenta.findFirst({ where: { id: cuentaId, empresaId } });
+      if (!cuenta) {
+        return NextResponse.json({ error: "La cuenta seleccionada no existe" }, { status: 400 });
+      }
+      if (!cuenta.activa) {
+        return NextResponse.json(
+          { error: "La cuenta seleccionada está inactiva" },
+          { status: 400 }
+        );
+      }
     }
 
     const itemsBody = Array.isArray(body.items) ? body.items : [];

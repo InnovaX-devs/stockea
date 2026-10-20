@@ -17,7 +17,8 @@ function aDTO(p: ProductoLocal): ProductoBusquedaDTO {
     precioCosto: 0, // la copia local no guarda costos
     precioVenta: p.precioVenta,
     precioMayorista: p.precioMayorista,
-    contenidoMl: p.contenidoMl,
+    contenido: p.contenido ?? null,
+    unidadContenido: p.unidadContenido ?? null,
     marca: p.marcaNombre ? { nombre: p.marcaNombre } : null,
     modeloId: p.modeloId ?? null,
     modeloNombre: p.modeloNombre ?? null,

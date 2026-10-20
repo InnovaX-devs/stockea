@@ -351,10 +351,6 @@ export default function NuevaCompraPage() {
       setError("Agregá al menos un producto a la compra (con cantidad mayor a 0).");
       return;
     }
-    if (!cuentaId) {
-      setError("Elegí la cuenta desde la que se va a pagar la compra.");
-      return;
-    }
 
     // Validación de productos sueltos: cantidad >= 1 y costo no negativo.
     const itemInvalido = carrito.find(
@@ -394,7 +390,8 @@ export default function NuevaCompraPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           proveedorId: proveedorId || null,
-          cuentaId: Number(cuentaId),
+          // Opcional: queda sugerida al confirmar (ahí se decide cuánto se paga).
+          cuentaId: cuentaId ? Number(cuentaId) : null,
           items: [
             ...carrito.map((it) => ({
               productoId: it.productoId,
@@ -429,7 +426,7 @@ export default function NuevaCompraPage() {
           <p className="text-lg font-semibold text-text">Compra #{compraCreada.numero} guardada</p>
           <p className="mt-2 text-sm text-text-dim">
             Todavía no impactó en stock, costo ni caja. Confirmala para actualizar el
-            inventario y descontar el saldo de la cuenta, o hacelo más tarde desde el listado.
+            inventario y registrar el pago (todo, una parte o nada), o hacelo más tarde desde el listado.
           </p>
 
           {errorConfirmar && <p className="mt-3 text-sm text-danger">{errorConfirmar}</p>}
@@ -527,12 +524,12 @@ export default function NuevaCompraPage() {
 
       {/* Cuenta de pago */}
       <div className="space-y-3 rounded-2xl border border-border bg-white p-4">
-        <p className="text-xs uppercase tracking-wide text-text-dim">Cuenta desde la que se paga</p>
+        <p className="text-xs uppercase tracking-wide text-text-dim">Cuenta desde la que se paga (opcional)</p>
         <Select
           value={cuentaId}
           onChange={(value) => setCuentaId(value)}
           options={[
-            { value: "", label: "Elegí una cuenta..." },
+            { value: "", label: "Decidir al confirmar" },
             ...cuentas.map((c) => ({
               value: String(c.id),
               label: `${c.nombre} — ${TIPO_CUENTA_LABEL[c.tipo]}`,
@@ -540,11 +537,9 @@ export default function NuevaCompraPage() {
           ]}
           className="w-full"
         />
-        {cuentas.length === 0 && (
-          <p className="text-xs text-text-dim">
-            No hay cuentas activas registradas. Creá una desde Caja/Cuentas antes de comprar.
-          </p>
-        )}
+        <p className="text-xs text-text-dim">
+          Al confirmar la compra elegís si la pagás completa, una parte o nada. Lo que no pagues queda como deuda con el proveedor.
+        </p>
       </div>
 
       {/* Buscador de producto */}
@@ -847,7 +842,7 @@ export default function NuevaCompraPage() {
                 <p className="text-sm text-text-dim">
                   ≈ ARS {totalARS.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
                   {cuentaSeleccionada && (
-                    <span> · se debitará en {TIPO_CUENTA_LABEL[cuentaSeleccionada.tipo]} al confirmar</span>
+                    <span> · se pagaría desde {TIPO_CUENTA_LABEL[cuentaSeleccionada.tipo]} al confirmar</span>
                   )}
                 </p>
               </>
@@ -858,7 +853,7 @@ export default function NuevaCompraPage() {
                 </p>
                 {cuentaSeleccionada && (
                   <p className="text-sm text-text-dim">
-                    Se debitará en {TIPO_CUENTA_LABEL[cuentaSeleccionada.tipo]} al confirmar
+                    Se pagaría desde {TIPO_CUENTA_LABEL[cuentaSeleccionada.tipo]} al confirmar
                   </p>
                 )}
               </>

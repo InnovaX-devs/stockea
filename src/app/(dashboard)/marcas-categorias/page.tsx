@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Search } from "lucide-react";
 import { avisar, confirmar } from "@/components/ui/dialogos";
-import { useRubro } from "@/components/layout/rubro-context";
+import { useState, useEffect, useCallback } from "react";
+import { Ban, CheckCircle, Pencil, Search, Trash2 } from "lucide-react";
+import { cn } from "@/lib/cn";
 
 interface Elemento {
   id: number;
@@ -19,7 +19,6 @@ interface SeccionProps {
 }
 
 function TablaSeccion({ titulo, singular, endpoint }: SeccionProps) {
-  const { textos, categoriasSugeridas } = useRubro();
   const [items, setItems] = useState<Elemento[]>([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState("");
@@ -30,6 +29,8 @@ function TablaSeccion({ titulo, singular, endpoint }: SeccionProps) {
   const [itemEditar, setItemEditar] = useState<Elemento | null>(null);
   const [nombreForm, setNombreForm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  // Fila cuyo estado se está cambiando (deshabilita su ícono, evita doble clic).
+  const [procesandoId, setProcesandoId] = useState<number | null>(null);
 
   // Cargar lista
   const fetchItems = useCallback(async () => {
@@ -54,12 +55,6 @@ function TablaSeccion({ titulo, singular, endpoint }: SeccionProps) {
   const itemsFiltrados = items.filter((item) =>
     item.nombre.toLowerCase().includes(busqueda.toLowerCase())
   );
-
-  // Categorías sugeridas según el rubro (solo al crear, sin las que ya existen).
-  const sugeridas =
-    singular === "Categoría" && !itemEditar
-      ? categoriasSugeridas.filter((n) => !items.some((i) => i.nombre.toLowerCase() === n.toLowerCase()))
-      : [];
 
   // Abrir Modal Crear
   const handleOpenCrear = () => {
@@ -233,33 +228,67 @@ function TablaSeccion({ titulo, singular, endpoint }: SeccionProps) {
 
                   {/* Estado Activa / Inactiva */}
                   <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => handleToggleEstado(item)}
-                      title={item.activa ? "Clic para desactivar" : "Clic para activar"}
-                      className={`inline-flex cursor-pointer items-center rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
-                        item.activa
-                          ? "bg-success/10 text-success hover:opacity-80"
-                          : "bg-danger/10 text-danger hover:opacity-80"
-                      }`}
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
+                        item.activa ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
+                      )}
                     >
                       {item.activa ? "Activa" : "Inactiva"}
-                    </button>
+                    </span>
                   </td>
 
                   {/* Acciones */}
                   <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-3">
+                    <div className="flex items-center justify-end gap-2">
                       <button
+                        type="button"
                         onClick={() => handleOpenEditar(item)}
-                        className="text-sm cursor-pointer text-primary hover:underline"
+                        className="rounded-lg p-1.5 text-primary hover:bg-surface-hover"
+                        title={`Editar ${singular.toLowerCase()}`}
+                        aria-label={`Editar ${singular.toLowerCase()} ${item.nombre}`}
                       >
-                        Editar
+                        <Pencil className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => handleEliminar(item)}
-                        className="text-sm text-danger cursor-pointer hover:underline"
+                        type="button"
+                        onClick={async () => {
+                          setProcesandoId(item.id);
+                          await handleToggleEstado(item);
+                          setProcesandoId(null);
+                        }}
+                        disabled={procesandoId === item.id}
+                        className={cn(
+                          "rounded-lg p-1.5 disabled:opacity-40",
+                          item.activa
+                            ? "text-text-dim hover:bg-danger/10 hover:text-danger"
+                            : "text-success hover:bg-success/10"
+                        )}
+                        title={`${item.activa ? "Desactivar" : "Activar"} ${singular.toLowerCase()}`}
+                        aria-label={`${item.activa ? "Desactivar" : "Activar"} ${singular.toLowerCase()} ${item.nombre}`}
                       >
-                        Eliminar
+                        {item.activa ? <Ban className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+                      </button>
+                      <button
+                        type="button"
+                        // Con productos queda atenuado pero clickeable: así muestra el
+                        // tooltip y handleEliminar explica por qué no se puede.
+                        onClick={() => handleEliminar(item)}
+                        aria-disabled={item.cantidadProductos > 0}
+                        className={cn(
+                          "rounded-lg p-1.5 text-text-dim",
+                          item.cantidadProductos > 0
+                            ? "cursor-not-allowed opacity-30"
+                            : "hover:bg-danger/10 hover:text-danger"
+                        )}
+                        title={
+                          item.cantidadProductos > 0
+                            ? `Tiene ${item.cantidadProductos} producto(s): desactivala en su lugar`
+                            : `Eliminar ${singular.toLowerCase()}`
+                        }
+                        aria-label={`Eliminar ${singular.toLowerCase()} ${item.nombre}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
@@ -293,26 +322,11 @@ function TablaSeccion({ titulo, singular, endpoint }: SeccionProps) {
                   type="text"
                   required
                   autoFocus
-                  placeholder={singular === "Marca" ? textos.ejemploMarca : textos.ejemploCategoria}
+                  placeholder={`Ej: ${singular === "Marca" ? "Chanel" : "Perfumes"}`}
                   value={nombreForm}
                   onChange={(e) => setNombreForm(e.target.value)}
                   className="w-full rounded-lg border border-border px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary"
                 />
-                {sugeridas.length > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs text-text-dim">Sugeridas:</span>
-                    {sugeridas.map((nombre) => (
-                      <button
-                        key={nombre}
-                        type="button"
-                        onClick={() => setNombreForm(nombre)}
-                        className="rounded-full border border-border px-2 py-0.5 text-xs text-text hover:bg-surface-hover"
-                      >
-                        {nombre}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-2">

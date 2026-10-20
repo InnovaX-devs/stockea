@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Loader2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import Select from "@/components/ui/select";
 import { precioConMismoMargen, type ModoCosto } from "@/lib/calculos/actualizacion-precios";
 
 /**
@@ -12,7 +13,24 @@ import { precioConMismoMargen, type ModoCosto } from "@/lib/calculos/actualizaci
  * defecto según Configuración) y precios de venta que mantienen el mismo
  * margen. El costo real lo recalcula el servidor; los precios se pueden
  * editar antes de confirmar.
+ *
+ * Abajo, el pago (CP-1): pagar todo, una parte o nada ahora. Lo que no se
+ * paga queda como deuda con el proveedor. Los montos son en ARS; si la
+ * cuenta es en dólares, el servidor descuenta el equivalente con la
+ * cotización de la compra.
  */
+
+type ModoPago = "TODO" | "PARCIAL" | "NADA";
+
+type CuentaOpcion = { id: number; nombre: string; tipo: string; saldoActual?: number };
+
+const CUENTAS_USD = ["EFECTIVO_USD", "BANCO_USD"];
+
+const MODOS_PAGO: { modo: ModoPago; etiqueta: string }[] = [
+  { modo: "TODO", etiqueta: "Pagar todo" },
+  { modo: "PARCIAL", etiqueta: "Pagar una parte" },
+  { modo: "NADA", etiqueta: "No pagar ahora" },
+];
 
 type Moneda = "USD" | "ARS";
 
@@ -73,6 +91,14 @@ export function ConfirmarCompraModal({
   const [error, setError] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState(false);
 
+  // Pago
+  const [totalARS, setTotalARS] = useState(0);
+  const [cotizacion, setCotizacion] = useState(1);
+  const [cuentas, setCuentas] = useState<CuentaOpcion[]>([]);
+  const [modoPago, setModoPago] = useState<ModoPago>("TODO");
+  const [montoParcial, setMontoParcial] = useState("");
+  const [cuentaId, setCuentaId] = useState("");
+
   const costoNuevo = (p: ProductoPreview, m: ModoCosto = modo) => (m === "PONDERADO" ? p.costoPonderado : p.costoCompra);
   const sugerido = (precio: number | null, p: ProductoPreview, m: ModoCosto = modo) =>
     precioConMismoMargen(precio, p.costoActual, costoNuevo(p, m), p.moneda);
@@ -101,10 +127,22 @@ export function ConfirmarCompraModal({
         if (!r.ok) throw new Error(data.error || "No se pudo preparar la confirmación");
         setModo(data.modoPorDefecto);
         setNumero(data.numero ?? null);
+        setTotalARS(data.totalARS ?? 0);
+        setCotizacion(data.cotizacion ?? 1);
+        if (data.cuentaId != null) setCuentaId(String(data.cuentaId));
         setProductos(data.productos);
         setFilas(filasIniciales(data.productos, data.modoPorDefecto));
       })
       .catch((e) => setError(e.message));
+    // Cuentas de la sucursal actual y compartidas. Sin cuenta sugerida, la primera (favoritas primero).
+    fetch("/api/cuentas")
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((data) => {
+        const lista: CuentaOpcion[] = data.items ?? [];
+        setCuentas(lista);
+        setCuentaId((actual) => actual || (lista[0] ? String(lista[0].id) : ""));
+      })
+      .catch(() => setCuentas([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compraId]);
 
@@ -142,8 +180,27 @@ export function ConfirmarCompraModal({
     return f.actualizar && (mal(f.venta) || mal(f.mayorista));
   });
 
+  // ---- Pago ----
+  const montoAPagar =
+    modoPago === "TODO" ? totalARS : modoPago === "PARCIAL" ? Number(montoParcial.replace(",", ".")) : 0;
+  const quedaDebiendo = Math.max(0, Math.round((totalARS - (Number.isFinite(montoAPagar) ? montoAPagar : 0)) * 100) / 100);
+  const cuentaElegida = cuentas.find((c) => String(c.id) === cuentaId);
+  const cuentaEsUSD = !!cuentaElegida && CUENTAS_USD.includes(cuentaElegida.tipo);
+  const errorPago =
+    modoPago === "NADA"
+      ? null
+      : !cuentaElegida
+        ? "Elegí la cuenta desde la que se paga."
+        : modoPago === "PARCIAL" && montoParcial.trim() === ""
+          ? "Ingresá cuánto vas a pagar."
+          : modoPago === "PARCIAL" && !(montoAPagar > 0)
+            ? "El monto tiene que ser mayor a cero."
+            : modoPago === "PARCIAL" && montoAPagar >= totalARS
+              ? "Para pagar el total, elegí “Pagar todo”."
+              : null;
+
   async function confirmar() {
-    if (!productos) return;
+    if (!productos || errorPago) return;
     setConfirmando(true);
     setError(null);
     const numero = (v: string) => Number(v.replace(",", "."));
@@ -162,7 +219,10 @@ export function ConfirmarCompraModal({
       const r = await fetch(`/api/compras/${compraId}/confirmar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ precios }),
+        body: JSON.stringify({
+          precios,
+          pago: { monto: montoAPagar, cuentaId: montoAPagar > 0 ? Number(cuentaId) : null },
+        }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Error al confirmar la compra");
@@ -182,7 +242,7 @@ export function ConfirmarCompraModal({
         <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-text">Confirmar compra {numero != null ? `#${numero}` : ""}</h2>
-            <p className="text-sm text-text-dim">Se suma el stock y se descuenta el pago de la cuenta.</p>
+            <p className="text-sm text-text-dim">Se suma el stock y se registra el pago. Lo que no pagues queda como deuda con el proveedor.</p>
           </div>
           <button type="button" onClick={onCerrar} disabled={confirmando} className="rounded p-1 text-text/60 hover:bg-surface-hover" aria-label="Cerrar">
             <X className="h-5 w-5" />
@@ -320,6 +380,24 @@ export function ConfirmarCompraModal({
             </div>
           )}
 
+          {productos && (
+            <SeccionPago
+              totalARS={totalARS}
+              cotizacion={cotizacion}
+              modo={modoPago}
+              onModo={setModoPago}
+              monto={montoParcial}
+              onMonto={setMontoParcial}
+              cuentas={cuentas}
+              cuentaId={cuentaId}
+              onCuenta={setCuentaId}
+              cuentaEsUSD={cuentaEsUSD}
+              montoAPagar={montoAPagar}
+              quedaDebiendo={quedaDebiendo}
+              error={errorPago}
+            />
+          )}
+
           {error && <p className="mt-4 text-sm text-danger">{error}</p>}
         </div>
 
@@ -335,7 +413,7 @@ export function ConfirmarCompraModal({
           <button
             type="button"
             onClick={confirmar}
-            disabled={!productos || confirmando || precioInvalido}
+            disabled={!productos || confirmando || precioInvalido || !!errorPago}
             className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
           >
             {confirmando ? "Confirmando..." : "Confirmar compra"}
@@ -416,5 +494,123 @@ function CampoPrecio({
       )}
       {valor.trim() !== "" && !(nuevo > 0) && <p className="text-xs text-danger">Tiene que ser mayor a cero.</p>}
     </div>
+  );
+}
+
+function SeccionPago({
+  totalARS,
+  cotizacion,
+  modo,
+  onModo,
+  monto,
+  onMonto,
+  cuentas,
+  cuentaId,
+  onCuenta,
+  cuentaEsUSD,
+  montoAPagar,
+  quedaDebiendo,
+  error,
+}: {
+  totalARS: number;
+  cotizacion: number;
+  modo: ModoPago;
+  onModo: (m: ModoPago) => void;
+  monto: string;
+  onMonto: (v: string) => void;
+  cuentas: CuentaOpcion[];
+  cuentaId: string;
+  onCuenta: (v: string) => void;
+  cuentaEsUSD: boolean;
+  montoAPagar: number;
+  quedaDebiendo: number;
+  error: string | null;
+}) {
+  const pagaAlgo = modo !== "NADA";
+  return (
+    <section className="mt-6 space-y-4 rounded-xl border border-border bg-white p-4" aria-labelledby="pago-compra">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p id="pago-compra" className="text-base font-semibold text-text">Pago</p>
+        <p className="text-sm text-text-dim">
+          Total de la compra: <span className="font-semibold text-text">{fmt(totalARS, "ARS")}</span>
+        </p>
+      </div>
+
+      <div className="inline-flex flex-wrap rounded-lg border border-border bg-white p-1 text-sm" role="group" aria-label="Cómo se paga">
+        {MODOS_PAGO.map((o) => (
+          <button
+            key={o.modo}
+            type="button"
+            onClick={() => onModo(o.modo)}
+            aria-pressed={modo === o.modo}
+            className={cn("rounded-md px-3 py-1.5", modo === o.modo ? "bg-primary text-white" : "text-text-dim hover:text-text")}
+          >
+            {o.etiqueta}
+          </button>
+        ))}
+      </div>
+
+      {pagaAlgo && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {modo === "PARCIAL" && (
+            <label className="block space-y-1">
+              <span className="text-xs uppercase tracking-wide text-text-dim">Monto a pagar (ARS)</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="1"
+                value={monto}
+                onChange={(e) => onMonto(e.target.value)}
+                placeholder="0"
+                className={cn(INPUT, "w-full text-left")}
+              />
+            </label>
+          )}
+          <div className="space-y-1">
+            <span className="text-xs uppercase tracking-wide text-text-dim">Cuenta desde la que se paga</span>
+            {cuentas.length === 0 ? (
+              <p className="text-sm text-danger">No hay cuentas activas. Creá una en Finanzas o elegí “No pagar ahora”.</p>
+            ) : (
+              <Select
+                value={cuentaId}
+                onChange={onCuenta}
+                options={[
+                  { value: "", label: "Elegí una cuenta..." },
+                  ...cuentas.map((c) => ({
+                    value: String(c.id),
+                    label:
+                      c.saldoActual != null
+                        ? `${c.nombre} · saldo ${fmt(c.saldoActual, CUENTAS_USD.includes(c.tipo) ? "USD" : "ARS")}`
+                        : c.nombre,
+                  })),
+                ]}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface-hover px-3 py-2 text-sm">
+        <span className="text-text-dim">
+          {pagaAlgo && montoAPagar > 0 ? (
+            <>
+              Sale de la cuenta:{" "}
+              <span className="font-semibold text-text">
+                {cuentaEsUSD ? fmt(montoAPagar / cotizacion, "USD") : fmt(montoAPagar, "ARS")}
+              </span>
+              {cuentaEsUSD && <span className="text-xs"> (cotización {fmt(cotizacion, "ARS")})</span>}
+            </>
+          ) : (
+            "No sale plata de ninguna cuenta."
+          )}
+        </span>
+        <span className={quedaDebiendo > 0 ? "font-semibold text-warning" : "text-success"}>
+          {quedaDebiendo > 0 ? `Queda debiendo ${fmt(quedaDebiendo, "ARS")}` : "Queda pagada"}
+        </span>
+      </div>
+
+      {error && <p className="text-sm text-danger">{error}</p>}
+    </section>
   );
 }

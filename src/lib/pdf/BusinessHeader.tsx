@@ -22,11 +22,12 @@ export function BusinessHeader({
   return (
     <View style={pdfStyles.header} fixed>
       <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <View style={pdfStyles.logoBox}>
-          {configuracion.logoUrl ? (
+        {/* Sin logo no se dibuja el recuadro vacío. */}
+        {configuracion.logoUrl ? (
+          <View style={pdfStyles.logoBox}>
             <Image src={configuracion.logoUrl} style={pdfStyles.logo} />
-          ) : null}
-        </View>
+          </View>
+        ) : null}
         <View>
           <Text style={pdfStyles.businessName}>{configuracion.nombreNegocio}</Text>
           {detalle && <Text style={pdfStyles.businessDetail}>{detalle}</Text>}
@@ -35,7 +36,7 @@ export function BusinessHeader({
       <View>
         <Text style={pdfStyles.docTitle}>{titulo.toUpperCase()}</Text>
         <Text style={pdfStyles.docDate}>
-          {new Intl.DateTimeFormat("es-AR", { dateStyle: "short" }).format(new Date())}
+          {new Intl.DateTimeFormat("es-AR", { dateStyle: "short", timeZone: "America/Argentina/Buenos_Aires" }).format(new Date())}
         </Text>
       </View>
     </View>

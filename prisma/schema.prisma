@@ -149,13 +149,27 @@ enum MonedaPrecio {
   USD
 }
 
+/// Unidad del contenido de un producto (RV-8). Qué unidades se ofrecen lo decide el rubro (src/lib/rubro.ts).
+enum UnidadContenido {
+  ML
+  L
+  G
+  KG
+}
+
 model Producto {
   id                Int @id @default(autoincrement())
   nombre            String
   codigoBarras      String?
   ubicacionDeposito String?
   fotoUrl           String?
+  /// DEPRECADO (RV-8): reemplazado por contenido + unidadContenido. Se sigue escribiendo
+  /// (solo cuando la unidad es ML) por compatibilidad con el código viejo en producción;
+  /// se borra en una migración posterior.
   contenidoMl       Int?
+  /// Cantidad de contenido (ej. 100, 500, 1.5) y su unidad.
+  contenido         Float?
+  unidadContenido   UnidadContenido?
 
   // Variantes de ropa (RV-2). Cada combinación talle × color es un Producto
   // común (así stock por sucursal, ventas, compras, etc. andan sin cambios),
@@ -483,12 +497,19 @@ model Compra {
   proveedor   Proveedor? @relation(fields: [proveedorId], references: [id])
   proveedorId Int?
 
-  cuenta   Cuenta @relation(fields: [cuentaId], references: [id])
-  cuentaId Int
+  // Cuenta con la que se pagó (o se piensa pagar). null = compra sin pagar.
+  // onDelete: Restrict mantiene la FK como estaba: una cuenta con compras no se borra.
+  cuenta   Cuenta? @relation(fields: [cuentaId], references: [id], onDelete: Restrict)
+  cuentaId Int?
 
   totalUSD        Float
   totalARS        Float?
   cotizacionUsada Float?
+
+  // Lo pagado al confirmar, siempre en ARS (con la cotización de la compra,
+  // aunque se pague desde una cuenta en dólares). Deuda = totalARS - montoPagado.
+  // `pagada` se sigue guardando (montoPagado >= totalARS) para el código viejo.
+  montoPagado Float @default(0)
 
   confirmada Boolean  @default(false)
   pagada     Boolean  @default(false)
