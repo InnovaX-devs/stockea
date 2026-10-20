@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Download, Loader2, ChevronRight } from "lucide-react";
+import { X, Download, Loader2, ChevronRight, FileText } from "lucide-react";
 import { ModalDetallePedido } from "@/components/ventas/modal-detalle-pedido";
 import { obtenerHistorialDeuda } from "@/app/(dashboard)/clientes/actions";
-import { formatFechaHoraAR } from "@/lib/timezone";
+import { formatFechaHoraAR, fechaISOAR } from "@/lib/timezone";
 import { etiquetaVenta, archivoComprobanteVenta } from "@/lib/numeracion";
 import { avisar } from "@/components/ui/dialogos";
 
@@ -27,6 +27,26 @@ function formatARS(n: number) {
   return n.toLocaleString("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: 2 });
 }
 
+
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+/** Últimos 12 meses ("2026-10"…), del actual hacia atrás, en hora de Argentina. */
+function ultimosMeses(): { valor: string; texto: string }[] {
+  const [anio, mes] = fechaISOAR().split("-").map(Number);
+  return Array.from({ length: 12 }, (_, i) => {
+    const total = anio * 12 + (mes - 1) - i;
+    const a = Math.floor(total / 12);
+    const m = (total % 12) + 1;
+    return { valor: `${a}-${String(m).padStart(2, "0")}`, texto: `${MESES[m - 1]} ${a}${i === 0 ? " (en curso)" : ""}` };
+  });
+}
+
+type ModoResumen = "mes" | "rango" | "deuda";
+const MODOS_RESUMEN: { valor: ModoResumen; texto: string }[] = [
+  { valor: "mes", texto: "Por mes" },
+  { valor: "rango", texto: "Por período" },
+  { valor: "deuda", texto: "Desde que debe" },
+];
 
 export default function HistorialDeudaModal({
   cliente,
@@ -56,6 +76,45 @@ export default function HistorialDeudaModal({
       await avisar("Intentá de nuevo en unos segundos.", { titulo: "No se pudo descargar el comprobante", variante: "error" });
     } finally {
       setDescargando(null);
+    }
+  }
+
+  // Resumen de cuenta en PDF (#83): por mes (por defecto el mes pasado, que es
+  // el que se cobra a fin de mes), por período o "desde que debe".
+  const meses = ultimosMeses();
+  const hoy = fechaISOAR();
+  const [modoResumen, setModoResumen] = useState<ModoResumen>("mes");
+  const [mesResumen, setMesResumen] = useState(meses[1].valor);
+  const [desdeResumen, setDesdeResumen] = useState(`${hoy.slice(0, 7)}-01`);
+  const [hastaResumen, setHastaResumen] = useState(hoy);
+  const [bajandoResumen, setBajandoResumen] = useState(false);
+  const rangoInvalido = modoResumen === "rango" && (!desdeResumen || !hastaResumen || desdeResumen > hastaResumen);
+  async function descargarResumen() {
+    if (rangoInvalido) return;
+    const consulta =
+      modoResumen === "mes"
+        ? `mes=${mesResumen}`
+        : modoResumen === "rango"
+          ? `desde=${desdeResumen}&hasta=${hastaResumen}`
+          : "modo=deuda";
+    const sufijo = modoResumen === "mes" ? mesResumen : modoResumen === "rango" ? `${desdeResumen}-al-${hastaResumen}` : `deuda-al-${hoy}`;
+    setBajandoResumen(true);
+    try {
+      const res = await fetch(`/api/clientes/${cliente.id}/resumen?${consulta}`);
+      if (!res.ok) {
+        const cuerpo = await res.json().catch(() => null);
+        throw new Error(cuerpo?.error ?? "Intentá de nuevo en unos segundos.");
+      }
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `resumen-${sufijo}-${cliente.nombre}`.replace(/[^\p{L}\p{N}-]+/gu, "-") + ".pdf";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      await avisar(e instanceof Error ? e.message : "Intentá de nuevo en unos segundos.", { titulo: "No se pudo generar el resumen", variante: "error" });
+    } finally {
+      setBajandoResumen(false);
     }
   }
 
@@ -164,7 +223,88 @@ export default function HistorialDeudaModal({
           })}
         </div>
 
-        <div className="p-4 border-t border-border">
+        <div className="space-y-3 p-4 border-t border-border">
+          <div className="space-y-2 rounded-xl border border-border p-3">
+            <p className="text-sm font-semibold text-text">Resumen de cuenta (PDF)</p>
+            <div role="radiogroup" aria-label="Período del resumen" className="grid grid-cols-3 gap-1 rounded-lg bg-surface-hover p-1">
+              {MODOS_RESUMEN.map((m) => (
+                <button
+                  key={m.valor}
+                  type="button"
+                  role="radio"
+                  aria-checked={modoResumen === m.valor}
+                  onClick={() => setModoResumen(m.valor)}
+                  className={`rounded-md px-2 py-1.5 text-xs font-medium transition ${
+                    modoResumen === m.valor ? "bg-white text-text shadow-sm" : "text-text-dim hover:text-text"
+                  }`}
+                >
+                  {m.texto}
+                </button>
+              ))}
+            </div>
+
+            {modoResumen === "mes" && (
+              <div>
+                <label htmlFor="mes-resumen" className="sr-only">Mes del resumen</label>
+                <select
+                  id="mes-resumen"
+                  value={mesResumen}
+                  onChange={(ev) => setMesResumen(ev.target.value)}
+                  className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {meses.map((m) => (
+                    <option key={m.valor} value={m.valor}>
+                      {m.texto}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {modoResumen === "rango" && (
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs text-text-dim">
+                  Desde
+                  <input
+                    type="date"
+                    value={desdeResumen}
+                    max={hastaResumen || hoy}
+                    onChange={(ev) => setDesdeResumen(ev.target.value)}
+                    className="mt-1 w-full rounded-lg border border-border bg-white px-2 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </label>
+                <label className="text-xs text-text-dim">
+                  Hasta
+                  <input
+                    type="date"
+                    value={hastaResumen}
+                    min={desdeResumen}
+                    max={hoy}
+                    onChange={(ev) => setHastaResumen(ev.target.value)}
+                    className="mt-1 w-full rounded-lg border border-border bg-white px-2 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </label>
+                {rangoInvalido && <p className="col-span-2 text-xs text-danger">La fecha &quot;desde&quot; tiene que ser anterior a &quot;hasta&quot;.</p>}
+              </div>
+            )}
+
+            {modoResumen === "deuda" && (
+              <p className="rounded-lg bg-surface-hover px-3 py-2 text-xs text-text-dim">
+                Desde la última vez que tuvo la cuenta en cero hasta hoy: todo lo que compró y pagó desde que empezó a deber.
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={descargarResumen}
+              disabled={bajandoResumen || rangoInvalido}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              title="Resumen de cuenta en PDF: saldo anterior, compras, pagos y saldo a pagar"
+            >
+              {bajandoResumen ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              Descargar resumen
+            </button>
+          </div>
           <button
             onClick={onClose}
             className="w-full rounded-full border border-border py-2.5 text-sm font-medium hover:bg-surface-hover"
