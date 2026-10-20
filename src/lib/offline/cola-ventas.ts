@@ -79,7 +79,7 @@ async function ajustarStockLocal(items: PayloadVentaLocal["items"], signo: 1 | -
   for (const i of items) porProducto.set(i.productoId, (porProducto.get(i.productoId) ?? 0) + i.cantidad);
   for (const [id, cantidad] of porProducto) {
     await db.productos.where("id").equals(id).modify((p) => {
-      p.stockActual += signo * cantidad;
+      if (p.controlaStock !== false) p.stockActual += signo * cantidad; // verdura, fiambre…: sin stock
     });
   }
 }

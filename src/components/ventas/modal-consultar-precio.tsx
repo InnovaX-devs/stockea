@@ -88,7 +88,8 @@ export function ModalConsultarPrecio({ onClose }: Props) {
   const [desdeCopia, setDesdeCopia] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debouncedQuery = useDebounce(query, 250);
-  const filas = useMemo(() => agruparResultados(resultados, 20), [resultados]);
+  // Los de precio abierto (verdura, fiambre…) no tienen un precio para consultar.
+  const filas = useMemo(() => agruparResultados(resultados.filter((r) => !r.precioAbierto), 20), [resultados]);
 
   useEffect(() => {
     cargarConfig().then((c) => {

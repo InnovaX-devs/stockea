@@ -123,7 +123,7 @@ function FilaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTipoPr
     <tr className="border-b border-border bg-surface last:border-0">
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <TogglePrecioLinea item={item} onCambiarTipoPrecio={onCambiarTipoPrecio} />
+          {!item.producto.precioAbierto && <TogglePrecioLinea item={item} onCambiarTipoPrecio={onCambiarTipoPrecio} />}
           <span className="font-medium text-text">
             {item.producto.nombre}
           </span>
@@ -131,6 +131,10 @@ function FilaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTipoPr
       </td>
 
       <td className="px-4 py-3">
+        {item.producto.precioAbierto ? (
+          // Precio abierto: una línea por monto cargado (cantidad 1); para sumar más, se vuelve a agregar.
+          <div className="text-center font-medium text-text">{item.cantidad}</div>
+        ) : (
         <div className="flex items-center justify-center gap-2">
           <button
             type="button"
@@ -143,12 +147,13 @@ function FilaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTipoPr
           <button
             type="button"
             onClick={() => onCambiarCantidad(item.id, item.cantidad + 1)}
-            disabled={item.cantidad >= item.producto.stockActual}
+            disabled={item.producto.controlaStock !== false && item.cantidad >= item.producto.stockActual}
             className="rounded-md border border-border p-1 text-text-dim hover:bg-surface-hover hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
           >
             <Plus size={14} />
           </button>
         </div>
+        )}
       </td>
 
       <td className="px-4 py-3 text-right">
@@ -216,11 +221,16 @@ function TarjetaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTip
         </button>
       </div>
 
-      <div className="mt-2">
-        <TogglePrecioLinea item={item} onCambiarTipoPrecio={onCambiarTipoPrecio} />
-      </div>
+      {!item.producto.precioAbierto && (
+        <div className="mt-2">
+          <TogglePrecioLinea item={item} onCambiarTipoPrecio={onCambiarTipoPrecio} />
+        </div>
+      )}
 
       <div className="mt-3 flex items-center justify-between">
+        {item.producto.precioAbierto ? (
+          <span className="text-sm text-text-dim">Precio abierto</span>
+        ) : (
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -233,12 +243,13 @@ function TarjetaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTip
           <button
             type="button"
             onClick={() => onCambiarCantidad(item.id, item.cantidad + 1)}
-            disabled={item.cantidad >= item.producto.stockActual}
+            disabled={item.producto.controlaStock !== false && item.cantidad >= item.producto.stockActual}
             className="rounded-md border border-border p-1.5 text-text-dim hover:bg-surface-hover hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
           >
             <Plus size={14} />
           </button>
         </div>
+        )}
 
         {editando ? (
           <div className="flex items-center gap-1">

@@ -38,6 +38,10 @@ export type ProductoBusquedaDTO = {
   contenido: number | null;
   unidadContenido: UnidadContenido | null;
   marca: { nombre: string } | null;
+  /** Precio abierto (verdura, fiambre…): el monto se carga al vender. Ausente = precio fijo. */
+  precioAbierto?: boolean;
+  /** false = no descuenta ni suma stock. Ausente = controla stock. */
+  controlaStock?: boolean;
   /** Ropa (RV-2): modelo al que pertenece esta combinación talle × color. */
   modeloId?: number | null;
   modeloNombre?: string | null;

@@ -180,7 +180,7 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
                   <span className="truncate text-xs text-text-dim">
                     {[
                       contenidoVisible(rubro, fila.producto.contenido, fila.producto.unidadContenido),
-                      `Stock: ${fila.producto.stockActual}`,
+                      fila.producto.controlaStock === false ? null : `Stock: ${fila.producto.stockActual}`,
                       fila.producto.codigoBarras,
                     ]
                       .filter(Boolean)
@@ -188,7 +188,9 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
                   </span>
                 </span>
                 <span className="shrink-0 text-sm font-semibold text-text">
-                  {formatCurrency(toArs(fila.producto.precioVenta, fila.producto.monedaPrecio, cotizacionUSD), "ARS")}
+                  {fila.producto.precioAbierto
+                    ? "Precio abierto"
+                    : formatCurrency(toArs(fila.producto.precioVenta, fila.producto.monedaPrecio, cotizacionUSD), "ARS")}
                 </span>
               </button>
             ) : (

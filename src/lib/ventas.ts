@@ -196,11 +196,29 @@ export async function crearVentaInterna(
         ...new Set(input.items.map((i) => i.productoId).filter((id): id is number => id != null)),
       ];
       if (productoIdsDelCarrito.length > 0) {
-        const productosValidos = await tx.producto.count({
+        const productosDelCarrito = await tx.producto.findMany({
           where: { id: { in: productoIdsDelCarrito }, empresaId },
+          select: { id: true, nombre: true, precioAbierto: true },
         });
-        if (productosValidos !== productoIdsDelCarrito.length) {
+        if (productosDelCarrito.length !== productoIdsDelCarrito.length) {
           throw new Error("Uno o más productos del carrito no son válidos.");
+        }
+
+        // 0.6 Productos de precio abierto (verdura, fiambre…): el precio no sale
+        //     del producto, lo carga quien vende. Es el único caso en que el
+        //     monto que manda la pantalla se toma tal cual, así que se valida
+        //     acá, en el servidor (no alcanza con lo que controla la pantalla):
+        //     tiene que ser un monto real, mayor a cero.
+        const abiertos = new Map(productosDelCarrito.filter((p) => p.precioAbierto).map((p) => [p.id, p.nombre]));
+        for (const item of input.items) {
+          const nombre = abiertos.get(item.productoId);
+          if (nombre === undefined) continue;
+          if (!Number.isFinite(item.precioUnitarioArs) || item.precioUnitarioArs <= 0 || item.precioUnitarioArs >= 1e12) {
+            throw new Error(`Ingresá el monto de "${nombre}" (tiene que ser mayor a cero).`);
+          }
+          if (!Number.isInteger(item.cantidad) || item.cantidad < 1) {
+            throw new Error(`Cantidad inválida para "${nombre}".`);
+          }
         }
       }
 

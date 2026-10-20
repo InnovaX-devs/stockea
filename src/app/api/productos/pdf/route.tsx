@@ -127,6 +127,8 @@ export async function GET(request: NextRequest) {
   const where: Prisma.ProductoWhereInput = {
     empresaId,
     activo: true,
+    // Los de precio abierto (verdura, fiambre…) no tienen precio para listar.
+    precioAbierto: false,
     ...filtroCategoria,
     ...(tipoPrecio === "MAYORISTA" ? { precioMayorista: { not: null } } : {}),
   };

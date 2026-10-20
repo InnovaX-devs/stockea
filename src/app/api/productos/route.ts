@@ -8,6 +8,7 @@ import { obtenerSucursalIdActual } from "@/lib/sucursal";
 import { conStockDeSucursal, sucursalParaMostrarStock } from "@/lib/stock-sucursal";
 import { esFotoPermitida } from "@/lib/fotos";
 import { leerContenido } from "@/lib/contenido";
+import { leerPrecioAbierto } from "@/lib/precio-abierto";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,9 @@ export async function GET(request: NextRequest) {
       stockActual: true,
       stockMinimo: true,
       destacado: true,
+      precioAbierto: true,
+      controlaStock: true,
+      costoEstimadoPct: true,
       monedaPrecio: true,
       precioCosto: true,
       precioVenta: true,
@@ -186,6 +190,12 @@ export async function POST(request: NextRequest) {
     }
     const contenidoGuardado = resultadoContenido.datos ?? { contenido: null, unidadContenido: null, contenidoMl: null };
 
+    // Precio abierto / sin control de stock / % de costo estimado.
+    const resultadoAbierto = leerPrecioAbierto(body);
+    if (!resultadoAbierto.ok) {
+      return NextResponse.json({ error: resultadoAbierto.error }, { status: 400 });
+    }
+
     const marcaId = body.marcaId && String(body.marcaId).trim() !== "" 
       ? Number(body.marcaId) 
       : null;
@@ -291,6 +301,7 @@ export async function POST(request: NextRequest) {
         stockActual,
         stockMinimo,
         destacado: Boolean(body.destacado),
+        ...resultadoAbierto.datos,
         monedaPrecio: body.monedaPrecio === "ARS" ? "ARS" : "USD",
         precioCosto,
         precioVenta,
