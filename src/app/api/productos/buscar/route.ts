@@ -14,12 +14,16 @@ export async function GET(request: NextRequest) {
   // fila: pide más resultados (agrupar=1). Los demás buscadores (compras,
   // presupuestos, transferencias) siguen recibiendo 10.
   const agrupar = request.nextUrl.searchParams.get("agrupar") === "1";
+  // Botones rápidos de Nueva venta: los productos de precio abierto (verdura, fiambre…).
+  const soloAbiertos = request.nextUrl.searchParams.get("abiertos") === "1";
 
-  if (!q && !porModelo) {
+  if (!q && !porModelo && !soloAbiertos) {
     return NextResponse.json({ items: [] });
   }
 
-  const where: Prisma.ProductoWhereInput = porModelo
+  const where: Prisma.ProductoWhereInput = soloAbiertos
+    ? { empresaId, activo: true, precioAbierto: true }
+    : porModelo
     ? { empresaId, activo: true, modeloId }
     : {
         empresaId,
@@ -33,7 +37,7 @@ export async function GET(request: NextRequest) {
   const encontrados = await prisma.producto.findMany({
     where,
     orderBy: { nombre: "asc" },
-    take: porModelo ? 300 : agrupar ? 50 : 10,
+    take: porModelo ? 300 : soloAbiertos ? 24 : agrupar ? 50 : 10,
     select: {
       id: true,
       nombre: true,
@@ -49,6 +53,8 @@ export async function GET(request: NextRequest) {
       modeloId: true,
       talle: true,
       color: true,
+      precioAbierto: true,
+      controlaStock: true,
       modelo: { select: { nombre: true } },
     },
   });

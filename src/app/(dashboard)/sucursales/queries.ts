@@ -195,7 +195,7 @@ export async function obtenerPanelSucursales(periodo: Periodo): Promise<PanelSuc
         by: ["sucursalId"],
         where: {
           sucursalId: { in: ids },
-          producto: { empresaId, activo: true },
+          producto: { empresaId, activo: true, controlaStock: true },
           cantidad: { lte: prisma.stockSucursal.fields.stockMinimo },
         },
         _count: { _all: true },
@@ -203,7 +203,7 @@ export async function obtenerPanelSucursales(periodo: Periodo): Promise<PanelSuc
       // Cuántos de esos están en negativo.
       prisma.stockSucursal.groupBy({
         by: ["sucursalId"],
-        where: { sucursalId: { in: ids }, producto: { empresaId, activo: true }, cantidad: { lt: 0 } },
+        where: { sucursalId: { in: ids }, producto: { empresaId, activo: true, controlaStock: true }, cantidad: { lt: 0 } },
         _count: { _all: true },
       }),
       prisma.gasto.groupBy({

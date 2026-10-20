@@ -56,6 +56,9 @@ async function ejecutar() {
           // Respuestas de un servidor viejo (sin RV-5 / RV-8) no traen estos campos.
           contenido: p.contenido ?? null,
           unidadContenido: p.unidadContenido ?? null,
+          // Respuestas de un servidor viejo (sin precio abierto) no traen estos campos.
+          precioAbierto: p.precioAbierto ?? false,
+          controlaStock: p.controlaStock ?? true,
           modeloId: p.modeloId ?? null,
           modeloNombre: p.modeloNombre ?? null,
           talle: p.talle ?? null,
@@ -92,7 +95,7 @@ async function ejecutar() {
     }
     for (const [id, cantidad] of descontar) {
       await db.productos.where("id").equals(id).modify((p) => {
-        p.stockActual -= cantidad;
+        if (p.controlaStock !== false) p.stockActual -= cantidad; // verdura, fiambre…: sin stock
       });
     }
 

@@ -63,6 +63,8 @@ export async function GET(request: NextRequest) {
         contenido: true,
         unidadContenido: true,
         activo: true,
+        precioAbierto: true,
+        controlaStock: true,
         marca: { select: { nombre: true } },
         modeloId: true,
         talle: true,

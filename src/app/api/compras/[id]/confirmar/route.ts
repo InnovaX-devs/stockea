@@ -236,7 +236,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const compraActualizada = await prisma.$transaction(async (tx) => {
       const productos = await tx.producto.findMany({
         where: { id: { in: compra!.items.map((i) => i.productoId) }, empresaId },
-        select: { id: true, stockActual: true, precioCosto: true, precioVenta: true, precioMayorista: true, monedaPrecio: true },
+        select: { id: true, stockActual: true, controlaStock: true, precioCosto: true, precioVenta: true, precioMayorista: true, monedaPrecio: true },
       });
       const porId = new Map<number, (typeof productos)[number]>(productos.map((p) => [p.id, p]));
       for (const item of compra!.items) {
@@ -296,6 +296,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         cambios.push(cambio);
       }
 
+      // Los productos que no controlan stock (precio abierto) no suman unidades:
+      // sumarStockSucursal ya los saltea, y acá se les suma 0 al total para que
+      // "Producto"."stockActual" siga siendo la suma de las sucursales.
+      const cantidadDeStock = (c: { id: number; cantidad: number }) => (porId.get(c.id)!.controlaStock ? c.cantidad : 0);
+
       // 1) Stock de la sucursal (primero, por el orden de bloqueo de src/lib/stock.ts)…
       await sumarStockSucursal(tx, empresaId, sucursalId, cambios.map((c) => ({ productoId: c.id, cantidad: c.cantidad })));
 
@@ -312,7 +317,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           -- precio nuevo hasta la sincronización completa diaria.
           "updatedAt" = now()
         FROM (VALUES ${Prisma.join(
-          cambios.map((c) => Prisma.sql`(${c.id}::int, ${c.cantidad}::int, ${num(c.costo)}, ${num(c.venta)}, ${num(c.mayorista)})`)
+          cambios.map((c) => Prisma.sql`(${c.id}::int, ${cantidadDeStock(c)}::int, ${num(c.costo)}, ${num(c.venta)}, ${num(c.mayorista)})`)
         )}) AS v(id, cantidad, costo, venta, mayorista)
         WHERE p.id = v.id AND p."empresaId" = ${empresaId}`;
 

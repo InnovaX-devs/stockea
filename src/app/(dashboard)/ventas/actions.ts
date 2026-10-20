@@ -8,6 +8,7 @@ import type { EstadoPago } from "@prisma/client";
 import { redondearARS, montoEnCuentaUSD, montoARSDePago } from "@/lib/currency";
 import { mensajeSiCajaCerrada } from "@/lib/caja";
 import { notaCreditoTrasAnular } from "@/lib/arca/factura";
+import { costoEstimadoDeLinea } from "@/lib/reportes";
 import { descontarStock, sumarStock, sucursalDeVenta, stockEnSucursal } from "@/lib/stock";
 import { crearVentaInterna, type PagoInput, type VentaInput, type ResultadoVenta } from "@/lib/ventas";
 import { filtroPorSucursal, obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
@@ -145,7 +146,7 @@ export async function listarVentas(filtros: FiltrosVentas): Promise<ResultadoLis
         sucursal: { select: { nombre: true } },
         items: {
           include: {
-            producto: { select: { precioCosto: true, monedaPrecio: true } },
+            producto: { select: { precioCosto: true, monedaPrecio: true, precioAbierto: true, costoEstimadoPct: true } },
           },
         },
         comprobantes: {
@@ -160,6 +161,11 @@ export async function listarVentas(filtros: FiltrosVentas): Promise<ResultadoLis
   const ventasFormateadas: VentaListItem[] = ventas.map((venta) => {
     const costoTotalARS = venta.items.reduce((acc, item) => {
       if (!item.producto) return acc;
+
+      // Precio abierto: costo estimado como % de lo que se cobró por la línea.
+      if (item.producto.precioAbierto) {
+        return acc + costoEstimadoDeLinea(item.precioUnitarioUSD * venta.cotizacionUsada, item.producto.costoEstimadoPct) * item.cantidad;
+      }
 
       const costoProductoARS =
         item.producto.monedaPrecio === "USD"
@@ -219,8 +225,12 @@ export async function verificarStockDisponible(
 
   const producto = await prisma.producto.findFirst({
     where: { id: productoId, empresaId },
-    select: { stockActual: true },
+    select: { stockActual: true, controlaStock: true },
   });
+  // Verdura, fiambre…: no controlan stock, siempre "alcanza".
+  if (producto && !producto.controlaStock) {
+    return { stockFisico: 0, reservado: 0, disponible: unidadesRequeridas, alcanza: true };
+  }
   const stockFisico = !producto
     ? 0
     : sucursalId == null
@@ -405,7 +415,7 @@ export async function obtenerDetallePedido(ventaId: number): Promise<ResultadoDe
         items: {
           include: {
             producto: {
-              select: { nombre: true, precioCosto: true, monedaPrecio: true },
+              select: { nombre: true, precioCosto: true, monedaPrecio: true, precioAbierto: true, costoEstimadoPct: true },
             },
           },
         },
@@ -423,6 +433,11 @@ export async function obtenerDetallePedido(ventaId: number): Promise<ResultadoDe
 
     const costoTotalARS = venta.items.reduce((acc, item) => {
       if (!item.producto) return acc;
+
+      // Precio abierto: costo estimado como % de lo que se cobró por la línea.
+      if (item.producto.precioAbierto) {
+        return acc + costoEstimadoDeLinea(item.precioUnitarioUSD * venta.cotizacionUsada, item.producto.costoEstimadoPct) * item.cantidad;
+      }
 
       const costoProductoARS =
         item.producto.monedaPrecio === "USD"
