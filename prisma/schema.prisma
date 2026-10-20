@@ -661,8 +661,8 @@ model MovimientoCaja {
 // a las compras más viejas (ver src/lib/cuenta-corriente-proveedor.ts).
 model PagoProveedor {
   id                   Int      @id @default(autoincrement())
-  proveedor            Proveedor @relation(fields: [proveedorId], references: [id])
-  proveedorId          Int
+  proveedor            Proveedor? @relation(fields: [proveedorId], references: [id])
+  proveedorId          Int? // null = compras "Sin especificar" (sin proveedor)
   empresaId            Int
   sucursalId           Int?
   montoARS             Float // total pagado, en ARS

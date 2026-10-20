@@ -7,7 +7,7 @@ import { obtenerConfiguracion } from "@/lib/configuracion";
 import { validarCuentaParaSucursal } from "@/lib/cuenta-sucursal";
 import { esCuentaUSD, redondearUSD } from "@/lib/currency";
 import { cubreElTotal, redondearPesos } from "@/lib/compras-pago";
-import { aplicarPago, deudaTotal, obtenerEstadoDeuda, type Aplicacion } from "@/lib/cuenta-corriente-proveedor";
+import { aplicarPago, deudaTotal, leerProveedorId, obtenerEstadoDeuda, type Aplicacion } from "@/lib/cuenta-corriente-proveedor";
 
 class ErrorPago extends Error {
   constructor(message: string, public status = 400) {
@@ -17,17 +17,22 @@ class ErrorPago extends Error {
 
 /**
  * Pago de deuda a un proveedor (CP-2).
- * Body: { pagos: [{ cuentaId, monto }] }  — monto en ARS; varias cuentas permitidas.
+ * Body: { pagos: [{ cuentaId, monto }], compraId? }  — monto en ARS; varias cuentas permitidas.
+ * Con compraId solo se paga el saldo de esa compra (botón Pagar del listado de Compras).
  * Se aplica a la deuda inicial y luego a las compras más viejas, y genera un
  * movimiento de caja (EGRESO / PAGO_A_PROVEEDOR) por cada compra tocada.
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const empresaId = await obtenerEmpresaIdActual();
-    const proveedorId = Number((await params).id);
-    if (!Number.isInteger(proveedorId)) throw new ErrorPago("ID de proveedor inválido");
+    const proveedorId = leerProveedorId((await params).id);
+    if (proveedorId === undefined) throw new ErrorPago("ID de proveedor inválido");
 
     const body = await request.json().catch(() => null);
+    const compraId = body?.compraId == null ? undefined : Number(body.compraId);
+    if (compraId !== undefined && (!Number.isInteger(compraId) || compraId <= 0)) {
+      throw new ErrorPago("ID de compra inválido");
+    }
     const crudos: unknown[] = Array.isArray(body?.pagos) ? body.pagos : [];
     // Si repiten una cuenta, se suman.
     const porCuenta = new Map<number, number>();
@@ -55,12 +60,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const resultado = await prisma.$transaction(
       async (tx) => {
-        const datos = await obtenerEstadoDeuda(tx, empresaId, proveedorId);
+        const datos = await obtenerEstadoDeuda(tx, empresaId, proveedorId, compraId);
         if (!datos) throw new ErrorPago("Proveedor no encontrado", 404);
         const { proveedor, estado } = datos;
 
         const deuda = deudaTotal(estado);
-        if (deuda < 0.5) throw new ErrorPago("El proveedor no tiene deuda pendiente.");
+        if (deuda < 0.5) {
+          throw new ErrorPago(compraId !== undefined ? "Esa compra no tiene saldo pendiente." : "El proveedor no tiene deuda pendiente.");
+        }
         if (total > deuda + 0.01) {
           throw new ErrorPago(
             `El pago ($${total.toLocaleString("es-AR")}) supera la deuda ($${deuda.toLocaleString("es-AR")}).`
