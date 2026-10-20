@@ -3,6 +3,7 @@ import { BusinessHeader } from "./BusinessHeader";
 import { getPdfStyles } from "./styles";
 import { formatCurrency } from "@/lib/currency";
 import { getPdfBrand, type PdfBrand } from "./brand";
+import { contenidoVisible } from "@/lib/rubro";
 import type { Configuracion } from "@prisma/client";
 
 type ProductoLista = {
@@ -12,7 +13,8 @@ type ProductoLista = {
   precioVenta: number;
   precioMayorista: number | null;
   monedaPrecio: "ARS" | "USD";
-  contenidoMl: number | null;
+  contenido: number | null;
+  unidadContenido: string | null;
 };
 
 function getListStyles(brand: PdfBrand) {
@@ -90,11 +92,16 @@ export function ListaPreciosDocument({
   const conStock = productos.filter((p) => p.stockActual > 0);
   const sinStock = productos.filter((p) => p.stockActual <= 0);
 
+  /** "Yerba · 500 g": el contenido solo se muestra si el rubro lo usa. */
+  function nombreConContenido(p: ProductoLista) {
+    return [p.nombre, contenidoVisible(configuracion.rubro, p.contenido, p.unidadContenido)].filter(Boolean).join(" · ");
+  }
+
   function renderGrupo(items: ProductoLista[], sinStock: boolean = false) {
     return chunkEnPares(items).map(([a, b], i) => (
       <View key={i} style={listStyles.row}>
         <View style={listStyles.cell}>
-          <Text style={sinStock ? listStyles.nombreSinStock : listStyles.nombre}>{a.nombre}</Text>
+          <Text style={sinStock ? listStyles.nombreSinStock : listStyles.nombre}>{nombreConContenido(a)}</Text>
           <Text style={sinStock ? listStyles.precioSinStock : [listStyles.precio, { color: brand.primary }]}>
             {precioTexto(a)}
           </Text>
@@ -102,7 +109,7 @@ export function ListaPreciosDocument({
         <View style={listStyles.cell}>
           {b && (
             <>
-              <Text style={sinStock ? listStyles.nombreSinStock : listStyles.nombre}>{b.nombre}</Text>
+              <Text style={sinStock ? listStyles.nombreSinStock : listStyles.nombre}>{nombreConContenido(b)}</Text>
               <Text style={sinStock ? listStyles.precioSinStock : [listStyles.precio, { color: brand.primary }]}>
                 {precioTexto(b)}
               </Text>

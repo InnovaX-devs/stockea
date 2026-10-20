@@ -149,13 +149,27 @@ enum MonedaPrecio {
   USD
 }
 
+/// Unidad del contenido de un producto (RV-8). Qué unidades se ofrecen lo decide el rubro (src/lib/rubro.ts).
+enum UnidadContenido {
+  ML
+  L
+  G
+  KG
+}
+
 model Producto {
   id                Int @id @default(autoincrement())
   nombre            String
   codigoBarras      String?
   ubicacionDeposito String?
   fotoUrl           String?
+  /// DEPRECADO (RV-8): reemplazado por contenido + unidadContenido. Se sigue escribiendo
+  /// (solo cuando la unidad es ML) por compatibilidad con el código viejo en producción;
+  /// se borra en una migración posterior.
   contenidoMl       Int?
+  /// Cantidad de contenido (ej. 100, 500, 1.5) y su unidad.
+  contenido         Float?
+  unidadContenido   UnidadContenido?
 
   // Variantes de ropa (RV-2). Cada combinación talle × color es un Producto
   // común (así stock por sucursal, ventas, compras, etc. andan sin cambios),
