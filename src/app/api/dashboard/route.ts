@@ -6,6 +6,7 @@ import { formatHoraAR, inicioFinHoyAR } from "@/lib/timezone";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { filtroPorSucursal, obtenerSucursalIdActual } from "@/lib/sucursal";
 import { filtroCuentasDeSucursal } from "@/lib/cuenta-sucursal";
+import { resumenDeudaProveedores } from "@/lib/cuenta-corriente-proveedor";
 
 export const dynamic = "force-dynamic";
 
@@ -128,7 +129,10 @@ export async function GET() {
     tipo: m.tipo === "INGRESO" ? ("ingreso" as const) : ("egreso" as const),
   }));
 
+  const deudaProveedores = await resumenDeudaProveedores(empresaId, 5);
+
   return NextResponse.json({
+    deudaProveedores, // CP-2: { total, cantidad, top: [{ id, nombre, deuda }] }
     premium: configuracion?.licencia === "PREMIUM",
     cuentas: {
       saldoTotal,

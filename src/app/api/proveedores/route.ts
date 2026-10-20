@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
       deudaInicial: true,
       notas: true,
       createdAt: true,
+      pagos: { select: { aplicadoDeudaInicial: true } }, // CP-2
+      gastos: { where: { estadoPago: "PENDIENTE" }, select: { monto: true } }, // CP-2
       compras: {
         where: WHERE_COMPRA_REAL,
         select: { totalUSD: true, totalARS: true, montoPagado: true },
@@ -46,7 +48,11 @@ export async function GET(request: NextRequest) {
     const totalCompradoUSD = p.compras.reduce((acc, c) => acc + c.totalUSD, 0);
     // Deuda = deudaInicial + lo que falta pagar de cada compra confirmada (CP-1).
     const deudaCompras = p.compras.reduce((acc, c) => acc + saldoPendiente(c), 0);
-    const deuda = p.deudaInicial + deudaCompras;
+    // CP-2: la deuda inicial baja con los pagos aplicados a ella.
+    const deudaInicialPendiente =
+      p.deudaInicial - p.pagos.reduce((acc, x) => acc + x.aplicadoDeudaInicial, 0);
+    const deudaGastos = p.gastos.reduce((acc, g) => acc + g.monto, 0);
+    const deuda = deudaInicialPendiente + deudaCompras + deudaGastos;
 
     return {
       id: String(p.id),
