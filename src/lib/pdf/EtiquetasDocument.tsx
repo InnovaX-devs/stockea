@@ -1,5 +1,4 @@
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
-import { formatCurrency } from "@/lib/currency";
 import { GRILLA_ETIQUETAS, paginarEtiquetas, type TamanoEtiqueta } from "@/lib/etiquetas";
 
 export type EtiquetaItem = {
@@ -17,9 +16,16 @@ const A4_W = 595.28;
 const A4_H = 841.89;
 const MARGEN = 20;
 
+// Sin decimales: el precio entra más grande en la etiqueta.
+const pesos = new Intl.NumberFormat("es-AR", {
+  style: "currency",
+  currency: "ARS",
+  maximumFractionDigits: 0,
+});
+
 const FUENTES = {
-  CHICA: { nombre: 8, detalle: 7, precio: 24, pie: 7 },
-  MEDIANA: { nombre: 12, detalle: 9, precio: 42, pie: 9 },
+  CHICA: { nombre: 11, detalle: 9, precio: 30, unidad: 10, fecha: 7, padding: 4 },
+  MEDIANA: { nombre: 18, detalle: 13, precio: 50, unidad: 14, fecha: 9, padding: 8 },
 } as const;
 
 function estilos(tamano: TamanoEtiqueta) {
@@ -30,15 +36,16 @@ function estilos(tamano: TamanoEtiqueta) {
     celda: {
       width: Math.floor((A4_W - MARGEN * 2) / columnas),
       height: Math.floor((A4_H - MARGEN * 2) / filas),
-      padding: 6,
+      padding: f.padding,
       justifyContent: "space-between",
     },
     celdaConBorde: { borderWidth: 0.5, borderStyle: "dashed", borderColor: "#000" },
     nombre: { fontSize: f.nombre, fontFamily: "Helvetica-Bold", maxLines: 2, textOverflow: "ellipsis" },
     detalle: { fontSize: f.detalle, marginTop: 1 },
     precio: { fontSize: f.precio, fontFamily: "Helvetica-Bold", textAlign: "center" },
-    pie: { flexDirection: "row", justifyContent: "space-between", fontSize: f.pie },
-    pieBold: { fontFamily: "Helvetica-Bold" },
+    pie: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
+    unidad: { fontSize: f.unidad, fontFamily: "Helvetica-Bold" },
+    fecha: { fontSize: f.fecha },
   });
 }
 
@@ -62,14 +69,14 @@ export function EtiquetasDocument({ items, tamano }: { items: EtiquetaItem[]; ta
                   <Text style={s.nombre}>{it.nombre}</Text>
                   {detalle ? <Text style={s.detalle}>{detalle}</Text> : null}
                 </View>
-                <Text style={s.precio}>{formatCurrency(it.precioArs, "ARS")}</Text>
+                <Text style={s.precio}>{pesos.format(it.precioArs)}</Text>
                 <View style={s.pie}>
-                  <Text style={s.pieBold}>
-                    {it.porUnidad ? `${formatCurrency(it.porUnidad.precio, "ARS")} por ${it.porUnidad.base}` : ""}
+                  <Text style={s.unidad}>
+                    {it.porUnidad ? `${pesos.format(it.porUnidad.precio)} por ${it.porUnidad.base}` : ""}
                   </Text>
-                  <Text>{it.fecha}</Text>
+                  <Text style={s.fecha}>{it.fecha}</Text>
                 </View>
-                {it.codigoBarras ? <Text style={s.detalle}>{it.codigoBarras}</Text> : null}
+                {it.codigoBarras ? <Text style={s.fecha}>{it.codigoBarras}</Text> : null}
               </View>
             );
           })}
