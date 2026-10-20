@@ -8,6 +8,8 @@ import { formatCurrency, toUsd, toArs } from "@/lib/currency";
 import { buscarProductos, buscarVariantes, cargarConfig } from "@/lib/offline/buscar";
 import { agruparResultados } from "@/lib/agrupar-variantes";
 import { GrillaVariantes } from "@/components/ventas/grilla-variantes";
+import { useRubro } from "@/components/layout/rubro-context";
+import { contenidoVisible } from "@/lib/rubro";
 
 interface Props {
   onClose: () => void;
@@ -77,6 +79,7 @@ function ModeloConsulta({
 }
 
 export function ModalConsultarPrecio({ onClose }: Props) {
+  const { rubro } = useRubro();
   const [query, setQuery] = useState("");
   const [resultados, setResultados] = useState<ProductoBusquedaDTO[]>([]);
   const [cargando, setCargando] = useState(false);
@@ -200,6 +203,9 @@ export function ModalConsultarPrecio({ onClose }: Props) {
                       <p className="truncate font-medium text-text">
                         {p.nombre}
                         {p.marca && <span className="ml-1 font-normal text-text-dim">· {p.marca.nombre}</span>}
+                        {contenidoVisible(rubro, p.contenido, p.unidadContenido) && (
+                          <span className="ml-1 font-normal text-text-dim">· {contenidoVisible(rubro, p.contenido, p.unidadContenido)}</span>
+                        )}
                       </p>
                       <span
                         className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${

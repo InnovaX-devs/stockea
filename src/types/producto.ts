@@ -1,4 +1,5 @@
 import type { Moneda } from "@/lib/currency";
+import type { UnidadContenido } from "@/lib/rubro";
 
 export type ProductoDTO = {
   id: number;
@@ -34,7 +35,8 @@ export type ProductoBusquedaDTO = {
   precioCosto: number;
   precioVenta: number;
   precioMayorista: number | null;
-  contenidoMl: number | null;
+  contenido: number | null;
+  unidadContenido: UnidadContenido | null;
   marca: { nombre: string } | null;
   /** Ropa (RV-2): modelo al que pertenece esta combinación talle × color. */
   modeloId?: number | null;

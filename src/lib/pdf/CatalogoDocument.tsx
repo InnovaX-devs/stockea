@@ -3,6 +3,7 @@ import { BusinessHeader } from "./BusinessHeader";
 import { getPdfStyles } from "./styles";
 import { formatCurrency } from "@/lib/currency";
 import { getPdfBrand, type PdfBrand } from "./brand";
+import { contenidoVisible } from "@/lib/rubro";
 import type { Configuracion } from "@prisma/client";
 
 type ProductoCatalogo = {
@@ -14,7 +15,8 @@ type ProductoCatalogo = {
   precioVenta: number;
   precioMayorista: number | null;
   monedaPrecio: "ARS" | "USD";
-  contenidoMl: number | null;
+  contenido: number | null;
+  unidadContenido: string | null;
 };
 
 // Cantidad fija de cards por fila. Si en algún momento cambian el tamaño
@@ -189,7 +191,9 @@ export function CatalogoDocument({
                   <Text style={cardStyles.placeholderText}>Sin foto</Text>
                 )}
               </View>
-              <Text style={sinStockFlag ? cardStyles.nombreSinStock : cardStyles.nombre}>{p.nombre}</Text>
+              <Text style={sinStockFlag ? cardStyles.nombreSinStock : cardStyles.nombre}>
+                {[p.nombre, contenidoVisible(configuracion.rubro, p.contenido, p.unidadContenido)].filter(Boolean).join(" · ")}
+              </Text>
               {renderPrecios(p, sinStockFlag ? "#DC2626" : accent)}
             </View>
           );

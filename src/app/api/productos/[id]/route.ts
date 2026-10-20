@@ -7,7 +7,7 @@ import { obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
 import { ajustarStock } from "@/lib/stock";
 import { esFotoPermitida } from "@/lib/fotos";
 import { obtenerConfiguracion } from "@/lib/configuracion";
-import { configRubro } from "@/lib/rubro";
+import { leerContenido } from "@/lib/contenido";
 
 export async function PUT(
   request: NextRequest,
@@ -76,18 +76,14 @@ export async function PUT(
         ? String(body.ubicacion).trim()
         : null;
 
-    // Contenido en ml de la botella. Si el rubro no usa ml, el campo está oculto:
-    // se deja como está (undefined = Prisma no lo toca) para que cambiar de
-    // rubro y volver no pierda los datos.
-    const usaMl = configRubro((await obtenerConfiguracion()).rubro).usaMl;
-    const contenidoMl = !usaMl
-      ? undefined
-      : body.contenidoMl !== undefined &&
-          body.contenidoMl !== "" &&
-          body.contenidoMl !== null &&
-          !isNaN(Number(body.contenidoMl))
-        ? Number(body.contenidoMl)
-        : null;
+    // Contenido (cantidad + unidad). Si el rubro no lo usa, el campo está
+    // oculto: se deja como está (undefined = Prisma no lo toca) para que cambiar
+    // de rubro y volver no pierda los datos.
+    const resultadoContenido = leerContenido(body, (await obtenerConfiguracion()).rubro);
+    if (!resultadoContenido.ok) {
+      return NextResponse.json({ error: resultadoContenido.error }, { status: 400 });
+    }
+    const contenidoGuardado = resultadoContenido.datos;
 
     // Código de barras
     const codigoBarras =
@@ -234,7 +230,7 @@ export async function PUT(
           nombre: String(body.nombre || "").trim(),
           codigoBarras,
           ubicacionDeposito,
-          contenidoMl,
+          ...contenidoGuardado,
           marcaId,
           categoriaId,
           stockMinimo: minimoTotal,

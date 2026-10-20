@@ -7,7 +7,7 @@ import { obtenerEmpresaIdActual, obtenerUsuarioActual } from "@/lib/empresa";
 import { obtenerSucursalIdActual } from "@/lib/sucursal";
 import { conStockDeSucursal, sucursalParaMostrarStock } from "@/lib/stock-sucursal";
 import { esFotoPermitida } from "@/lib/fotos";
-import { configRubro } from "@/lib/rubro";
+import { leerContenido } from "@/lib/contenido";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
       codigoBarras: true,
       ubicacionDeposito: true,
       fotoUrl: true,
-      contenidoMl: true,
+      contenido: true,
+      unidadContenido: true,
       modeloId: true,
       modelo: { select: { nombre: true } },
       talle: true,
@@ -177,12 +178,13 @@ export async function POST(request: NextRequest) {
       ? String(body.ubicacion).trim() 
       : null;
 
-    // Solo el rubro Perfumería usa ml; en los demás el campo está oculto.
-    const contenidoMl =
-      configRubro((await obtenerConfiguracion()).rubro).usaMl &&
-      body.contenidoMl !== undefined && body.contenidoMl !== "" && body.contenidoMl !== null
-        ? Number(body.contenidoMl)
-        : null;
+    // Contenido (cantidad + unidad): las unidades las define el rubro. En un
+    // rubro que no lo usa (Ropa) el campo está oculto y queda sin cargar.
+    const resultadoContenido = leerContenido(body, (await obtenerConfiguracion()).rubro);
+    if (!resultadoContenido.ok) {
+      return NextResponse.json({ error: resultadoContenido.error }, { status: 400 });
+    }
+    const contenidoGuardado = resultadoContenido.datos ?? { contenido: null, unidadContenido: null, contenidoMl: null };
 
     const marcaId = body.marcaId && String(body.marcaId).trim() !== "" 
       ? Number(body.marcaId) 
@@ -283,7 +285,7 @@ export async function POST(request: NextRequest) {
         nombre: body.nombre.trim(),
         codigoBarras,
         ubicacionDeposito,
-        contenidoMl,
+        ...contenidoGuardado,
         marcaId,
         categoriaId,
         stockActual,
