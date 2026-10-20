@@ -49,6 +49,8 @@ const API_EMPLEADO: { patron: RegExp; metodos: string[] }[] = [
   { patron: /^\/api\/sync\/catalogo$/, metodos: ["GET"] },
   // Ventas hechas sin conexión (el empleado también vende).
   { patron: /^\/api\/sync\/ventas$/, metodos: ["POST"] },
+  // Resumen mensual de la cuenta corriente de un cliente (PDF, #83).
+  { patron: /^\/api\/clientes\/\d+\/resumen$/, metodos: ["GET"] },
   // Comprobante de una venta / pedido.
   { patron: /^\/api\/ventas\/\d+\/comprobante$/, metodos: ["GET"] },
 ];
