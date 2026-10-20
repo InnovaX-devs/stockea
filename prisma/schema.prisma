@@ -497,12 +497,19 @@ model Compra {
   proveedor   Proveedor? @relation(fields: [proveedorId], references: [id])
   proveedorId Int?
 
-  cuenta   Cuenta @relation(fields: [cuentaId], references: [id])
-  cuentaId Int
+  // Cuenta con la que se pagó (o se piensa pagar). null = compra sin pagar.
+  // onDelete: Restrict mantiene la FK como estaba: una cuenta con compras no se borra.
+  cuenta   Cuenta? @relation(fields: [cuentaId], references: [id], onDelete: Restrict)
+  cuentaId Int?
 
   totalUSD        Float
   totalARS        Float?
   cotizacionUsada Float?
+
+  // Lo pagado al confirmar, siempre en ARS (con la cotización de la compra,
+  // aunque se pague desde una cuenta en dólares). Deuda = totalARS - montoPagado.
+  // `pagada` se sigue guardando (montoPagado >= totalARS) para el código viejo.
+  montoPagado Float @default(0)
 
   confirmada Boolean  @default(false)
   pagada     Boolean  @default(false)

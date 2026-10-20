@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { saldoPendiente } from "@/lib/compras-pago";
 
 const WHERE_COMPRA_REAL = {
   confirmada: true,
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
       createdAt: true,
       compras: {
         where: WHERE_COMPRA_REAL,
-        select: { totalUSD: true, totalARS: true, pagada: true },
+        select: { totalUSD: true, totalARS: true, montoPagado: true },
       },
     },
   });
@@ -36,16 +37,15 @@ export async function GET(request: NextRequest) {
   // Compras confirmadas y no canceladas que NO tienen proveedor asignado
   const comprasSinProveedor = await prisma.compra.findMany({
     where: { ...WHERE_COMPRA_REAL, proveedorId: null, empresaId },
-    select: { totalUSD: true, totalARS: true, pagada: true },
+    select: { totalUSD: true, totalARS: true, montoPagado: true },
   });
 
   const proveedoresConCalculos = proveedores.map((p) => {
     const cantidadCompras = p.compras.length;
     const totalComprado = p.compras.reduce((acc, c) => acc + (c.totalARS ?? 0), 0);
     const totalCompradoUSD = p.compras.reduce((acc, c) => acc + c.totalUSD, 0);
-    const deudaCompras = p.compras
-      .filter((c) => !c.pagada)
-      .reduce((acc, c) => acc + (c.totalARS ?? 0), 0);
+    // Deuda = deudaInicial + lo que falta pagar de cada compra confirmada (CP-1).
+    const deudaCompras = p.compras.reduce((acc, c) => acc + saldoPendiente(c), 0);
     const deuda = p.deudaInicial + deudaCompras;
 
     return {
@@ -75,9 +75,7 @@ export async function GET(request: NextRequest) {
     (acc, c) => acc + c.totalUSD,
     0
   );
-  const deudaSinProveedor = comprasSinProveedor
-    .filter((c) => !c.pagada)
-    .reduce((acc, c) => acc + (c.totalARS ?? 0), 0);
+  const deudaSinProveedor = comprasSinProveedor.reduce((acc, c) => acc + saldoPendiente(c), 0);
 
   const itemSinEspecificar =
     cantidadComprasSinProveedor > 0
