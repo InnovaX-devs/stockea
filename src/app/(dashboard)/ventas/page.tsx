@@ -118,7 +118,6 @@ function NuevaVentaContenido() {
 
   // --- Ticket para la comandera (#86) ---
   const { rubro } = useRubro();
-  const [pagaCon, setPagaCon] = useState<number | null>(null);
   const [ultimoTicket, setUltimoTicket] = useState<DatosTicket | null>(null);
   const [negocio, setNegocio] = useState<NegocioTicket | null>(null);
   useEffect(() => {
@@ -135,10 +134,6 @@ function NuevaVentaContenido() {
   function armarTicket(): DatosTicket {
     const pagosConMonto = pagos.filter((p) => p.cuentaId != null && p.monto > 0);
     const pagado = pagosConMonto.reduce((a, p) => a + Math.round(p.monto), 0);
-    const efectivo = Math.round(
-      pagosConMonto.filter((p) => p.cuentaTipo === "EFECTIVO_ARS").reduce((a, p) => a + p.monto, 0)
-    );
-    const conVuelto = pagaCon != null && efectivo > 0 && pagaCon >= efectivo;
     return {
       negocio: negocio ?? leerNegocioTicket() ?? { nombre: "", direccion: null, telefono: null, cuit: null },
       numero: null,
@@ -159,8 +154,8 @@ function NuevaVentaContenido() {
         medio: (p.cuentaNombre ?? "Pago") + (p.esUSD && p.montoUSD ? ` (US$ ${p.montoUSD})` : ""),
         monto: Math.round(p.monto),
       })),
-      pagaCon: conVuelto ? pagaCon : null,
-      vuelto: conVuelto ? pagaCon - efectivo : null,
+      pagaCon: null, // el vuelto es solo una ayuda en pantalla: no va en el ticket
+      vuelto: null,
       saldoPendiente: Math.max(0, Math.round(total) - pagado),
     };
   }
@@ -318,7 +313,6 @@ function NuevaVentaContenido() {
     setModoCobro("UNICA");
     setCliente(null);
     setPresupuestoIdOrigen(null);
-    setPagaCon(null);
   }
 
   async function handleDescontarStock() {
@@ -590,8 +584,6 @@ function NuevaVentaContenido() {
               onCambiarPagos={setPagos}
               cotizacionUSD={usaCotizacionUSD ? cotizacionUSD : 1}
               onConfirmarRapido={procesando ? undefined : handleConfirmarVenta}
-              pagaCon={pagaCon}
-              onCambiarPagaCon={setPagaCon}
             />
             <ResumenVenta
               subtotal={subtotal}
