@@ -51,6 +51,7 @@ async function datosFiscales(
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { ComprobanteVentaDocument, type ComprobanteVentaData } from "@/lib/pdf/ComprobanteVentaDocument";
 import { archivoComprobanteVenta } from "@/lib/numeracion";
+import { contenidoVisible } from "@/lib/rubro";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         comprobantes: { where: { estado: "AUTORIZADO", tipo: { in: [1, 6, 11] } }, orderBy: { id: "desc" }, take: 1 },
         items: {
           include: {
-            producto: { select: { nombre: true } },
+            producto: { select: { nombre: true, contenido: true, unidadContenido: true } },
           },
         },
         pagos: {
@@ -97,7 +98,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ? `${venta.cliente.nombre}${venta.cliente.apellido ? " " + venta.cliente.apellido : ""}`
       : null,
     items: venta.items.map((item) => ({
-      nombre: item.producto?.nombre ?? item.descripcionLibre ?? "Producto",
+      // "Yerba Playadito 500 g": el contenido va en el ticket si el rubro lo usa.
+      nombre: item.producto
+        ? [item.producto.nombre, contenidoVisible(configuracion.rubro, item.producto.contenido, item.producto.unidadContenido)]
+            .filter(Boolean)
+            .join(" ")
+        : (item.descripcionLibre ?? "Producto"),
       tipoPrecio: item.tipoPrecio,
       cantidad: item.cantidad,
       precioUnitarioARS: item.precioUnitarioUSD * venta.cotizacionUsada,

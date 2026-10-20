@@ -3,12 +3,14 @@
 import { Pencil, Ban, X, CheckCircle, ImageIcon } from "lucide-react";
 import { toArs, toUsd, formatCurrency } from "@/lib/currency";
 import { useRubro } from "@/components/layout/rubro-context";
+import { contenidoVisible } from "@/lib/rubro";
 
 interface ProductoDetalle {
   id: string | number;
   nombre: string;
   fotoUrl?: string | null;
-  contenidoMl?: number | null;
+  contenido?: number | null;
+  unidadContenido?: string | null;
   modeloId?: number | null;
   marca?: { nombre: string } | null;
   categoria?: { nombre: string } | null;
@@ -46,7 +48,7 @@ export function ProductoDetalleModal({
   onEditarModelo,
   onDesactivar,
 }: ProductoDetalleModalProps) {
-  const { usaMl } = useRubro();
+  const { rubro, usaContenido } = useRubro();
   if (!isOpen || !producto) return null;
 
   const cotizacion = configProducto.cotizacionUSD;
@@ -132,7 +134,7 @@ export function ProductoDetalleModal({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5">
-          <div className={`grid gap-2 ${usaMl ? "grid-cols-3" : "grid-cols-2"}`}>
+          <div className={`grid gap-2 ${usaContenido ? "grid-cols-3" : "grid-cols-2"}`}>
             <div className="rounded-xl bg-success/10 p-3 text-center">
               <p className="text-[10px] uppercase tracking-wide text-text-dim">
                 Stock actual
@@ -149,13 +151,13 @@ export function ProductoDetalleModal({
                 {producto.stockMinimo ?? 0}
               </p>
             </div>
-            {usaMl && (
+            {usaContenido && (
               <div className="rounded-xl bg-surface p-3 text-center">
                 <p className="text-[10px] uppercase tracking-wide text-text-dim">
-                  Volumen
+                  Contenido
                 </p>
                 <p className="mt-1 text-lg font-bold text-text">
-                  {producto.contenidoMl ? `${producto.contenidoMl}ml` : "-"}
+                  {contenidoVisible(rubro, producto.contenido, producto.unidadContenido) ?? "-"}
                 </p>
               </div>
             )}

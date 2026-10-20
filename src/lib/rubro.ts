@@ -7,7 +7,7 @@
  * nombre de la empresa u otra cosa: se pregunta acá.
  *
  * Cambiar el rubro NUNCA borra datos: solo oculta o muestra campos. Por eso
- * los endpoints que guardan un campo oculto (ej. contenidoMl) lo dejan como
+ * los endpoints que guardan un campo oculto (ej. el contenido) lo dejan como
  * está en vez de pisarlo con null.
  *
  * Este archivo es puro (sin imports de servidor), se puede usar desde
@@ -19,12 +19,50 @@ export type Rubro = (typeof RUBROS)[number];
 
 export const RUBRO_POR_DEFECTO: Rubro = "GENERAL";
 
+/** Espejo del enum UnidadContenido de Prisma (este archivo no importa del servidor). */
+export const UNIDADES_CONTENIDO = ["ML", "L", "G", "KG"] as const;
+export type UnidadContenido = (typeof UNIDADES_CONTENIDO)[number];
+
+/** Cómo se escribe cada unidad para el usuario ("100 ml", "500 g"). */
+export const ETIQUETA_UNIDAD: Record<UnidadContenido, string> = { ML: "ml", L: "l", G: "g", KG: "kg" };
+
+export function esUnidadContenido(valor: unknown): valor is UnidadContenido {
+  return (UNIDADES_CONTENIDO as readonly string[]).includes(valor as string);
+}
+
+const formatoContenido = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 3 });
+
+/**
+ * "100 ml", "500 g", "1,5 l". Devuelve null si falta la cantidad, la unidad o
+ * la cantidad no es positiva (para poder encadenar con `.filter(Boolean)`).
+ */
+export function formatearContenido(contenido: number | null | undefined, unidad: UnidadContenido | string | null | undefined): string | null {
+  if (contenido == null || !Number.isFinite(contenido) || contenido <= 0 || !esUnidadContenido(unidad)) return null;
+  return `${formatoContenido.format(contenido)} ${ETIQUETA_UNIDAD[unidad]}`;
+}
+
+/**
+ * Igual que formatearContenido, pero respeta el rubro: si el rubro no ofrece la
+ * unidad (ej. Ropa, o ml en un rubro que no lo usa) no se muestra. Los datos
+ * quedan guardados, solo se ocultan.
+ */
+export function contenidoVisible(
+  rubro: unknown,
+  contenido: number | null | undefined,
+  unidad: UnidadContenido | string | null | undefined
+): string | null {
+  if (!esUnidadContenido(unidad) || !CONFIG[normalizarRubro(rubro)].unidadesContenido.includes(unidad)) return null;
+  return formatearContenido(contenido, unidad);
+}
+
 export type ConfigRubro = {
   rubro: Rubro;
   /** Nombre para mostrar en el panel InnovaX. */
   nombre: string;
-  /** Muestra el contenido en ml (contenidoMl) en productos, catálogo y listados. */
-  usaMl: boolean;
+  /** Unidades de contenido que se ofrecen (en orden). Vacío = el rubro no usa contenido y el campo no se muestra. */
+  unidadesContenido: UnidadContenido[];
+  /** Atajo: el rubro usa contenido (cantidad + unidad) en productos, catálogo, listados y tickets. */
+  usaContenido: boolean;
   /** Ropa: muestra la lista de talles y colores sugeridos en Configuración y el alta de modelos con variantes. */
   usaTallesColores: boolean;
   /** Ejemplos y textos de ayuda que dependen del tipo de negocio. */
@@ -50,7 +88,8 @@ const CONFIG: Record<Rubro, ConfigRubro> = {
   GENERAL: {
     rubro: "GENERAL",
     nombre: "General",
-    usaMl: false,
+    unidadesContenido: ["ML", "L", "G", "KG"],
+    usaContenido: true,
     usaTallesColores: false,
     textos: {
       buscarProductoVenta: "Buscar producto o escanear código de barras...",
@@ -65,9 +104,8 @@ const CONFIG: Record<Rubro, ConfigRubro> = {
   ALMACEN: {
     rubro: "ALMACEN",
     nombre: "Almacén",
-    // Provisorio: un almacén/dietética puede tener productos con ml. Se reemplaza
-    // por cantidad + unidad configurable en RV-8 (#67).
-    usaMl: true,
+    unidadesContenido: ["G", "KG", "ML", "L"],
+    usaContenido: true,
     usaTallesColores: false,
     textos: {
       buscarProductoVenta: "Buscar producto o escanear código de barras...",
@@ -82,7 +120,8 @@ const CONFIG: Record<Rubro, ConfigRubro> = {
   PERFUMERIA: {
     rubro: "PERFUMERIA",
     nombre: "Perfumería",
-    usaMl: true,
+    unidadesContenido: ["ML"],
+    usaContenido: true,
     usaTallesColores: false,
     textos: {
       buscarProductoVenta: "Buscar perfume o escanear código de barras...",
@@ -97,7 +136,8 @@ const CONFIG: Record<Rubro, ConfigRubro> = {
   ROPA: {
     rubro: "ROPA",
     nombre: "Ropa",
-    usaMl: false,
+    unidadesContenido: [],
+    usaContenido: false,
     usaTallesColores: true,
     textos: {
       buscarProductoVenta: "Buscar prenda o escanear código de barras...",

@@ -9,6 +9,8 @@ export type ProductoBusqueda = {
   monedaPrecio: Moneda;
   stockActual: number;
   marca: { nombre: string } | null;
+  contenido?: number | null;
+  unidadContenido?: string | null;
 };
 
 export type ClienteBusqueda = {

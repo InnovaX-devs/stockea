@@ -5,6 +5,7 @@ import { toArs } from "@/lib/currency";
 import type { ProductoBusqueda } from "@/types/presupuesto";
 
 import { useRubro } from "@/components/layout/rubro-context";
+import { contenidoVisible } from "@/lib/rubro";
 
 export default function BuscadorProducto({
   tipoPrecio,
@@ -15,7 +16,7 @@ export default function BuscadorProducto({
   onAgregar: (producto: ProductoBusqueda) => void;
   cotizacionUSD: number;
 }) {
-  const { textos } = useRubro();
+  const { textos, rubro } = useRubro();
   const [query, setQuery] = useState("");
   const [resultados, setResultados] = useState<ProductoBusqueda[]>([]);
   const [abierto, setAbierto] = useState(false);
@@ -110,6 +111,9 @@ export default function BuscadorProducto({
                   <span>
                     {p.nombre}
                     {p.marca && <span className="ml-1 text-text-dim">— {p.marca.nombre}</span>}
+                    {contenidoVisible(rubro, p.contenido, p.unidadContenido) && (
+                      <span className="ml-1 text-text-dim">· {contenidoVisible(rubro, p.contenido, p.unidadContenido)}</span>
+                    )}
                     {p.stockActual === 0 && (
                       <span className="ml-2 text-[11px] text-danger">sin stock</span>
                     )}

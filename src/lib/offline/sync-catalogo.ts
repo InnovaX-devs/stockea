@@ -53,7 +53,9 @@ async function ejecutar() {
         void activo;
         return {
           ...p,
-          // Respuestas de un servidor viejo (sin RV-5) no traen estos campos.
+          // Respuestas de un servidor viejo (sin RV-5 / RV-8) no traen estos campos.
+          contenido: p.contenido ?? null,
+          unidadContenido: p.unidadContenido ?? null,
           modeloId: p.modeloId ?? null,
           modeloNombre: p.modeloNombre ?? null,
           talle: p.talle ?? null,

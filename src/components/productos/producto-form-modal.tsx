@@ -5,6 +5,7 @@ import { BarcodeInput } from "@/components/ui/barcode-input";
 import Select from "@/components/ui/select";
 import { avisar } from "@/components/ui/dialogos";
 import { useRubro } from "@/components/layout/rubro-context";
+import { ETIQUETA_UNIDAD, esUnidadContenido, type UnidadContenido } from "@/lib/rubro";
 
 function calcularPorcentaje(costo: number, precio: number): number {
   if (!costo || costo <= 0) return 0;
@@ -26,7 +27,9 @@ export interface ProductoFormData {
   ubicacion: string;
   marcaId: string;
   categoriaId: string;
-  contenidoMl: number | "";
+  /** Cantidad de contenido ("" = sin cargar) y su unidad ("" = la primera del rubro). */
+  contenido: number | "";
+  unidadContenido: UnidadContenido | "";
   stockActual: number | "";
   stockMinimo: number | "";
   destacado: boolean;
@@ -68,14 +71,15 @@ export function ProductoFormModal({
   categoriasIniciales = [],
   usaCotizacionUSD = false,
 }: ProductoFormModalProps) {
-  const { usaMl } = useRubro();
+  const { usaContenido, unidadesContenido } = useRubro();
   const [formData, setFormData] = useState<ProductoFormData>({
     nombre: "",
     codigoBarras: "",
     ubicacion: "",
     marcaId: "",
     categoriaId: "",
-    contenidoMl: "",
+    contenido: "",
+    unidadContenido: "",
     stockActual: "",
     stockMinimo: "",
     destacado: false,
@@ -110,6 +114,11 @@ export function ProductoFormModal({
   const [productoInactivoId, setProductoInactivoId] = useState<string | null>(null);
   const [reactivando, setReactivando] = useState(false);
 
+  // Unidad que se ve y se guarda: la elegida si el rubro la ofrece, si no la primera del rubro.
+  const unidadElegida: UnidadContenido =
+    formData.unidadContenido !== "" && unidadesContenido.includes(formData.unidadContenido)
+      ? formData.unidadContenido
+      : (unidadesContenido[0] ?? "ML");
   const [porcentajeVenta, setPorcentajeVenta] = useState<number | "">("");
   const [porcentajeMayorista, setPorcentajeMayorista] = useState<number | "">("");
 
@@ -154,7 +163,8 @@ export function ProductoFormModal({
           ubicacion: productoEditar.ubicacion ?? "",
           marcaId: productoEditar.marcaId ?? "",
           categoriaId: productoEditar.categoriaId ?? "",
-          contenidoMl: productoEditar.contenidoMl ?? "",
+          contenido: productoEditar.contenido ?? "",
+          unidadContenido: productoEditar.unidadContenido ?? "",
           stockActual: productoEditar.stockActual ?? "",
           stockMinimo: productoEditar.stockMinimo ?? "",
           destacado: productoEditar.destacado ?? false,
@@ -187,7 +197,8 @@ export function ProductoFormModal({
           ubicacion: "",
           marcaId: "",
           categoriaId: "",
-          contenidoMl: "",
+          contenido: "",
+          unidadContenido: "",
           stockActual: 0,
           stockMinimo: 0,
           destacado: false,
@@ -437,7 +448,8 @@ export function ProductoFormModal({
         ubicacion: formData.ubicacion?.trim() || null,
         marcaId: formData.marcaId ? Number(formData.marcaId) : null,
         categoriaId: formData.categoriaId ? Number(formData.categoriaId) : null,
-        contenidoMl: formData.contenidoMl === "" ? null : Number(formData.contenidoMl),
+        contenido: formData.contenido === "" ? null : Number(formData.contenido),
+        unidadContenido: formData.contenido === "" ? null : unidadElegida,
         stockActual: Number(formData.stockActual),
         // Stock que había al abrir el formulario: el servidor aplica solo la diferencia.
         stockOriginal: productoEditar ? productoEditar.stockActual ?? null : null,
@@ -569,8 +581,11 @@ export function ProductoFormModal({
             </div>
           </div>
 
-          {/* Ubicación, Contenido, Marca y Categoría */}
-          <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${usaMl ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+                    {/* Contenido, Marca y Categoría (Ubicación en depósito oculta: ver bloque comentado abajo) */}
+          <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${usaContenido ? "lg:grid-cols-[1.5fr_1fr_1fr]" : "lg:grid-cols-2"}`}>
+            {/* Ubicación en depósito: oculta por ahora. Para volver a mostrarla, descomentar
+                este bloque y volver el grid de arriba a
+                `${usaContenido ? "lg:grid-cols-[0.8fr_1.5fr_1fr_1fr]" : "lg:grid-cols-3"}`.
             <div>
               <label className="block text-xs font-medium text-text-dim">
                 Ubicación en depósito
@@ -584,26 +599,43 @@ export function ProductoFormModal({
                 className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
               />
             </div>
+            */}
 
-            {usaMl && (
+            {usaContenido && (
             <div>
               <label className="block text-xs font-medium text-text-dim">
-                Contenido (ml)
+                Contenido
               </label>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                placeholder="Ej: 100"
-                value={formData.contenidoMl ?? ""}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    contenidoMl: e.target.value === "" ? "" : Number(e.target.value),
-                  })
-                }
-                className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
-              />
+              <div className="mt-1 flex gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  inputMode="decimal"
+                  placeholder="Ej: 100"
+                  aria-label="Cantidad de contenido"
+                  value={formData.contenido ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      contenido: e.target.value === "" ? "" : Number(e.target.value),
+                    })
+                  }
+                  className="w-full min-w-0 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+                />
+                {unidadesContenido.length === 1 ? (
+                  <span className="flex shrink-0 items-center rounded-lg border border-border bg-surface px-3 text-sm text-text-dim">
+                    {ETIQUETA_UNIDAD[unidadesContenido[0]]}
+                  </span>
+                ) : (
+                  <Select
+                    value={unidadElegida}
+                    onChange={(v) => setFormData({ ...formData, unidadContenido: esUnidadContenido(v) ? v : "" })}
+                    options={unidadesContenido.map((u) => ({ value: u, label: ETIQUETA_UNIDAD[u] }))}
+                    className="w-24 shrink-0"
+                  />
+                )}
+              </div>
             </div>
             )}
 

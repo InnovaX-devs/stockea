@@ -8,6 +8,7 @@ import { formatCurrency, toArs } from "@/lib/currency";
 import { useVenta } from "@/components/ventas/venta-context";
 import { buscarProductos } from "@/lib/offline/buscar";
 import { useRubro } from "@/components/layout/rubro-context";
+import { contenidoVisible } from "@/lib/rubro";
 import { agruparResultados, type FilaBusqueda } from "@/lib/agrupar-variantes";
 import { SelectorVariante } from "@/components/ventas/selector-variante";
 
@@ -18,7 +19,7 @@ type Props = { onSeleccionar: (producto: ProductoBusquedaDTO) => void };
 
 export function BuscadorProducto({ onSeleccionar }: Props) {
   const { cotizacionUSD } = useVenta();
-  const { textos } = useRubro();
+  const { textos, rubro } = useRubro();
   const [query, setQuery] = useState("");
   const [resultados, setResultados] = useState<ProductoBusquedaDTO[]>([]);
   const [abierto, setAbierto] = useState(false);
@@ -177,7 +178,13 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
                     {fila.producto.marca && <span className="ml-1 text-text-dim">· {fila.producto.marca.nombre}</span>}
                   </span>
                   <span className="truncate text-xs text-text-dim">
-                    Stock: {fila.producto.stockActual}{fila.producto.codigoBarras ? ` · ${fila.producto.codigoBarras}` : ""}
+                    {[
+                      contenidoVisible(rubro, fila.producto.contenido, fila.producto.unidadContenido),
+                      `Stock: ${fila.producto.stockActual}`,
+                      fila.producto.codigoBarras,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 </span>
                 <span className="shrink-0 text-sm font-semibold text-text">
