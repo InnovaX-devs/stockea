@@ -25,6 +25,11 @@ import { obtenerPresupuestoParaConvertir } from "@/app/(dashboard)/presupuestos/
 import { confirmarVenta, registrarPedido, descontarStockSinVenta, verificarStockDisponible, type StockDisponibilidad } from "./actions";
 import { ModalStockComprometido } from "@/components/ventas/modal-stock-comprometido";
 import { facturacionParaVenta, facturarVenta } from "./facturacion-actions";
+import { datosNegocioTicket } from "./ticket-actions";
+import { BarraTicket } from "@/components/ventas/ticket-ui";
+import { imprimirTicket, leerConfigTicket, leerNegocioTicket, guardarNegocioTicket, type DatosTicket, type NegocioTicket } from "@/lib/ticket";
+import { useRubro } from "@/components/layout/rubro-context";
+import { contenidoVisible } from "@/lib/rubro";
 import { Tag, Gift } from "lucide-react";
 import { pedirTexto } from "@/components/ui/dialogos";
 
@@ -110,6 +115,57 @@ function NuevaVentaContenido() {
   const total = Math.max(0, subtotal - montoDescuento);
 
   const [procesando, setProcesando] = useState(false);
+
+  // --- Ticket para la comandera (#86) ---
+  const { rubro } = useRubro();
+  const [ultimoTicket, setUltimoTicket] = useState<DatosTicket | null>(null);
+  const [negocio, setNegocio] = useState<NegocioTicket | null>(null);
+  useEffect(() => {
+    // Con internet se trae el encabezado y se guarda para imprimir sin conexión.
+    datosNegocioTicket()
+      .then((n) => {
+        setNegocio(n);
+        guardarNegocioTicket(n);
+      })
+      .catch(() => {});
+  }, []);
+
+  /** Foto de la venta en pantalla para el ticket (se arma ANTES de limpiar el carrito). */
+  function armarTicket(): DatosTicket {
+    const pagosConMonto = pagos.filter((p) => p.cuentaId != null && p.monto > 0);
+    const pagado = pagosConMonto.reduce((a, p) => a + Math.round(p.monto), 0);
+    return {
+      negocio: negocio ?? leerNegocioTicket() ?? { nombre: "", direccion: null, telefono: null, cuit: null },
+      numero: null,
+      fecha: new Date(),
+      cliente: cliente ? [cliente.nombre, cliente.apellido].filter(Boolean).join(" ") : null,
+      items: carrito.map((it) => ({
+        cantidad: it.cantidad,
+        nombre: [it.producto.nombre, contenidoVisible(rubro, it.producto.contenido, it.producto.unidadContenido)]
+          .filter(Boolean)
+          .join(" "),
+        precioUnitario: it.precioUnitarioArs,
+        importe: Math.round(it.cantidad * it.precioUnitarioArs),
+      })),
+      subtotal,
+      descuento: descuento ? { monto: montoDescuento, porcentaje: descuento.tipo === "PORCENTAJE" ? descuento.valor : null } : null,
+      total: Math.round(total),
+      pagos: pagosConMonto.map((p) => ({
+        medio: (p.cuentaNombre ?? "Pago") + (p.esUSD && p.montoUSD ? ` (US$ ${p.montoUSD})` : ""),
+        monto: Math.round(p.monto),
+      })),
+      pagaCon: null, // el vuelto es solo una ayuda en pantalla: no va en el ticket
+      vuelto: null,
+      saldoPendiente: Math.max(0, Math.round(total) - pagado),
+    };
+  }
+
+  /** Después de guardar la venta: queda como "último ticket" y se imprime si está configurado así. */
+  function ticketDeLaVenta(ticket: DatosTicket) {
+    setUltimoTicket(ticket);
+    if (leerConfigTicket().imprimirAlConfirmar) imprimirTicket(ticket).catch(() => {});
+  }
+  const accionTicket = (ticket: DatosTicket) => ({ label: "Ticket", onClick: () => void imprimirTicket(ticket) });
 
   async function intentarAgregar(producto: ProductoBusquedaDTO, precioUnitarioArs: number) {
     // Sin control de stock (verdura, fiambre…): nada que verificar.
@@ -348,7 +404,8 @@ function NuevaVentaContenido() {
    */
   async function guardarEnLaCola(
     input: ReturnType<typeof armarInput> & { cotizacionUSD: number; idCliente: string },
-    motivo: "sin-red" | "fallo"
+    motivo: "sin-red" | "fallo",
+    ticket: DatosTicket
   ): Promise<boolean> {
     const alcance = await leerAlcance();
     if (!alcance) {
@@ -407,12 +464,13 @@ function NuevaVentaContenido() {
       motivo === "sin-red"
         ? "Venta guardada sin conexión. Queda como Pendiente y se sube sola cuando vuelva internet."
         : "No se pudo confirmar al instante: la venta quedó guardada en este equipo y se sube sola.",
-      { duration: 6000 }
+      { duration: 6000, action: accionTicket(ticket) }
     );
     if (facturacion?.disponible && emitirFactura) {
       toast.info("La factura no se emite sin conexión: pedila desde el historial cuando la venta ya esté subida.", { duration: 8000 });
     }
     limpiarVenta();
+    ticketDeLaVenta(ticket); // sin número todavía: sale como "Venta pendiente"
     if (navigator.onLine) sincronizarVentas().catch(() => {});
     return true;
   }
@@ -430,10 +488,11 @@ function NuevaVentaContenido() {
     }
     // Cada confirmación lleva su propio id: es lo que permite reenviarla sin duplicarla.
     const input = { ...armarInput(), cotizacionUSD, idCliente: nuevoIdCliente() };
+    const ticket = armarTicket();
 
     if (!navigator.onLine) {
       setProcesando(true);
-      await guardarEnLaCola(input, "sin-red");
+      await guardarEnLaCola(input, "sin-red", ticket);
       setProcesando(false);
       return;
     }
@@ -444,7 +503,7 @@ function NuevaVentaContenido() {
       resultado = await confirmarVenta(input);
     } catch {
       // Se cortó el pedido: no sabemos si el servidor la guardó. Va a la cola con el mismo id.
-      await guardarEnLaCola(input, "fallo");
+      await guardarEnLaCola(input, "fallo", ticket);
       setProcesando(false);
       return;
     }
@@ -454,8 +513,10 @@ function NuevaVentaContenido() {
       toast.error(resultado.error);
       return;
     }
-    toast.success(`Venta #${resultado.numero} confirmada`);
+    const ticketConNumero = { ...ticket, numero: resultado.numero };
+    toast.success(`Venta #${resultado.numero} confirmada`, { action: accionTicket(ticketConNumero) });
     limpiarVenta();
+    ticketDeLaVenta(ticketConNumero);
     if (facturacion?.disponible && emitirFactura) await facturarLaVenta(resultado.ventaId);
   }
 
@@ -463,9 +524,12 @@ function NuevaVentaContenido() {
     <div className="space-y-4 p-4">
       <AvisoCajaCerrada />
       <PanelVentasSinConexion />
-      <div>
-        <h1 className="text-xl font-semibold text-text sm:text-2xl">Nueva Venta</h1>
-        <p className="text-sm text-text-dim">Buscá cliente y productos, y confirmá el cobro</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-text sm:text-2xl">Nueva Venta</h1>
+          <p className="text-sm text-text-dim">Buscá cliente y productos, y confirmá el cobro</p>
+        </div>
+        <BarraTicket ultimoTicket={ultimoTicket} />
       </div>
 
       {presupuestoIdOrigen != null && (

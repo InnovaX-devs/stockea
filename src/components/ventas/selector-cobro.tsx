@@ -19,6 +19,9 @@ interface Props {
   cotizacionUSD?: number;
   /** Enter en "Paga con" (calculadora de vuelto): confirmar sin ir al botón. */
   onConfirmarRapido?: () => void;
+  /** "Paga con" de la calculadora de vuelto, si la pantalla lo quiere (ticket, #86). */
+  pagaCon?: number | null;
+  onCambiarPagaCon?: (monto: number | null) => void;
 }
 
 export function SelectorCobro({
@@ -30,6 +33,8 @@ export function SelectorCobro({
   onCambiarPagos,
   cotizacionUSD,
   onConfirmarRapido,
+  pagaCon,
+  onCambiarPagaCon,
 }: Props) {
   const [cuentasCache, setCuentasCache] = useState<Record<number, CuentaOption>>({});
   const [filaSeleccionandoCuenta, setFilaSeleccionandoCuenta] = useState<string | null>(null);
@@ -82,7 +87,10 @@ export function SelectorCobro({
     onCambiarPagos(
       pagos.map((p) =>
         p.id === filaSeleccionandoCuenta
-          ? conMontoARS({ ...p, cuentaId: cuenta.id, esUSD: esCuentaUSD(cuenta.tipo) }, p.monto)
+          ? conMontoARS(
+              { ...p, cuentaId: cuenta.id, esUSD: esCuentaUSD(cuenta.tipo), cuentaNombre: cuenta.nombre, cuentaTipo: cuenta.tipo },
+              p.monto
+            )
           : p
       )
     );
@@ -118,7 +126,14 @@ export function SelectorCobro({
     if (nuevoModo === "UNICA") {
       onCambiarPagos([
         conMontoARS(
-          { id: "pago-unica", cuentaId: pagos[0]?.cuentaId ?? null, esUSD: pagos[0]?.esUSD, monto: 0 },
+          {
+            id: "pago-unica",
+            cuentaId: pagos[0]?.cuentaId ?? null,
+            esUSD: pagos[0]?.esUSD,
+            cuentaNombre: pagos[0]?.cuentaNombre,
+            cuentaTipo: pagos[0]?.cuentaTipo,
+            monto: 0,
+          },
           Math.round(total)
         ),
       ]);
@@ -129,7 +144,15 @@ export function SelectorCobro({
       ]);
     } else if (nuevoModo === "A_CUENTA") {
       onCambiarPagos([
-        { id: "pago-acuenta", cuentaId: pagos[0]?.cuentaId ?? null, esUSD: pagos[0]?.esUSD, monto: 0, montoUSD: null },
+        {
+          id: "pago-acuenta",
+          cuentaId: pagos[0]?.cuentaId ?? null,
+          esUSD: pagos[0]?.esUSD,
+          cuentaNombre: pagos[0]?.cuentaNombre,
+          cuentaTipo: pagos[0]?.cuentaTipo,
+          monto: 0,
+          montoUSD: null,
+        },
       ]);
     }
   }
@@ -286,7 +309,12 @@ export function SelectorCobro({
       )}
 
       {montoEfectivo > 0 && (
-        <CalculadoraVuelto montoEfectivo={montoEfectivo} onEnter={esValido ? onConfirmarRapido : undefined} />
+        <CalculadoraVuelto
+          montoEfectivo={montoEfectivo}
+          onEnter={esValido ? onConfirmarRapido : undefined}
+          pagaCon={pagaCon}
+          onCambiarPagaCon={onCambiarPagaCon}
+        />
       )}
 
       {filaSeleccionandoCuenta && (

@@ -12,6 +12,7 @@ import { ModalCobrarPedido } from "./modal-cobrar-pedido";
 import { facturacionParaVenta, facturaDeVenta, facturarVenta, type ResumenFactura } from "@/app/(dashboard)/ventas/facturacion-actions";
 import { etiquetaVenta, archivoComprobanteVenta } from "@/lib/numeracion";
 import { confirmar, pedirTexto } from "@/components/ui/dialogos";
+import { BotonTicketVenta } from "./ticket-ui";
 
 const ESTADO_STYLE: Record<EstadoPago, string> = {
   PAGADA: "bg-success/10 text-success",
@@ -395,6 +396,7 @@ export function ModalDetallePedido({ pedidoId, onClose, onCambio, titulo = "Pedi
                   </button>
                 )
               )}
+              <BotonTicketVenta ventaId={pedidoId} variante="boton" />
               <button
                 type="button"
                 onClick={descargarComprobante}

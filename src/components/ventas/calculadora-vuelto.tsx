@@ -26,13 +26,21 @@ export function montosRapidos(monto: number): number[] {
 export function CalculadoraVuelto({
   montoEfectivo,
   onEnter,
+  pagaCon: pagaConExterno,
+  onCambiarPagaCon,
 }: {
   /** Parte del cobro que se paga en efectivo (ARS). */
   montoEfectivo: number;
   /** Enter en "Paga con": confirma la venta (si la pantalla lo permite). */
   onEnter?: () => void;
+  /** Opcional: la pantalla guarda el "paga con" (para el ticket, #86). Si no, lo guarda este componente. */
+  pagaCon?: number | null;
+  onCambiarPagaCon?: (monto: number | null) => void;
 }) {
-  const [pagaCon, setPagaCon] = useState<number | null>(null);
+  const [pagaConInterno, setPagaConInterno] = useState<number | null>(null);
+  const controlado = onCambiarPagaCon !== undefined;
+  const pagaCon = controlado ? (pagaConExterno ?? null) : pagaConInterno;
+  const setPagaCon = (monto: number | null) => (controlado ? onCambiarPagaCon(monto) : setPagaConInterno(monto));
   const efectivo = Math.round(montoEfectivo);
   const vuelto = pagaCon != null ? pagaCon - efectivo : null;
   const rapidos = montosRapidos(efectivo);

@@ -16,6 +16,7 @@ import { RangoFechas } from "@/components/ui/rango-fechas";
 import { useMostrarSucursal } from "@/lib/hooks/use-mostrar-sucursal";
 import { etiquetaVenta, archivoComprobanteVenta } from "@/lib/numeracion";
 import { confirmar, pedirTexto } from "@/components/ui/dialogos";
+import { BotonTicketVenta } from "./ticket-ui";
 
 const PAGE_SIZE = 15;
 
@@ -365,6 +366,7 @@ export function HistorialVentas() {
                           onNotaCredito={() => notaCredito(venta.id)}
                           onAnular={esAdmin ? () => anular(venta) : undefined}
                         />
+                        <BotonTicketVenta ventaId={venta.id} />
                         <button
                           type="button"
                           onClick={() => descargarComprobante(venta.id, venta.numero)}
@@ -436,6 +438,7 @@ export function HistorialVentas() {
                     onNotaCredito={() => notaCredito(venta.id)}
                     onAnular={esAdmin ? () => anular(venta) : undefined}
                   />
+                  <BotonTicketVenta ventaId={venta.id} variante="boton" className="mt-3 w-full" />
                   <button
                     type="button"
                     onClick={() => descargarComprobante(venta.id, venta.numero)}
