@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { esErrorDeNombreUnico, mensajeNombreDuplicado } from "@/lib/nombre-duplicado";
 
 // PUT: Editar nombre o cambiar estado
 export async function PUT(
@@ -26,6 +27,16 @@ export async function PUT(
 
     if (body.nombre !== undefined) {
       dataToUpdate.nombre = String(body.nombre).trim();
+      if (!dataToUpdate.nombre) {
+        return NextResponse.json({ error: "El nombre es requerido" }, { status: 400 });
+      }
+      const otra = await prisma.categoria.findFirst({
+        where: { empresaId, id: { not: categoriaId }, nombre: { equals: dataToUpdate.nombre, mode: "insensitive" } },
+        select: { nombre: true, activa: true },
+      });
+      if (otra) {
+        return NextResponse.json({ error: mensajeNombreDuplicado("categoría", otra) }, { status: 409 });
+      }
     }
     if (body.activa !== undefined) {
       dataToUpdate.activa = Boolean(body.activa);
@@ -38,6 +49,9 @@ export async function PUT(
 
     return NextResponse.json(categoriaActualizada);
   } catch (error: any) {
+    if (esErrorDeNombreUnico(error)) {
+      return NextResponse.json({ error: "Ya existe una categoría con ese nombre." }, { status: 409 });
+    }
     console.error("Error al actualizar categoría:", error);
     return NextResponse.json(
       { error: "Error al actualizar la categoría" },

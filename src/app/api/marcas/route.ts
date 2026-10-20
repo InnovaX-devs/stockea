@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { esErrorDeNombreUnico, mensajeNombreDuplicado } from "@/lib/nombre-duplicado";
 
 // FIX: evita que Next.js cachee este GET como estático.
 export const dynamic = "force-dynamic";
@@ -45,6 +46,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Sin distinguir mayúsculas: "natura" choca con "Natura".
+    const existente = await prisma.marca.findFirst({
+      where: { empresaId, nombre: { equals: nombre.trim(), mode: "insensitive" } },
+      select: { nombre: true, activa: true },
+    });
+    if (existente) {
+      return NextResponse.json({ error: mensajeNombreDuplicado("marca", existente) }, { status: 409 });
+    }
+
     const nuevaMarca = await prisma.marca.create({
       data: {
         empresaId,
@@ -55,6 +65,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(nuevaMarca, { status: 201 });
   } catch (error) {
+    if (esErrorDeNombreUnico(error)) {
+      return NextResponse.json({ error: "Ya existe una marca con ese nombre." }, { status: 409 });
+    }
     console.error("Error al crear marca:", error);
     return NextResponse.json(
       { error: "Error al crear la marca" },
