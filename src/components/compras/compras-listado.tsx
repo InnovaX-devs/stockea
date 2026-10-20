@@ -6,12 +6,14 @@ import { Plus, Search, RefreshCw, Loader2, Check, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatFechaAR } from "@/lib/timezone";
 import { ConfirmarCompraModal } from "@/components/compras/confirmar-compra-modal";
+import { PagarProveedorModal } from "@/components/proveedores/PagarProveedorModal";
 import { useMostrarSucursal } from "@/lib/hooks/use-mostrar-sucursal";
 import { ETIQUETA_ESTADO_PAGO, estadoPago, saldoPendiente, type EstadoPago } from "@/lib/compras-pago";
 
 interface Compra {
   id: number;
   numero: number; // número visible de la empresa
+  proveedorId: number | null;
   proveedor: { nombre: string } | null;
   cuenta: { nombre: string; tipo: string } | null;
   sucursal: { nombre: string } | null;
@@ -67,6 +69,9 @@ function EstadoDePago({ compra }: { compra: Compra }) {
     </span>
   );
 }
+
+/** Compra confirmada, no cancelada y con saldo por pagar. */
+const puedeDebe = (c: Compra) => c.confirmada && !c.cancelada && saldoPendiente(c) > 0.5;
 
 const PAGE_SIZE = 15;
 const DEBOUNCE_MS = 300;
@@ -150,6 +155,8 @@ export function ComprasListado() {
 
   // Confirmar abre la ventana con el paso "¿Actualizar precios?".
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
+  // Pagar el saldo de una compra puntual (CP-2).
+  const [compraPagar, setCompraPagar] = useState<Compra | null>(null);
 
   const ejecutarAccion = async (id: number, accion: "confirmar" | "cancelar") => {
     setAccionandoId(id);
@@ -182,6 +189,23 @@ export function ComprasListado() {
           }}
         />
       )}
+      <PagarProveedorModal
+        proveedor={
+          compraPagar
+            ? {
+                id: compraPagar.proveedorId != null ? String(compraPagar.proveedorId) : "sin-especificar",
+                nombre: compraPagar.proveedor?.nombre ?? "Sin especificar",
+                deuda: saldoPendiente(compraPagar),
+              }
+            : null
+        }
+        compra={compraPagar ? { id: compraPagar.id, numero: compraPagar.numero } : null}
+        onClose={() => setCompraPagar(null)}
+        onSuccess={async () => {
+          setCompraPagar(null);
+          await cargarCompras(true);
+        }}
+      />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-semibold text-text sm:text-2xl">Compras</h1>
         <Link
@@ -371,6 +395,14 @@ export function ComprasListado() {
                                 <X className="h-4 w-4" />
                               </button>
                             </div>
+                          ) : puedeDebe(compra) ? (
+                            <button
+                              type="button"
+                              onClick={() => setCompraPagar(compra)}
+                              className="bg-grad cursor-pointer rounded-full px-3 py-1 text-xs font-semibold text-[#050507]"
+                            >
+                              Pagar
+                            </button>
                           ) : (
                             <span className="text-text-dim">—</span>
                           )}
@@ -468,6 +500,17 @@ export function ComprasListado() {
                           className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-danger hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                    {puedeDebe(compra) && (
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={() => setCompraPagar(compra)}
+                          className="bg-grad cursor-pointer rounded-full px-3 py-1 text-xs font-semibold text-[#050507]"
+                        >
+                          Pagar
                         </button>
                       </div>
                     )}
