@@ -193,6 +193,18 @@ model Producto {
   stockMinimo Int     @default(0)
   destacado   Boolean @default(false)
 
+  // Precio abierto (verdura, fiambre…): el precio no está en el producto, se
+  // carga el monto al vender. Sigue siendo un producto común (reportes,
+  // categorías, IVA, copia sin conexión y cola de ventas funcionan igual).
+  precioAbierto Boolean @default(false)
+  // false = no descuenta ni suma stock (ni aparece en "sin stock" / "stock bajo").
+  // Ver src/lib/stock.ts.
+  controlaStock Boolean @default(true)
+  // % del precio de venta que se estima como costo (ej. 60). Solo para productos
+  // de precio abierto, donde no hay un costo fijo: así los reportes no muestran
+  // 100% de ganancia. null = sin costo estimado.
+  costoEstimadoPct Float?
+
   // Precios — moneda configurable por producto (no todos se cargan en USD)
   monedaPrecio    MonedaPrecio @default(USD)
   precioCosto     Float

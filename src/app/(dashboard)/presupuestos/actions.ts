@@ -177,6 +177,8 @@ export async function obtenerPresupuestoParaConvertir(id: number): Promise<Resul
       precioMayorista: true,
       contenido: true,
       unidadContenido: true,
+      precioAbierto: true,
+      controlaStock: true,
       marca: { select: { nombre: true } },
     },
   }));

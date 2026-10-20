@@ -17,6 +17,10 @@ import { Prisma } from "@prisma/client";
  * todas las funciones (y en la confirmación de compras), para que dos
  * operaciones simultáneas no se traben entre sí.
  *
+ * Los productos con `controlaStock = false` (precio abierto: verdura, fiambre…)
+ * NO descuentan ni suman: las tres funciones que mueven stock los ignoran
+ * (soloConControl), así que quien las llama no tiene que filtrarlos.
+ *
  * Se usan dentro de transacciones (`tx`). El sucursalId tiene que venir de
  * requerirSucursalId() o de la venta guardada, nunca del navegador.
  */
@@ -32,6 +36,26 @@ function agrupar(items: Item[]) {
     porProducto.set(productoId, (porProducto.get(productoId) ?? 0) + cantidad);
   }
   return [...porProducto.entries()];
+}
+
+/**
+ * Saca los productos que NO controlan stock (controlaStock = false: verdura,
+ * fiambre…). Esos no descuentan ni suman en ninguna operación, así que el resto
+ * de las funciones trabaja solo con lo que queda. Una consulta mínima (solo
+ * mira los ids del movimiento) y solo trae los que NO controlan, que son pocos.
+ * Un id que no es de la empresa NO se saca acá: sigue de largo y las funciones
+ * de abajo lo rechazan como "no válido", igual que siempre.
+ */
+async function soloConControl(tx: Db, empresaId: number, items: Item[]): Promise<Item[]> {
+  const ids = [...new Set(items.map((i) => i.productoId).filter((id): id is number => id != null))];
+  if (ids.length === 0) return items;
+  const sinControl = await tx.producto.findMany({
+    where: { id: { in: ids }, empresaId, controlaStock: false },
+    select: { id: true },
+  });
+  if (sinControl.length === 0) return items;
+  const excluir = new Set(sinControl.map((p) => p.id));
+  return items.filter((i) => i.productoId == null || !excluir.has(i.productoId));
 }
 
 function valores(grupos: [number, number][]) {
@@ -53,7 +77,7 @@ async function moverTotal(tx: Db, empresaId: number, grupos: [number, number][],
  * para ..." y la transacción se deshace entera.
  */
 export async function descontarStock(tx: Db, empresaId: number, sucursalId: number, items: Item[]) {
-  const grupos = agrupar(items);
+  const grupos = agrupar(await soloConControl(tx, empresaId, items));
   if (grupos.length === 0) return;
 
   const actualizados = await tx.$queryRaw<{ productoId: number }[]>`
@@ -96,7 +120,7 @@ export async function descontarStock(tx: Db, empresaId: number, sucursalId: numb
  * "StockSucursal", después "Producto".
  */
 export async function descontarStockPermitiendoNegativo(tx: Db, empresaId: number, sucursalId: number, items: Item[]) {
-  const grupos = agrupar(items);
+  const grupos = agrupar(await soloConControl(tx, empresaId, items));
   if (grupos.length === 0) return [];
 
   const filas = await tx.$queryRaw<{ productoId: number; cantidad: number }[]>`
@@ -124,7 +148,7 @@ export async function descontarStockPermitiendoNegativo(tx: Db, empresaId: numbe
  * (junto con los precios). Todo lo demás usa sumarStock.
  */
 export async function sumarStockSucursal(tx: Db, empresaId: number, sucursalId: number, items: Item[]) {
-  const grupos = agrupar(items);
+  const grupos = agrupar(await soloConControl(tx, empresaId, items));
   if (grupos.length === 0) return grupos;
 
   const insertados = await tx.$queryRaw<{ productoId: number }[]>`

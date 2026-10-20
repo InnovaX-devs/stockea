@@ -42,6 +42,7 @@ export async function obtenerInventario(diasSinMovimiento = 60): Promise<Inventa
       monedaPrecio: true,
       stockActual: true,
       stockMinimo: true,
+      controlaStock: true,
       marca: { select: { nombre: true } },
     },
   });
@@ -102,7 +103,10 @@ export async function obtenerInventario(diasSinMovimiento = 60): Promise<Inventa
       ultimaVenta,
     };
 
-    if (p.stockActual <= 0) {
+    // Verdura, fiambre…: no controlan stock, nunca están "sin stock" ni "en stock bajo".
+    if (!p.controlaStock) {
+      // nada
+    } else if (p.stockActual <= 0) {
       cantidadSinStock++;
     } else if (p.stockActual <= p.stockMinimo) {
       cantidadStockBajo++;

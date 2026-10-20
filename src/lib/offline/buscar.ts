@@ -19,6 +19,8 @@ function aDTO(p: ProductoLocal): ProductoBusquedaDTO {
     precioMayorista: p.precioMayorista,
     contenido: p.contenido ?? null,
     unidadContenido: p.unidadContenido ?? null,
+    precioAbierto: p.precioAbierto ?? false,
+    controlaStock: p.controlaStock ?? true,
     marca: p.marcaNombre ? { nombre: p.marcaNombre } : null,
     modeloId: p.modeloId ?? null,
     modeloNombre: p.modeloNombre ?? null,
@@ -78,6 +80,19 @@ export async function buscarProductos(q: string, signal?: AbortSignal) {
     }
   }
   return { items: await buscarProductosLocal(q), local: true };
+}
+
+/** Productos de precio abierto (verdura, fiambre…) para los botones rápidos: red primero, copia local sin red. */
+export async function listarPrecioAbierto(signal?: AbortSignal): Promise<ProductoBusquedaDTO[]> {
+  if (navigator.onLine) {
+    try {
+      const res = await fetch("/api/productos/buscar?abiertos=1", { signal });
+      if (res.ok) return ((await res.json()).items ?? []) as ProductoBusquedaDTO[];
+    } catch (err) {
+      if ((err as Error).name === "AbortError") throw err;
+    }
+  }
+  return (await db.productos.filter((p) => p.precioAbierto === true).sortBy("nombre")).slice(0, 24).map(aDTO);
 }
 
 export async function buscarClientes(q: string) {

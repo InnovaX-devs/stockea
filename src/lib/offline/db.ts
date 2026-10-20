@@ -14,6 +14,10 @@ export type ProductoLocal = {
   /** Contenido (RV-8): cantidad + unidad ("500 g", "1,5 l"). */
   contenido: number | null;
   unidadContenido: UnidadContenido | null;
+  /** Precio abierto (verdura, fiambre…): el monto se carga al vender. */
+  precioAbierto: boolean;
+  /** false = no descuenta stock (tampoco en la copia local). */
+  controlaStock: boolean;
   marcaNombre: string | null;
   /** Ropa (RV-5): modelo, talle y color de esta combinación (null en el resto). */
   modeloId: number | null;
@@ -129,6 +133,19 @@ class StockeaDB extends Dexie {
     // índices; las copias guardadas antes no tienen `contenido`, así que se
     // fuerza una sincronización completa la próxima vez.
     this.version(4)
+      .stores({
+        productos: "id, codigoBarras, modeloId",
+        clientes: "id, telefono",
+        cuentas: "id",
+        meta: "clave",
+        outbox: "++id, &idCliente, estado, empresaId",
+      })
+      .upgrade((tx) => tx.table("meta").delete("ultimaCompleta"));
+    // v5 (precio abierto): precioAbierto y controlaStock en cada producto. Mismos
+    // índices; las copias guardadas antes no los tienen, así que se fuerza una
+    // sincronización completa la próxima vez (mientras tanto se leen como
+    // "precio fijo, con stock", que es lo que eran todos).
+    this.version(5)
       .stores({
         productos: "id, codigoBarras, modeloId",
         clientes: "id, telefono",

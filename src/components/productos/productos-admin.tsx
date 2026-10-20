@@ -43,6 +43,11 @@ interface Producto {
   stockActual: number;
   stockMinimo?: number;
   destacado?: boolean;
+  /** Precio abierto (verdura, fiambre…): el monto se carga al vender. */
+  precioAbierto?: boolean;
+  /** false = no descuenta ni suma stock (no entra en "sin stock" / "stock bajo"). */
+  controlaStock?: boolean;
+  costoEstimadoPct?: number | null;
   precioCosto: number;
   precioVenta: number;
   precioMayorista?: number | null;
@@ -192,7 +197,7 @@ export default function ProductosAdmin() {
 
   // Conteos para los accesos rápidos (sobre productos activos + búsqueda, sin aplicar filtro de stock)
   const conteoSinStock = useMemo(
-    () => productosBusqueda.filter((p) => p.activo && p.stockActual <= 0).length,
+    () => productosBusqueda.filter((p) => p.activo && p.controlaStock !== false && p.stockActual <= 0).length,
     [productosBusqueda]
   );
   // Ahora
@@ -201,6 +206,7 @@ export default function ProductosAdmin() {
       productosBusqueda.filter(
         (p) =>
           p.activo &&
+          p.controlaStock !== false &&
           p.stockActual > 0 &&
           p.stockMinimo != null &&
           p.stockActual <= p.stockMinimo
@@ -217,10 +223,11 @@ export default function ProductosAdmin() {
       if (filtroMarcaId && String(p.marcaId ?? "") !== filtroMarcaId) return false;
       if (filtroCategoriaId && String(p.categoriaId ?? "") !== filtroCategoriaId) return false;
 
-      if (filtroStock === "sin_stock" && p.stockActual > 0) return false;
+      if (filtroStock === "sin_stock" && (p.controlaStock === false || p.stockActual > 0)) return false;
       if (
         filtroStock === "stock_bajo" &&
         !(
+          p.controlaStock !== false &&
           p.stockActual > 0 &&
           p.stockMinimo != null &&
           p.stockActual <= p.stockMinimo
@@ -415,6 +422,9 @@ export default function ProductosAdmin() {
       stockActual: producto.stockActual ?? "",
       stockMinimo: producto.stockMinimo ?? "",
       destacado: producto.destacado ?? false,
+      precioAbierto: producto.precioAbierto ?? false,
+      controlaStock: producto.controlaStock ?? true,
+      costoEstimadoPct: producto.costoEstimadoPct ?? "",
       monedaPrecio: producto.monedaPrecio ?? "USD",
       precioCosto: producto.precioCosto ?? "",
       precioVenta: producto.precioVenta ?? "",
@@ -517,10 +527,14 @@ export default function ProductosAdmin() {
                         </td>
                         <td className="px-4 py-3 text-text-dim">{p.marca?.nombre ?? "-"}</td>
                         <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-1.5 font-medium text-text">
-                            <span className={cn("h-2 w-2 rounded-full", stockColor)} />
-                            {p.stockActual}
-                          </span>
+                          {p.controlaStock === false ? (
+                            <span className="text-xs text-text-dim">Sin control</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 font-medium text-text">
+                              <span className={cn("h-2 w-2 rounded-full", stockColor)} />
+                              {p.stockActual}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           {configProducto.usaCotizacionUSD ? (
@@ -536,7 +550,9 @@ export default function ProductosAdmin() {
                           )}
                         </td>
                         <td className="bg-success/10 px-4 py-3">
-                          {configProducto.usaCotizacionUSD ? (
+                          {p.precioAbierto ? (
+                            <div className="font-bold text-primary">Precio abierto</div>
+                          ) : configProducto.usaCotizacionUSD ? (
                             <>
                               <div className="font-bold text-primary">
                                 {formatCurrency(venta.usd, "USD")}{" "}
@@ -661,12 +677,12 @@ export default function ProductosAdmin() {
                           <p
                             className={cn(
                               "font-medium",
-                              p.stockMinimo != null && p.stockActual <= p.stockMinimo
+                              p.controlaStock !== false && p.stockMinimo != null && p.stockActual <= p.stockMinimo
                                 ? "text-danger"
                                 : "text-text"
                             )}
                           >
-                            {p.stockActual} u.
+                            {p.controlaStock === false ? "Sin control" : `${p.stockActual} u.`}
                           </p>
                         </div>
                         <div>
@@ -678,7 +694,7 @@ export default function ProductosAdmin() {
                         <div>
                           <p className="text-xs text-text-dim">Venta</p>
                           <p className="font-mono font-medium text-text">
-                            {formatCurrency(convertir(p.precioVenta), monedaVista)}
+                            {p.precioAbierto ? "Precio abierto" : formatCurrency(convertir(p.precioVenta), monedaVista)}
                           </p>
                         </div>
                         <div>

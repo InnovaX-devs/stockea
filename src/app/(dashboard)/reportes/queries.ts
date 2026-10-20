@@ -6,6 +6,7 @@ import {
   calcularTopProductos,
   calcularTopClientes,
   claveFecha,
+  costoEstimadoDeLinea,
   costoHistoricoDelProducto,
   enriquecerVentas,
   type VentaParaReporte,
@@ -47,7 +48,7 @@ export async function obtenerReporte(rango: RangoFechas): Promise<ReporteData> {
             precioUnitarioUSD: true,
             tipoPrecio: true,
             producto: {
-              select: { id: true, nombre: true, fotoUrl: true, precioCosto: true, monedaPrecio: true },
+              select: { id: true, nombre: true, fotoUrl: true, precioCosto: true, monedaPrecio: true, precioAbierto: true, costoEstimadoPct: true },
             },
           },
         },
@@ -99,7 +100,10 @@ export async function obtenerReporte(rango: RangoFechas): Promise<ReporteData> {
     items: v.items.map((item) => {
       let costoUnitarioARS = 0;
 
-      if (item.producto) {
+      if (item.producto?.precioAbierto) {
+        // Precio abierto: no hay un costo fijo, se estima como % del precio vendido.
+        costoUnitarioARS = costoEstimadoDeLinea(item.precioUnitarioUSD * v.cotizacionUsada, item.producto.costoEstimadoPct);
+      } else if (item.producto) {
         const costoBase = costoHistoricoDelProducto(
           historialPorProducto.get(item.producto.id),
           item.producto.precioCosto,
@@ -188,7 +192,7 @@ export async function obtenerKpisDelDia(rango: RangoFechas): Promise<{ gananciaN
             precioUnitarioUSD: true,
             tipoPrecio: true,
             producto: {
-              select: { id: true, precioCosto: true, monedaPrecio: true },
+              select: { id: true, precioCosto: true, monedaPrecio: true, precioAbierto: true, costoEstimadoPct: true },
             },
           },
         },
@@ -238,7 +242,9 @@ export async function obtenerKpisDelDia(rango: RangoFechas): Promise<{ gananciaN
     clienteNombre: null,
     items: v.items.map((item) => {
       let costoUnitarioARS = 0;
-      if (item.producto) {
+      if (item.producto?.precioAbierto) {
+        costoUnitarioARS = costoEstimadoDeLinea(item.precioUnitarioUSD * v.cotizacionUsada, item.producto.costoEstimadoPct);
+      } else if (item.producto) {
         const costoBase = costoHistoricoDelProducto(
           historialPorProducto.get(item.producto.id),
           item.producto.precioCosto,

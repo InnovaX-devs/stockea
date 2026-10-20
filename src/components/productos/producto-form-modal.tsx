@@ -33,6 +33,12 @@ export interface ProductoFormData {
   stockActual: number | "";
   stockMinimo: number | "";
   destacado: boolean;
+  /** Precio abierto: el monto se carga al vender (verdura, fiambre…). */
+  precioAbierto?: boolean;
+  /** false = no descuenta ni suma stock. */
+  controlaStock?: boolean;
+  /** % del precio vendido que se estima como costo (solo precio abierto). "" = sin cargar. */
+  costoEstimadoPct?: number | "";
   monedaPrecio: "ARS" | "USD";
   precioCosto: number | "";
   precioVenta: number | "";
@@ -83,6 +89,9 @@ export function ProductoFormModal({
     stockActual: "",
     stockMinimo: "",
     destacado: false,
+    precioAbierto: false,
+    controlaStock: true,
+    costoEstimadoPct: "",
     monedaPrecio: "ARS",
     precioCosto: "",
     precioVenta: "",
@@ -168,6 +177,9 @@ export function ProductoFormModal({
           stockActual: productoEditar.stockActual ?? "",
           stockMinimo: productoEditar.stockMinimo ?? "",
           destacado: productoEditar.destacado ?? false,
+          precioAbierto: productoEditar.precioAbierto ?? false,
+          controlaStock: productoEditar.controlaStock ?? true,
+          costoEstimadoPct: productoEditar.costoEstimadoPct ?? "",
           monedaPrecio: usaCotizacionUSD ? productoEditar.monedaPrecio ?? "USD" : "ARS",
           precioCosto: productoEditar.precioCosto ?? "",
           precioVenta: productoEditar.precioVenta ?? "",
@@ -202,6 +214,9 @@ export function ProductoFormModal({
           stockActual: 0,
           stockMinimo: 0,
           destacado: false,
+          precioAbierto: false,
+          controlaStock: true,
+          costoEstimadoPct: "",
           monedaPrecio: "ARS",
           precioCosto: "",
           precioVenta: "",
@@ -400,14 +415,23 @@ export function ProductoFormModal({
     setErrorMsg("");
     setProductoInactivoId(null);
 
+    // Precio abierto: el precio y el costo se cargan al vender, no acá.
+    // Sin control de stock: no se pide stock.
+    const abierto = formData.precioAbierto === true;
+    const controla = formData.controlaStock !== false;
+
     // Validaciones de obligatorios
     if (
       !formData.nombre.trim() ||
-      formData.stockActual === "" ||
-      formData.precioCosto === "" ||
-      formData.precioVenta === ""
+      (controla && formData.stockActual === "") ||
+      (!abierto && (formData.precioCosto === "" || formData.precioVenta === ""))
     ) {
       setErrorMsg("Por favor completa los campos obligatorios (*)");
+      return;
+    }
+    const pctCosto = formData.costoEstimadoPct === "" || formData.costoEstimadoPct == null ? null : Number(formData.costoEstimadoPct);
+    if (abierto && pctCosto != null && (!Number.isFinite(pctCosto) || pctCosto < 0 || pctCosto > 100)) {
+      setErrorMsg("El % de costo estimado tiene que estar entre 0 y 100.");
       return;
     }
 
@@ -450,18 +474,23 @@ export function ProductoFormModal({
         categoriaId: formData.categoriaId ? Number(formData.categoriaId) : null,
         contenido: formData.contenido === "" ? null : Number(formData.contenido),
         unidadContenido: formData.contenido === "" ? null : unidadElegida,
-        stockActual: Number(formData.stockActual),
+        // Sin control de stock el campo está oculto: no se cambia el que ya había.
+        stockActual: controla ? Number(formData.stockActual) : productoEditar ? Number(productoEditar.stockActual) || 0 : 0,
         // Stock que había al abrir el formulario: el servidor aplica solo la diferencia.
         stockOriginal: productoEditar ? productoEditar.stockActual ?? null : null,
-        stockMinimo: formData.stockMinimo === "" ? 0 : Number(formData.stockMinimo),
-        precioCosto: Number(formData.precioCosto),
-        precioVenta: Number(formData.precioVenta),
+        stockMinimo: controla && formData.stockMinimo !== "" ? Number(formData.stockMinimo) : 0,
+        precioAbierto: abierto,
+        controlaStock: controla,
+        costoEstimadoPct: abierto ? pctCosto : null,
+        // Precio abierto: sin precio ni costo fijos (el monto se carga al vender).
+        precioCosto: abierto ? 0 : Number(formData.precioCosto),
+        precioVenta: abierto ? 0 : Number(formData.precioVenta),
         precioMayorista:
-          formData.precioMayorista === "" || formData.precioMayorista === null
+          abierto || formData.precioMayorista === "" || formData.precioMayorista === null
             ? null
             : Number(formData.precioMayorista),
         precioOferta:
-          formData.precioOferta === "" || formData.precioOferta === null
+          abierto || formData.precioOferta === "" || formData.precioOferta === null
             ? null
             : Number(formData.precioOferta),
         fotoUrl: finalFotoUrl,
@@ -690,7 +719,8 @@ export function ProductoFormModal({
             </div>
           </div>
 
-          {/* Stocks */}
+          {/* Stocks (no aplican si el producto no controla stock) */}
+          {formData.controlaStock !== false && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-medium text-text-dim">
@@ -730,6 +760,7 @@ export function ProductoFormModal({
               />
             </div>
           </div>
+          )}
 
           {/* Precios */}
           <div className="rounded-xl border border-border bg-surface-hover/30 p-4 space-y-4">
@@ -755,7 +786,14 @@ export function ProductoFormModal({
               )}
             </div>
 
+            {formData.precioAbierto === true && (
+              <p className="rounded-lg bg-primary/5 px-3 py-2 text-xs text-text-dim">
+                Precio abierto: al venderlo se pide el monto (ej. &quot;$2.100 de verdura&quot;). No lleva precio ni costo fijos.
+              </p>
+            )}
+
             <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2">
+              {formData.precioAbierto !== true && (
               <div>
                 <label className="block text-xs font-medium text-text-dim">
                   Costo *
@@ -770,6 +808,36 @@ export function ProductoFormModal({
                   className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
                 />
               </div>
+              )}
+
+              {formData.precioAbierto === true && (
+                <div>
+                  <label className="block text-xs font-medium text-text-dim">
+                    % de costo estimado (opcional)
+                  </label>
+                  <div className="relative mt-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      placeholder="Ej: 60"
+                      value={formData.costoEstimadoPct ?? ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          costoEstimadoPct: e.target.value === "" ? "" : Number(e.target.value),
+                        })
+                      }
+                      className="w-full rounded-lg border border-border bg-surface py-2 pl-3 pr-7 text-sm text-text focus:border-primary focus:outline-none"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-dim">%</span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-text-dim">
+                    Los reportes toman este % de cada venta como costo, para no mostrar 100% de ganancia.
+                  </p>
+                </div>
+              )}
 
               {discriminaIva && (
                 <div>
@@ -788,6 +856,7 @@ export function ProductoFormModal({
                 </div>
               )}
 
+              {formData.precioAbierto !== true && (<>
               <div>
                 <label className="block text-xs font-medium text-text-dim">
                   Oferta
@@ -864,11 +933,12 @@ export function ProductoFormModal({
                   </div>
                 </div>
               </div>
+              </>)}
             </div>
           </div>
 
           {/* Toggles */}
-          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 pt-2">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 sm:gap-x-6 pt-2">
             <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
               <input
                 type="checkbox"
@@ -879,6 +949,28 @@ export function ProductoFormModal({
                 className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
               />
               Producto Destacado
+            </label>
+            <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.precioAbierto === true}
+                onChange={(e) =>
+                  setFormData({ ...formData, precioAbierto: e.target.checked })
+                }
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+              />
+              Precio abierto (se carga el monto al vender)
+            </label>
+            <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.controlaStock === false}
+                onChange={(e) =>
+                  setFormData({ ...formData, controlaStock: !e.target.checked })
+                }
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+              />
+              No controlar stock
             </label>
           </div>
 

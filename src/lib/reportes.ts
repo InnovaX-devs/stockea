@@ -92,6 +92,18 @@ export function costoHistoricoDelProducto(
 }
 
 /**
+ * Costo unitario (ARS) de una línea de un producto de PRECIO ABIERTO: el
+ * "% de costo estimado" del producto aplicado al precio al que se vendió
+ * (ej. 60% de $2.100 = $1.260). Sin porcentaje cargado el costo es 0, como
+ * cualquier producto sin costo. Los productos de precio fijo siguen usando su
+ * costo (costoHistoricoDelProducto).
+ */
+export function costoEstimadoDeLinea(precioUnitarioARS: number, costoEstimadoPct: number | null | undefined): number {
+  if (costoEstimadoPct == null || !(costoEstimadoPct > 0)) return 0;
+  return (precioUnitarioARS * costoEstimadoPct) / 100;
+}
+
+/**
  * Calcula proporcionCobrada y factorDescuento una sola vez por venta.
  * Llamar UNA vez en queries.ts y pasar el resultado a calcularReporte,
  * calcularIngresosPorDia y calcularTopProductos (antes cada una lo

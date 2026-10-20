@@ -8,6 +8,7 @@ import { ajustarStock } from "@/lib/stock";
 import { esFotoPermitida } from "@/lib/fotos";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { leerContenido } from "@/lib/contenido";
+import { leerPrecioAbierto } from "@/lib/precio-abierto";
 
 export async function PUT(
   request: NextRequest,
@@ -84,6 +85,13 @@ export async function PUT(
       return NextResponse.json({ error: resultadoContenido.error }, { status: 400 });
     }
     const contenidoGuardado = resultadoContenido.datos;
+
+    // Precio abierto / sin control de stock / % de costo estimado. Solo se
+    // guarda lo que viene: las pantallas que no lo muestran no lo tocan.
+    const resultadoAbierto = leerPrecioAbierto(body);
+    if (!resultadoAbierto.ok) {
+      return NextResponse.json({ error: resultadoAbierto.error }, { status: 400 });
+    }
 
     // Código de barras
     const codigoBarras =
@@ -235,6 +243,7 @@ export async function PUT(
           categoriaId,
           stockMinimo: minimoTotal,
           destacado: Boolean(body.destacado),
+          ...resultadoAbierto.datos,
           monedaPrecio: body.monedaPrecio || "USD",
           precioCosto: nuevoCosto,
           precioVenta: nuevoVenta,

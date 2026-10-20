@@ -6,12 +6,13 @@ import { toast } from "sonner";
 import { VentaProvider, useVenta } from "@/components/ventas/venta-context";
 import { TogglePrecio } from "@/components/ventas/toggle-precio";
 import { BuscadorProducto } from "@/components/ventas/buscador-producto";
+import { BotonesPrecioAbierto, ModalMontoAbierto } from "@/components/ventas/precio-abierto";
 import { BuscadorCliente } from "@/components/ventas/buscador-cliente";
 import { ModalConsultarPrecio } from "@/components/ventas/modal-consultar-precio";
 import { TablaCarrito } from "@/components/ventas/tabla-carrito";
 import { ResumenVenta } from "@/components/ventas/resumen-venta";
 import { ModalDescuento, type Descuento } from "@/components/ventas/modal-descuento";
-import { toArs } from "@/lib/currency";
+import { formatCurrency, toArs } from "@/lib/currency";
 import type { ProductoBusquedaDTO } from "@/types/producto";
 import type { ItemCarrito, TipoPrecioLinea } from "@/types/item-carrito";
 import { SelectorCobro } from "@/components/ventas/selector-cobro";
@@ -44,6 +45,8 @@ function NuevaVentaContenido() {
   const [modalPrecioAbierto, setModalPrecioAbierto] = useState(false);
   const [modalDescuentoAbierto, setModalDescuentoAbierto] = useState(false);
   const [descuento, setDescuento] = useState<Descuento>(null);
+  // Producto de precio abierto (verdura, fiambre…) esperando que se cargue el monto.
+  const [productoMonto, setProductoMonto] = useState<ProductoBusquedaDTO | null>(null);
 
   // --- Prefill desde un Presupuesto ("Convertir a venta") ---
   const searchParams = useSearchParams();
@@ -109,6 +112,12 @@ function NuevaVentaContenido() {
   const [procesando, setProcesando] = useState(false);
 
   async function intentarAgregar(producto: ProductoBusquedaDTO, precioUnitarioArs: number) {
+    // Sin control de stock (verdura, fiambre…): nada que verificar.
+    if (producto.controlaStock === false) {
+      agregarAlCarrito(producto, precioUnitarioArs);
+      return;
+    }
+
     const yaEnCarrito = carrito
       .filter((it) => it.producto.id === producto.id)
       .reduce((acc, it) => acc + it.cantidad, 0);
@@ -153,7 +162,27 @@ function NuevaVentaContenido() {
     toast.success(`${producto.nombre} agregado (${tipoPrecio === "MAYORISTA" ? "May" : "Min"})`);
   }
 
+  /** Precio abierto: la línea queda con cantidad 1 y el monto que se cargó. Se puede repetir. */
+  function agregarConMonto(producto: ProductoBusquedaDTO, montoArs: number) {
+    const nuevoItem: ItemCarrito = {
+      id: `${producto.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      producto,
+      tipoPrecio,
+      cantidad: 1,
+      precioUnitarioArs: montoArs,
+    };
+    setCarrito((prev) => [...prev, nuevoItem]);
+    setProductoMonto(null);
+    toast.success(`${producto.nombre} agregado (${formatCurrency(montoArs, "ARS")})`);
+  }
+
   function agregarProducto(producto: ProductoBusquedaDTO) {
+    // Precio abierto (desde los botones rápidos o desde el buscador): primero se pide el monto.
+    if (producto.precioAbierto) {
+      setProductoMonto(producto);
+      return;
+    }
+
     const precioBaseOriginal =
       tipoPrecio === "MAYORISTA" && producto.precioMayorista != null ? producto.precioMayorista : producto.precioVenta;
     const precioUnitarioArs = toArs(precioBaseOriginal, producto.monedaPrecio, cotizacionUSD);
@@ -165,7 +194,7 @@ function NuevaVentaContenido() {
     setCarrito((prev) =>
       prev.map((it) => {
         if (it.id !== id) return it;
-        if (cantidad > it.producto.stockActual) {
+        if (it.producto.controlaStock !== false && cantidad > it.producto.stockActual) {
           toast.warning(`Solo hay ${it.producto.stockActual} unidades de "${it.producto.nombre}" en stock`);
           return it;
         }
@@ -181,7 +210,7 @@ function NuevaVentaContenido() {
   function cambiarTipoPrecio(id: string, tipo: TipoPrecioLinea) {
     setCarrito((prev) =>
       prev.map((it) => {
-        if (it.id !== id) return it;
+        if (it.id !== id || it.producto.precioAbierto) return it; // el precio abierto no cambia con el tipo de precio
         const precioBaseOriginal =
           tipo === "MAYORISTA" && it.producto.precioMayorista != null
             ? it.producto.precioMayorista
@@ -445,6 +474,9 @@ function NuevaVentaContenido() {
         </div>
       )}
 
+      {/* Productos de precio abierto (verdura, fiambre…): botones rápidos arriba del buscador */}
+      <BotonesPrecioAbierto onElegir={agregarProducto} />
+
       <div className="flex flex-col gap-2 rounded-2xl border border-border bg-white p-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-1 sm:min-w-0">
           <div className="w-full sm:flex-1 sm:min-w-[180px]">
@@ -549,6 +581,13 @@ function NuevaVentaContenido() {
         </div>
       )}
       {modalPrecioAbierto && <ModalConsultarPrecio onClose={() => setModalPrecioAbierto(false)} />}
+      {productoMonto && (
+        <ModalMontoAbierto
+          producto={productoMonto}
+          onConfirmar={(monto) => agregarConMonto(productoMonto, monto)}
+          onCancelar={() => setProductoMonto(null)}
+        />
+      )}
       {modalDescuentoAbierto && (
         <ModalDescuento
           descuentoActual={descuento}
