@@ -9,6 +9,9 @@ export type PagoLinea = {
   esUSD?: boolean;
   /** Dólares que entran a la cuenta cuando esUSD es true (lo que escribe el usuario). */
   montoUSD?: number | null;
+  /** Nombre y tipo de la cuenta elegida (para el ticket, #86). */
+  cuentaNombre?: string;
+  cuentaTipo?: string;
 };
 
 export type CuentaOption = {
