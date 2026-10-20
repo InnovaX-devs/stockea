@@ -124,6 +124,14 @@ export default function ProveedoresContent({
         onClose={cerrarDetalle}
         proveedor={proveedorDetalle}
         onSuccess={handleSuccess}
+        onPagar={() => {
+          setProveedorPagar(proveedorDetalle);
+          cerrarDetalle();
+        }}
+        onCuentaCorriente={() => {
+          setProveedorCC(proveedorDetalle);
+          cerrarDetalle();
+        }}
       />
     </div>
   );
