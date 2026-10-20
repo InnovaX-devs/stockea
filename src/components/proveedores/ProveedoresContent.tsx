@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ProveedorFormModal } from "@/components/proveedores/proveedor-form-modal";
 import { ProveedorDetalleModal } from "@/components/proveedores/proveedor-detalle-modal";
+import { PagarProveedorModal } from "@/components/proveedores/PagarProveedorModal";
+import { CuentaCorrienteProveedorModal } from "@/components/proveedores/CuentaCorrienteProveedorModal";
 import ProveedoresResumenCards from "./ProveedoresResumenCards";
 import ProveedoresFilters from "./ProveedoresFilters";
 import ProveedoresTable from "./ProveedoresTable";
@@ -15,13 +17,20 @@ export default function ProveedoresContent({
   paginacion,
 }: {
   proveedores: ProveedorConCompras[];
-  resumen: { totalProveedores: number; totalComprado: number };
+  resumen: {
+    totalProveedores: number;
+    totalComprado: number;
+    deudaTotal: number;
+    topDeudas: { id: number; nombre: string; deuda: number }[];
+  };
   paginacion: Paginacion;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isCrearOpen, setIsCrearOpen] = useState(false);
   const [proveedorDetalle, setProveedorDetalle] = useState<ProveedorConCompras | null>(null);
+  const [proveedorPagar, setProveedorPagar] = useState<ProveedorConCompras | null>(null);
+  const [proveedorCC, setProveedorCC] = useState<ProveedorConCompras | null>(null);
 
   function abrirDetalle(proveedor: ProveedorConCompras) {
     if (proveedor.esVirtual) return;
@@ -34,6 +43,7 @@ export default function ProveedoresContent({
 
   function handleSuccess() {
     setIsCrearOpen(false);
+    setProveedorPagar(null);
     cerrarDetalle();
     router.refresh(); // vuelve a pedir los datos al server component
   }
@@ -60,7 +70,12 @@ export default function ProveedoresContent({
 
       <ProveedoresResumenCards resumen={resumen} />
       <ProveedoresFilters />
-      <ProveedoresTable proveedores={proveedores} onVerDetalle={abrirDetalle} />
+      <ProveedoresTable
+        proveedores={proveedores}
+        onVerDetalle={abrirDetalle}
+        onPagar={setProveedorPagar}
+        onCuentaCorriente={setProveedorCC}
+      />
 
       {totalItems > 0 && (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-text-dim">
@@ -95,6 +110,14 @@ export default function ProveedoresContent({
         onClose={() => setIsCrearOpen(false)}
         onSuccess={handleSuccess}
       />
+
+      <PagarProveedorModal
+        proveedor={proveedorPagar}
+        onClose={() => setProveedorPagar(null)}
+        onSuccess={handleSuccess}
+      />
+
+      <CuentaCorrienteProveedorModal proveedor={proveedorCC} onClose={() => setProveedorCC(null)} />
 
       <ProveedorDetalleModal
         isOpen={proveedorDetalle !== null}
