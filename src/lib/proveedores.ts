@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { SELECT_DEUDA_PROVEEDOR, deudaDeProveedor, resumenDeudaProveedores } from "@/lib/cuenta-corriente-proveedor";
+import { saldoPendiente } from "@/lib/compras-pago";
 
 const WHERE_COMPRA_REAL = {
   confirmada: true,
@@ -16,6 +18,8 @@ export type ProveedorConCompras = {
   notas: string | null;
   cantidadCompras: number;
   totalComprado: number;
+  /** Lo que se le debe (ARS): deuda inicial + saldo de compras. */
+  deuda: number;
   esVirtual: boolean;
 };
 
@@ -46,16 +50,13 @@ export async function getProveedoresData(filtros: ProveedoresFiltros = {}) {
       telefono: true,
       email: true,
       notas: true,
-      compras: {
-        where: WHERE_COMPRA_REAL,
-        select: { totalARS: true },
-      },
+      ...SELECT_DEUDA_PROVEEDOR,
     },
   });
 
   const comprasSinProveedor = await prisma.compra.findMany({
     where: { ...WHERE_COMPRA_REAL, proveedorId: null, empresaId },
-    select: { totalARS: true },
+    select: { totalARS: true, montoPagado: true },
   });
 
   const proveedoresConCalculos: ProveedorConCompras[] = proveedores.map((p) => ({
@@ -67,6 +68,7 @@ export async function getProveedoresData(filtros: ProveedoresFiltros = {}) {
     notas: p.notas,
     cantidadCompras: p.compras.length,
     totalComprado: p.compras.reduce((acc, c) => acc + (c.totalARS ?? 0), 0),
+    deuda: deudaDeProveedor(p),
     esVirtual: false,
   }));
 
@@ -83,6 +85,7 @@ export async function getProveedoresData(filtros: ProveedoresFiltros = {}) {
           notas: null,
           cantidadCompras: cantidadComprasSinProveedor,
           totalComprado: comprasSinProveedor.reduce((acc, c) => acc + (c.totalARS ?? 0), 0),
+          deuda: comprasSinProveedor.reduce((acc, c) => acc + saldoPendiente({ totalARS: c.totalARS, montoPagado: c.montoPagado }), 0),
           esVirtual: true,
         }
       : null;
@@ -91,9 +94,12 @@ export async function getProveedoresData(filtros: ProveedoresFiltros = {}) {
     ? [...proveedoresConCalculos, itemSinEspecificar]
     : proveedoresConCalculos;
 
+  const deudas = await resumenDeudaProveedores(empresaId, 3);
   const resumen = {
     totalProveedores: proveedoresConCalculos.length,
     totalComprado: todos.reduce((acc, p) => acc + p.totalComprado, 0),
+    deudaTotal: deudas.total,
+    topDeudas: deudas.top,
   };
 
   let filtrados = todos;

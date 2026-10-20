@@ -41,6 +41,7 @@ interface Movimiento {
 }
 
 interface DashboardData {
+  deudaProveedores: { total: number; cantidad: number; top: { id: number; nombre: string; deuda: number }[] };
   premium: boolean;
   cuentas: {
     saldoTotal: number;
@@ -255,6 +256,33 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Deuda con proveedores (CP-2) */}
+      {!cargando && datos && datos.deudaProveedores.total > 0 && (
+        <div className="rounded-2xl border border-border bg-surface p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-text-dim">Deuda con proveedores</p>
+              <p className="text-xl font-semibold text-danger">
+                {mostrarSaldos ? formatCurrency(datos.deudaProveedores.total, "ARS") : OCULTO}
+              </p>
+            </div>
+            <Link href="/compras/proveedores" className="text-xs font-medium text-primary hover:underline">
+              Ver proveedores →
+            </Link>
+          </div>
+          <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
+            {datos.deudaProveedores.top.map((p) => (
+              <li key={p.id} className="flex justify-between gap-2">
+                <span className="truncate text-text">{p.nombre}</span>
+                <span className="shrink-0 font-medium text-text">
+                  {mostrarSaldos ? formatCurrency(p.deuda, "ARS") : OCULTO}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Accesos rápidos */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

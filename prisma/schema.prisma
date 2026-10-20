@@ -498,6 +498,7 @@ model Proveedor {
 
   compras Compra[]
   gastos  Gasto[]
+  pagos   PagoProveedor[]
 
   @@index([nombre])
   @@index([empresaId])
@@ -538,6 +539,7 @@ model Compra {
 
   items           ItemCompra[]
   movimientosCaja MovimientoCaja[]
+  pagosProveedor  PagoProveedorCompra[]
 
   @@index([proveedorId])
   @@index([cuentaId])
@@ -636,6 +638,10 @@ model MovimientoCaja {
   compra   Compra? @relation(fields: [compraId], references: [id])
   compraId Int?
 
+  // CP-2: pago a proveedor del que sale este movimiento (puede abarcar varias compras).
+  pagoProveedor   PagoProveedor? @relation(fields: [pagoProveedorId], references: [id])
+  pagoProveedorId Int?
+
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   empresaId Int
 
@@ -648,6 +654,39 @@ model MovimientoCaja {
   @@index([fecha])
   @@index([empresaId])
   @@index([sucursalId])
+  @@index([pagoProveedorId])
+}
+
+// CP-2: un pago a un proveedor. Se aplica primero a la deuda inicial y después
+// a las compras más viejas (ver src/lib/cuenta-corriente-proveedor.ts).
+model PagoProveedor {
+  id                   Int      @id @default(autoincrement())
+  proveedor            Proveedor @relation(fields: [proveedorId], references: [id])
+  proveedorId          Int
+  empresaId            Int
+  sucursalId           Int?
+  montoARS             Float // total pagado, en ARS
+  aplicadoDeudaInicial Float    @default(0) // parte que bajó la deuda inicial
+  fecha                DateTime @default(now())
+
+  compras         PagoProveedorCompra[]
+  movimientosCaja MovimientoCaja[]
+
+  @@index([proveedorId])
+  @@index([empresaId])
+}
+
+// Cuánto de un pago se aplicó a cada compra (ARS).
+model PagoProveedorCompra {
+  id       Int     @id @default(autoincrement())
+  pago     PagoProveedor @relation(fields: [pagoId], references: [id], onDelete: Cascade)
+  pagoId   Int
+  compra   Compra  @relation(fields: [compraId], references: [id])
+  compraId Int
+  montoARS Float
+
+  @@index([pagoId])
+  @@index([compraId])
 }
 
 model CategoriaGasto {

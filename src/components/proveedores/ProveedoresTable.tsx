@@ -11,10 +11,31 @@ function formatMoney(amount: number) {
 export default function ProveedoresTable({
   proveedores,
   onVerDetalle,
+  onPagar,
+  onCuentaCorriente,
 }: {
   proveedores: ProveedorConCompras[];
   onVerDetalle: (proveedor: ProveedorConCompras) => void;
+  onPagar: (proveedor: ProveedorConCompras) => void;
+  onCuentaCorriente: (proveedor: ProveedorConCompras) => void;
 }) {
+  const acciones = (p: ProveedorConCompras) =>
+    p.esVirtual ? null : (
+      <div className="flex items-center justify-end gap-3" onClick={(e) => e.stopPropagation()}>
+        <button onClick={() => onCuentaCorriente(p)} className="text-primary hover:underline text-sm cursor-pointer">
+          Cuenta corriente
+        </button>
+        {p.deuda > 0.5 && (
+          <button
+            onClick={() => onPagar(p)}
+            className="bg-grad rounded-full px-3 py-1 text-xs font-semibold text-[#050507] cursor-pointer"
+          >
+            Pagar
+          </button>
+        )}
+      </div>
+    );
+
   if (proveedores.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-border px-4 py-8 text-center text-text-dim text-sm">
@@ -34,6 +55,7 @@ export default function ProveedoresTable({
               <th className="px-4 py-3">Contacto</th>
               <th className="px-4 py-3">Compras</th>
               <th className="px-4 py-3">Total comprado</th>
+              <th className="px-4 py-3">Deuda</th>
               <th className="px-4 py-3 text-right">Acciones</th>
             </tr>
           </thead>
@@ -52,11 +74,10 @@ export default function ProveedoresTable({
                 </td>
                 <td className="px-4 py-4 text-text-dim">{p.cantidadCompras}</td>
                 <td className="px-4 py-4 text-text-dim">{formatMoney(p.totalComprado)}</td>
-                <td className="px-4 py-4 text-right">
-                  {!p.esVirtual && (
-                    <span className="text-primary hover:underline text-sm">Ver</span>
-                  )}
+                <td className={`px-4 py-4 font-medium ${p.deuda > 0.5 ? "text-danger" : "text-text-dim"}`}>
+                  {p.deuda > 0.5 ? formatMoney(p.deuda) : "Al día"}
                 </td>
+                <td className="px-4 py-4 text-right">{acciones(p)}</td>
               </tr>
             ))}
           </tbody>
@@ -80,14 +101,17 @@ export default function ProveedoresTable({
                   {p.personaContacto || p.telefono || p.email || "—"}
                 </p>
               </div>
-              {!p.esVirtual && (
-                <span className="shrink-0 text-primary text-sm font-medium">Ver →</span>
-              )}
             </div>
 
             <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-sm">
               <span className="text-text-dim">{p.cantidadCompras} compras</span>
               <span className="font-medium text-text">{formatMoney(p.totalComprado)}</span>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+              <span className={p.deuda > 0.5 ? "font-medium text-danger" : "text-text-dim"}>
+                {p.deuda > 0.5 ? `Debés ${formatMoney(p.deuda)}` : "Al día"}
+              </span>
+              {acciones(p)}
             </div>
           </div>
         ))}
