@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { formatFechaAR } from "@/lib/timezone";
 import { ConfirmarCompraModal } from "@/components/compras/confirmar-compra-modal";
 import { useMostrarSucursal } from "@/lib/hooks/use-mostrar-sucursal";
+import { ETIQUETA_ESTADO_PAGO, estadoPago, saldoPendiente, type EstadoPago } from "@/lib/compras-pago";
 
 interface Compra {
   id: number;
@@ -18,6 +19,7 @@ interface Compra {
   totalARS: number | null;
   confirmada: boolean;
   pagada: boolean;
+  montoPagado: number;
   recibida: boolean;
   cancelada: boolean;
   fecha: string;
@@ -31,6 +33,40 @@ const FILTROS: { key: FiltroKey; label: string }[] = [
   { key: "confirmadas", label: "Confirmadas" },
   { key: "canceladas", label: "Canceladas" },
 ];
+
+// Estado de pago (CP-1). Filtra solo compras confirmadas.
+type FiltroPago = "todos" | "pagadas" | "parciales" | "sin-pagar";
+
+const FILTROS_PAGO: { key: FiltroPago; label: string }[] = [
+  { key: "todos", label: "Cualquier pago" },
+  { key: "pagadas", label: "Pagadas" },
+  { key: "parciales", label: "Pago parcial" },
+  { key: "sin-pagar", label: "Sin pagar" },
+];
+
+const CLASE_ESTADO_PAGO: Record<EstadoPago, string> = {
+  PAGADA: "bg-success/10 text-success",
+  PARCIAL: "bg-warning/15 text-warning",
+  SIN_PAGAR: "bg-danger/10 text-danger",
+};
+
+const pesos = (n: number) =>
+  n.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
+
+/** Etiqueta de pago de una compra confirmada, con lo que falta pagar. */
+function EstadoDePago({ compra }: { compra: Compra }) {
+  if (!compra.confirmada || compra.cancelada) return null;
+  const estado = estadoPago(compra);
+  const debe = saldoPendiente(compra);
+  return (
+    <span className="inline-flex flex-col items-start gap-0.5">
+      <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", CLASE_ESTADO_PAGO[estado])}>
+        {ETIQUETA_ESTADO_PAGO[estado]}
+      </span>
+      {estado !== "PAGADA" && <span className="text-[11px] text-text-dim">Debe {pesos(debe)}</span>}
+    </span>
+  );
+}
 
 const PAGE_SIZE = 15;
 const DEBOUNCE_MS = 300;
@@ -47,6 +83,7 @@ function estadoDeCompra(compra: Compra): { label: string; className: string } {
 
 export function ComprasListado() {
   const [filtro, setFiltro] = useState<FiltroKey>("todas");
+  const [filtroPago, setFiltroPago] = useState<FiltroPago>("todos");
   const [busqueda, setBusqueda] = useState("");
   const [busquedaDebounced, setBusquedaDebounced] = useState("");
   const [compras, setCompras] = useState<Compra[]>([]);
@@ -81,6 +118,7 @@ export function ComprasListado() {
 
     const params = new URLSearchParams();
     if (filtro !== "todas") params.set("filtro", filtro);
+    if (filtroPago !== "todos") params.set("pago", filtroPago);
     if (busquedaDebounced) params.set("q", busquedaDebounced);
     params.set("page", String(page));
     params.set("pageSize", String(PAGE_SIZE));
@@ -103,12 +141,12 @@ export function ComprasListado() {
   useEffect(() => {
     cargarCompras();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtro, busquedaDebounced, page]);
+  }, [filtro, filtroPago, busquedaDebounced, page]);
 
   // Si cambia el filtro o la búsqueda, volvemos a la página 1
   useEffect(() => {
     setPage(1);
-  }, [filtro, busquedaDebounced]);
+  }, [filtro, filtroPago, busquedaDebounced]);
 
   // Confirmar abre la ventana con el paso "¿Actualizar precios?".
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
@@ -173,11 +211,37 @@ export function ComprasListado() {
               <button
                 key={f.key}
                 type="button"
-                onClick={() => setFiltro(f.key)}
+                onClick={() => {
+                  setFiltro(f.key);
+                  // El estado de pago solo aplica a compras confirmadas.
+                  if (f.key === "pendientes" || f.key === "canceladas") setFiltroPago("todos");
+                }}
                 className={cn(
                   "shrink-0 cursor-pointer whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
                   filtro === f.key
                     ? "bg-primary text-white"
+                    : "border border-border bg-white text-text-dim hover:bg-surface-hover"
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:pb-0" role="group" aria-label="Estado de pago">
+            {FILTROS_PAGO.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => {
+                  setFiltroPago(f.key);
+                  if (f.key !== "todos") setFiltro("confirmadas");
+                }}
+                aria-pressed={filtroPago === f.key}
+                className={cn(
+                  "shrink-0 cursor-pointer whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                  filtroPago === f.key
+                    ? "bg-topbar text-white"
                     : "border border-border bg-white text-text-dim hover:bg-surface-hover"
                 )}
               >
@@ -264,14 +328,17 @@ export function ComprasListado() {
                           )}
                         </td>
                         <td className="px-4 py-4">
-                          <span
-                            className={cn(
-                              "rounded-full px-2.5 py-1 text-xs font-semibold",
-                              estado.className
-                            )}
-                          >
-                            {estado.label}
-                          </span>
+                          <div className="flex flex-wrap items-start gap-1.5">
+                            <span
+                              className={cn(
+                                "rounded-full px-2.5 py-1 text-xs font-semibold",
+                                estado.className
+                              )}
+                            >
+                              {estado.label}
+                            </span>
+                            <EstadoDePago compra={compra} />
+                          </div>
                         </td>
                         <td className="px-4 py-4 text-text-dim">
                           {formatFechaAR(new Date(compra.fecha))}
@@ -337,14 +404,17 @@ export function ComprasListado() {
                         <p className="text-xs text-text-dim">{compra.cuenta?.nombre ?? "—"}</p>
                         {mostrarSucursal && <p className="text-xs text-text-dim">{compra.sucursal?.nombre ?? "Sin sucursal"}</p>}
                       </div>
-                      <span
-                        className={cn(
-                          "shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold",
-                          estado.className
-                        )}
-                      >
-                        {estado.label}
-                      </span>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span
+                          className={cn(
+                            "rounded-full px-2.5 py-1 text-xs font-semibold",
+                            estado.className
+                          )}
+                        >
+                          {estado.label}
+                        </span>
+                        <EstadoDePago compra={compra} />
+                      </div>
                     </div>
 
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2">

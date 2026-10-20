@@ -5,6 +5,8 @@ import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { requerirSucursalId } from "@/lib/sucursal";
 import { sumarStockSucursal } from "@/lib/stock";
 import { obtenerConfiguracion } from "@/lib/configuracion";
+import { validarCuentaParaSucursal } from "@/lib/cuenta-sucursal";
+import { cubreElTotal, redondearPesos } from "@/lib/compras-pago";
 import {
   agruparPorProducto,
   costoPonderado,
@@ -16,13 +18,21 @@ const TIPOS_CUENTA_USD = ["EFECTIVO_USD", "BANCO_USD"];
 
 class SaldoInsuficienteError extends Error {}
 
+/**
+ * Pago al confirmar (CP-1). `monto` en ARS: 0 = no pagar ahora, menos que el
+ * total = pago parcial. Si el body no trae `pago` (llamada vieja), se paga
+ * todo desde la cuenta elegida al crear la compra, como antes.
+ */
+type PagoBody = { monto?: unknown; cuentaId?: unknown };
+
 type Moneda = "USD" | "ARS";
 
 /**
  * GET: vista previa de cómo quedarían costos y precios si se confirma.
  * POST: confirma la compra (stock, costos, precios y caja).
  *
- * El POST acepta opcionalmente { precios: DecisionPrecio[] } con lo que se
+ * El POST acepta { pago: { monto, cuentaId } } (ver PagoBody) y,
+ * opcionalmente, { precios: DecisionPrecio[] } con lo que se
  * eligió en la ventana de confirmación. Sin `precios` se comporta como
  * siempre: actualiza el costo solo si Configuración tiene el promedio
  * ponderado activado, y no toca precios de venta.
@@ -90,6 +100,12 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({
       numero: compra!.numero,
+      // Para la sección de pago: total en ARS con la cotización de hoy y la
+      // cuenta elegida al cargar la compra (si se eligió).
+      totalARS: redondearPesos(compra!.totalUSD * cotizacion),
+      totalUSD: compra!.totalUSD,
+      cotizacion,
+      cuentaId: compra!.cuentaId,
       modoPorDefecto,
       productos: grupos
         .filter((g) => porId.has(g.productoId))
@@ -151,15 +167,70 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const { cotizacion, modoPorDefecto } = await contexto();
-    const totalARS = compra!.totalUSD * cotizacion;
-    const cuentaEsUSD = TIPOS_CUENTA_USD.includes(compra!.cuenta.tipo);
-    const montoADebitar = cuentaEsUSD ? compra!.totalUSD : totalARS;
-    // Aviso temprano; el control definitivo se hace dentro de la transacción.
-    if (compra!.cuenta.saldoActual - montoADebitar < 0) {
-      return NextResponse.json(
-        { error: "La cuenta seleccionada no tiene saldo suficiente para pagar esta compra" },
-        { status: 409 }
-      );
+    const totalARS = redondearPesos(compra!.totalUSD * cotizacion);
+
+    // ---- Pago ----
+    const pagoBody: PagoBody | null = body?.pago && typeof body.pago === "object" ? body.pago : null;
+    let montoPago: number;
+    let cuentaPagoId: number | null;
+    if (!pagoBody) {
+      // Llamada vieja: todo, desde la cuenta de la compra.
+      if (compra!.cuentaId == null) {
+        return NextResponse.json({ error: "Elegí cuánto pagar y desde qué cuenta." }, { status: 400 });
+      }
+      montoPago = totalARS;
+      cuentaPagoId = compra!.cuentaId;
+    } else {
+      montoPago = Number(pagoBody.monto ?? 0);
+      if (!Number.isFinite(montoPago) || montoPago < 0) {
+        return NextResponse.json({ error: "El monto a pagar tiene que ser cero o más." }, { status: 400 });
+      }
+      montoPago = redondearPesos(montoPago);
+      if (montoPago - totalARS > 0.005) {
+        return NextResponse.json({ error: "No podés pagar más que el total de la compra." }, { status: 400 });
+      }
+      if (cubreElTotal(montoPago, totalARS)) montoPago = totalARS;
+      cuentaPagoId = null;
+      if (montoPago > 0) {
+        cuentaPagoId = Number(pagoBody.cuentaId);
+        if (!Number.isInteger(cuentaPagoId) || cuentaPagoId <= 0) {
+          return NextResponse.json({ error: "Elegí la cuenta desde la que se paga." }, { status: 400 });
+        }
+      }
+    }
+    const pagaTodo = cubreElTotal(montoPago, totalARS);
+
+    // Cuenta del pago: de la empresa, usable en la sucursal y activa.
+    let cuentaEsUSD = false;
+    let montoADebitar = 0;
+    if (montoPago > 0 && cuentaPagoId != null) {
+      try {
+        await validarCuentaParaSucursal(prisma, empresaId, cuentaPagoId, sucursalId);
+      } catch (e) {
+        return NextResponse.json({ error: e instanceof Error ? e.message : "Cuenta inválida." }, { status: 400 });
+      }
+      const cuentaPago = await prisma.cuenta.findFirst({
+        where: { id: cuentaPagoId, empresaId },
+        select: { tipo: true, activa: true, saldoActual: true },
+      });
+      if (!cuentaPago?.activa) {
+        return NextResponse.json({ error: "La cuenta seleccionada está inactiva." }, { status: 400 });
+      }
+      cuentaEsUSD = TIPOS_CUENTA_USD.includes(cuentaPago.tipo);
+      // Cuenta en dólares: se descuenta el equivalente con la cotización de la
+      // compra. Pagando todo se usa el total en USD exacto (sin redondeos).
+      montoADebitar = cuentaEsUSD
+        ? pagaTodo
+          ? compra!.totalUSD
+          : Math.round((montoPago / cotizacion) * 100) / 100
+        : montoPago;
+      // Aviso temprano; el control definitivo se hace dentro de la transacción.
+      if (cuentaPago.saldoActual - montoADebitar < 0) {
+        return NextResponse.json(
+          { error: "La cuenta seleccionada no tiene saldo suficiente para ese pago." },
+          { status: 409 }
+        );
+      }
     }
 
     const compraActualizada = await prisma.$transaction(async (tx) => {
@@ -248,26 +319,31 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       // 2) Historial de precios en una consulta.
       if (historial.length > 0) await tx.historialPrecio.createMany({ data: historial });
 
-      // 3) Pago: se RESTA del saldo actual (no se pisa con uno calculado
-      //    antes) y se verifica que alcance con el saldo de este momento.
-      const cuenta = await tx.cuenta.update({
-        where: { id: compra!.cuentaId },
-        data: { saldoActual: { decrement: montoADebitar } },
-      });
-      if (cuenta.saldoActual < 0) throw new SaldoInsuficienteError();
+      // 3) Pago (si se paga algo ahora): se RESTA del saldo actual (no se
+      //    pisa con uno calculado antes) y se verifica que alcance con el
+      //    saldo de este momento. El movimiento con compraId es el que
+      //    cuentan el cierre de caja y el flujo de caja.
+      if (montoPago > 0 && cuentaPagoId != null) {
+        const cuenta = await tx.cuenta.update({
+          where: { id: cuentaPagoId },
+          data: { saldoActual: { decrement: montoADebitar } },
+        });
+        if (cuenta.saldoActual < 0) throw new SaldoInsuficienteError();
 
-      await tx.movimientoCaja.create({
-        data: {
-          empresaId,
-          cuentaId: compra!.cuentaId,
-          tipo: "EGRESO",
-          concepto: "PAGO_A_PROVEEDOR",
-          monto: montoADebitar,
-          saldoResultante: cuenta.saldoActual,
-          compraId: compra!.id,
-          sucursalId,
-        },
-      });
+        await tx.movimientoCaja.create({
+          data: {
+            empresaId,
+            cuentaId: cuentaPagoId,
+            tipo: "EGRESO",
+            concepto: "PAGO_A_PROVEEDOR",
+            monto: montoADebitar,
+            saldoResultante: cuenta.saldoActual,
+            compraId: compra!.id,
+            sucursalId,
+            detalle: pagaTodo ? null : `Pago parcial de la compra #${compra!.numero}`,
+          },
+        });
+      }
 
       // Guard atómico: si la confirmaron en otra pestaña, no se suma dos veces.
       const marcada = await tx.compra.updateMany({
@@ -281,7 +357,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         data: {
           confirmada: true,
           recibida: true,
-          pagada: true,
+          pagada: pagaTodo,
+          montoPagado: montoPago,
+          // Sin pago no sale de ninguna cuenta.
+          cuentaId: montoPago > 0 ? cuentaPagoId : null,
           cotizacionUsada: cotizacion,
           totalARS,
         },
