@@ -12,6 +12,11 @@ export type ProductoLocal = {
   precioMayorista: number | null;
   contenidoMl: number | null;
   marcaNombre: string | null;
+  /** Ropa (RV-5): modelo, talle y color de esta combinación (null en el resto). */
+  modeloId: number | null;
+  modeloNombre: string | null;
+  talle: string | null;
+  color: string | null;
   /** nombre + marca + código, en minúsculas y sin acentos, para buscar. */
   busqueda: string;
 };
@@ -104,6 +109,19 @@ class StockeaDB extends Dexie {
       meta: "clave",
       outbox: "++id, &idCliente, estado, empresaId",
     });
+    // v3 (RV-5, #64): talles y colores de ropa. Índice por modelo para traer
+    // todas las combinaciones al elegir talle y color sin conexión. Los
+    // productos guardados antes no tienen esos datos: se fuerza una
+    // sincronización completa la próxima vez (se borra la marca de la última).
+    this.version(3)
+      .stores({
+        productos: "id, codigoBarras, modeloId",
+        clientes: "id, telefono",
+        cuentas: "id",
+        meta: "clave",
+        outbox: "++id, &idCliente, estado, empresaId",
+      })
+      .upgrade((tx) => tx.table("meta").delete("ultimaCompleta"));
   }
 }
 
@@ -145,4 +163,21 @@ export async function guardarEstadoCaja(abierta: boolean, sucursalId: number | n
 export async function recordarEstadoCaja(abierta: boolean) {
   const alcance = await leerAlcance();
   await guardarEstadoCaja(abierta, alcance?.sucursalId ?? null);
+}
+
+/**
+ * Le pide al navegador que NO borre esta base por falta de espacio (issue #42).
+ * Sin esto, si el disco se llena, Chrome puede vaciar IndexedDB por su cuenta
+ * y se perderían ventas que todavía no subieron. Con la app instalada Chrome
+ * suele aceptarlo sin preguntar. No hace nada si ya está concedido o si el
+ * navegador no lo soporta.
+ */
+export async function pedirAlmacenamientoPersistente(): Promise<boolean> {
+  try {
+    if (typeof navigator === "undefined" || !navigator.storage?.persist) return false;
+    if (await navigator.storage.persisted()) return true;
+    return await navigator.storage.persist();
+  } catch {
+    return false;
+  }
 }

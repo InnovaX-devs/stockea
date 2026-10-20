@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { BarcodeInput } from "@/components/ui/barcode-input";
 import Select from "@/components/ui/select";
 import { avisar } from "@/components/ui/dialogos";
+import { useRubro } from "@/components/layout/rubro-context";
 
 function calcularPorcentaje(costo: number, precio: number): number {
   if (!costo || costo <= 0) return 0;
@@ -67,6 +68,7 @@ export function ProductoFormModal({
   categoriasIniciales = [],
   usaCotizacionUSD = false,
 }: ProductoFormModalProps) {
+  const { usaMl } = useRubro();
   const [formData, setFormData] = useState<ProductoFormData>({
     nombre: "",
     codigoBarras: "",
@@ -568,7 +570,7 @@ export function ProductoFormModal({
           </div>
 
           {/* Ubicación, Contenido, Marca y Categoría */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${usaMl ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
             <div>
               <label className="block text-xs font-medium text-text-dim">
                 Ubicación en depósito
@@ -583,6 +585,7 @@ export function ProductoFormModal({
               />
             </div>
 
+            {usaMl && (
             <div>
               <label className="block text-xs font-medium text-text-dim">
                 Contenido (ml)
@@ -602,6 +605,7 @@ export function ProductoFormModal({
                 className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
               />
             </div>
+            )}
 
             {/* Marca */}
             <div>

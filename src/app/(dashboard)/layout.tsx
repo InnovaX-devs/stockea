@@ -5,6 +5,7 @@ import { DevCredit } from "@/components/shared/dev-credit";
 import { redirect } from "next/navigation";
 import { obtenerUsuarioActualOpcional } from "@/lib/empresa";
 import { RolProvider } from "@/components/layout/rol-context";
+import { RubroProvider } from "@/components/layout/rubro-context";
 import { prisma } from "@/lib/prisma";
 import { obtenerContextoSucursal } from "@/lib/sucursal";
 import { SincronizadorCatalogo } from "@/components/pwa/sincronizador-catalogo";
@@ -40,6 +41,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <RolProvider rol={usuario.rol}>
+    <RubroProvider rubro={configuracion.rubro}>
     <SincronizadorCatalogo sucursalKey={String(contextoSucursal.actual?.id ?? "todas")} />
     <div className="flex min-h-dvh flex-col bg-bg">
       <Topbar
@@ -70,6 +72,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         <DevCredit />
       </footer>
     </div>
+    </RubroProvider>
     </RolProvider>
   );
 }

@@ -28,10 +28,37 @@ export async function POST(request: NextRequest) {
     // el producto quedaba apuntando a una foto que ya no existe).
     void fotoUrlAnterior;
 
+    // WebP se convierte a JPEG: el catálogo en PDF (@react-pdf/renderer) solo
+    // soporta JPG/PNG, así que guardamos siempre un formato compatible.
+    let contenido: File | Buffer = file;
+    let nombre = file.name.replace(/\s+/g, "_");
+    let contentType = file.type;
+    if (file.type === "image/webp") {
+      try {
+        // sharp se carga acá (no arriba) para que, si no está disponible en el
+        // servidor, solo falle la conversión y no toda la ruta de subida.
+        const { default: sharp } = await import("sharp");
+        contenido = await sharp(Buffer.from(await file.arrayBuffer()))
+          .rotate()
+          .flatten({ background: "#ffffff" }) // JPEG no tiene transparencia
+          .jpeg({ quality: 90 })
+          .toBuffer();
+        nombre = nombre.replace(/\.webp$/i, "") + ".jpg";
+        contentType = "image/jpeg";
+      } catch (err) {
+        console.error("[upload] no se pudo convertir WebP a JPEG:", err);
+        return NextResponse.json(
+          { error: "No se pudo procesar la imagen WebP. Subila en JPG o PNG." },
+          { status: 422 }
+        );
+      }
+    }
+
     // 2. Subir el nuevo archivo a Vercel Blob
-    const filename = `productos/${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
-    const blob = await put(filename, file, {
+    const filename = `productos/${Date.now()}-${nombre}`;
+    const blob = await put(filename, contenido, {
       access: "public",
+      contentType,
     });
 
     return NextResponse.json({ url: blob.url });

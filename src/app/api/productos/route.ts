@@ -6,6 +6,8 @@ import { obtenerConfiguracion } from "@/lib/configuracion";
 import { obtenerEmpresaIdActual, obtenerUsuarioActual } from "@/lib/empresa";
 import { obtenerSucursalIdActual } from "@/lib/sucursal";
 import { conStockDeSucursal, sucursalParaMostrarStock } from "@/lib/stock-sucursal";
+import { esFotoPermitida } from "@/lib/fotos";
+import { configRubro } from "@/lib/rubro";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +40,10 @@ export async function GET(request: NextRequest) {
       ubicacionDeposito: true,
       fotoUrl: true,
       contenidoMl: true,
+      modeloId: true,
+      modelo: { select: { nombre: true } },
+      talle: true,
+      color: true,
       stockActual: true,
       stockMinimo: true,
       destacado: true,
@@ -141,6 +147,11 @@ export async function POST(request: NextRequest) {
     const empresaId = await obtenerEmpresaIdActual();
     const body = await request.json();
 
+    // La foto tiene que venir de nuestro upload (Vercel Blob).
+    if (body.fotoUrl && !esFotoPermitida(body.fotoUrl)) {
+      return NextResponse.json({ error: "La foto no es válida. Subila de nuevo." }, { status: 400 });
+    }
+
     if (
       !body.nombre ||
       typeof body.nombre !== "string" ||
@@ -166,9 +177,12 @@ export async function POST(request: NextRequest) {
       ? String(body.ubicacion).trim() 
       : null;
 
-    const contenidoMl = body.contenidoMl !== undefined && body.contenidoMl !== "" && body.contenidoMl !== null
-      ? Number(body.contenidoMl)
-      : null;
+    // Solo el rubro Perfumería usa ml; en los demás el campo está oculto.
+    const contenidoMl =
+      configRubro((await obtenerConfiguracion()).rubro).usaMl &&
+      body.contenidoMl !== undefined && body.contenidoMl !== "" && body.contenidoMl !== null
+        ? Number(body.contenidoMl)
+        : null;
 
     const marcaId = body.marcaId && String(body.marcaId).trim() !== "" 
       ? Number(body.marcaId) 

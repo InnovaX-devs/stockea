@@ -6,6 +6,9 @@ export async function GET() {
     const config = await obtenerConfiguracion();
     return NextResponse.json({
       licencia: config.licencia,
+      rubro: config.rubro,
+      tallesSugeridos: config.tallesSugeridos,
+      coloresSugeridos: config.coloresSugeridos,
       usaCotizacionUSD: config.usaCotizacionUSD,
       cotizacionUSD: config.cotizacionUSD,
       habilitarPresupuestos: config.habilitarPresupuestos,

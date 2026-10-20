@@ -10,6 +10,7 @@ import { Search, ImageIcon } from "lucide-react";
 import Select from "@/components/ui/select";
 import { cn } from "@/lib/cn";
 import { formatCurrency, toArs } from "@/lib/currency";
+import { useRubro } from "@/components/layout/rubro-context";
 
 interface ProductoCatalogo {
   id: number;
@@ -46,6 +47,7 @@ function stockEstado(p: ProductoCatalogo) {
 }
 
 export default function CatalogoEmpleado() {
+  const { usaMl } = useRubro();
   const [productos, setProductos] = useState<ProductoCatalogo[]>([]);
   const [marcas, setMarcas] = useState<Opcion[]>([]);
   const [categorias, setCategorias] = useState<Opcion[]>([]);
@@ -166,7 +168,7 @@ export default function CatalogoEmpleado() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-text">{p.nombre}</p>
                     <p className="truncate text-xs text-text-dim">
-                      {[p.marca?.nombre, p.categoria?.nombre, p.contenidoMl ? `${p.contenidoMl} ml` : null]
+                      {[p.marca?.nombre, p.categoria?.nombre, usaMl && p.contenidoMl ? `${p.contenidoMl} ml` : null]
                         .filter(Boolean)
                         .join(", ")}
                     </p>

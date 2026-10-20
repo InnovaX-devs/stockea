@@ -10,11 +10,16 @@ import { PdfGeneratorModal } from "@/components/productos/pdf-generator-modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FileText, Search, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
-import { Pencil, ImageIcon, Ban, CheckCircle, X } from "lucide-react";
+import { Pencil, ImageIcon, Ban, CheckCircle, X, ChevronRight, LayoutGrid, Shirt } from "lucide-react";
 import { toArs, toUsd, formatCurrency } from "@/lib/currency";
 import Select from "@/components/ui/select";
 import { ProductoDetalleModal } from "@/components/productos/producto-detalle-modal";
+import { useRubro } from "@/components/layout/rubro-context";
+import { ModeloFormModal } from "@/components/productos/modelo-form-modal";
+import { ModeloEditarModal } from "@/components/productos/modelo-editar-modal";
 import { avisar } from "@/components/ui/dialogos";
+import { StockModeloModal } from "@/components/productos/stock-modelo-modal";
+import { ordenarTalles } from "@/lib/agrupar-variantes";
 
 
 
@@ -25,6 +30,11 @@ interface Producto {
   ubicacionDeposito?: string | null;
   fotoUrl?: string | null;
   contenidoMl?: number | null;
+  modeloId?: number | null;
+  /** Ropa (RV-2): modelo, talle y color de la combinación. */
+  modelo?: { nombre: string } | null;
+  talle?: string | null;
+  color?: string | null;
   marca?: { nombre: string } | null;
   marcaId?: number | null;
   categoriaId?: number | null;
@@ -61,6 +71,10 @@ type OrdenarPor =
   | "ganancia_asc"
   | "ganancia_desc";
 
+// Ropa (RV-4, #63): fila de la tabla, un producto común o un modelo con sus combinaciones.
+type FilaModelo = { tipo: "modelo"; modeloId: number; nombre: string; marca: string | null; variantes: Producto[] };
+type Fila = { tipo: "producto"; producto: Producto } | FilaModelo;
+
 export default function ProductosAdmin() {
   const [busqueda, setBusqueda] = useState("");
   const [paginaActual, setPaginaActual] = useState(1);
@@ -84,6 +98,11 @@ export default function ProductosAdmin() {
   const [filtroFoto, setFiltroFoto] = useState<FiltroFoto>("todas");
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("activos");
   const [ordenarPor, setOrdenarPor] = useState<OrdenarPor>("");
+  // Ropa (RV-4, #63): filtros por talle y color, modelos desplegados y grilla de stock.
+  const [filtroTalle, setFiltroTalle] = useState("");
+  const [filtroColor, setFiltroColor] = useState("");
+  const [expandidos, setExpandidos] = useState<Set<number>>(new Set());
+  const [stockModeloId, setStockModeloId] = useState<number | null>(null);
 
   const [monedaVista, setMonedaVista] = useState<"USD" | "ARS">("ARS");
 
@@ -94,6 +113,9 @@ export default function ProductosAdmin() {
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
   const [desactivandoId, setDesactivandoId] = useState<string | null>(null);
   const [productoADesactivar, setProductoADesactivar] = useState<Producto | null>(null);
+  const { textos, usaTallesColores } = useRubro();
+  const [modeloNuevoAbierto, setModeloNuevoAbierto] = useState(false);
+  const [modeloEditarId, setModeloEditarId] = useState<number | null>(null);
   const [configProducto, setConfigProducto] = useState({
     cotizacionUSD: 1200,
     usaCotizacionUSD: false,
@@ -155,7 +177,7 @@ export default function ProductosAdmin() {
   // Reiniciar a la página 1 cuando cambia cualquier filtro
   useEffect(() => {
     setPaginaActual(1);
-  }, [busqueda, filtroMarcaId, filtroCategoriaId, filtroStock, filtroFoto, filtroEstado, ordenarPor]);
+  }, [busqueda, filtroMarcaId, filtroCategoriaId, filtroStock, filtroFoto, filtroEstado, ordenarPor, filtroTalle, filtroColor]);
 
   // 1. Filtrar por búsqueda de texto (nombre o marca)
   const productosBusqueda = useMemo(() => {
@@ -207,6 +229,9 @@ export default function ProductosAdmin() {
       if (filtroFoto === "con_foto" && !p.fotoUrl) return false;
       if (filtroFoto === "sin_foto" && p.fotoUrl) return false;
 
+      if (filtroTalle && p.talle !== filtroTalle) return false;
+      if (filtroColor && p.color !== filtroColor) return false;
+
       return true;
     });
 
@@ -244,6 +269,8 @@ export default function ProductosAdmin() {
     filtroStock,
     filtroFoto,
     ordenarPor,
+    filtroTalle,
+    filtroColor,
   ]);
 
   // Cantidad de filtros activos (para el badge del botón y "Limpiar filtros")
@@ -255,8 +282,10 @@ export default function ProductosAdmin() {
     if (filtroFoto !== "todas") count++;
     if (filtroEstado !== "activos") count++;
     if (ordenarPor) count++;
+    if (filtroTalle) count++;
+    if (filtroColor) count++;
     return count;
-  }, [filtroMarcaId, filtroCategoriaId, filtroStock, filtroFoto, filtroEstado, ordenarPor]);
+  }, [filtroMarcaId, filtroCategoriaId, filtroStock, filtroFoto, filtroEstado, ordenarPor, filtroTalle, filtroColor]);
 
   const limpiarFiltros = () => {
     setFiltroMarcaId("");
@@ -265,6 +294,8 @@ export default function ProductosAdmin() {
     setFiltroFoto("todas");
     setFiltroEstado("activos");
     setOrdenarPor("");
+    setFiltroTalle("");
+    setFiltroColor("");
   };
 
   // 3. Cálculos para las 3 Tarjetas Resumen (ARS y USD) — sobre el resultado ya filtrado
@@ -294,12 +325,67 @@ export default function ProductosAdmin() {
     };
   }, [productosFiltrados, configProducto.cotizacionUSD]);
 
-  // 4. Paginación
-  const totalPaginas = Math.ceil(productosFiltrados.length / elementosPorPagina) || 1;
-  const productosPaginados = useMemo(() => {
+  // Talles y colores que existen, para los filtros (solo si hay ropa cargada).
+  const opcionesTalles = useMemo(
+    () => ordenarTalles([...new Set(productos.map((p) => p.talle).filter((t): t is string => !!t))]) as string[],
+    [productos]
+  );
+  const opcionesColores = useMemo(
+    () => [...new Set(productos.map((p) => p.color).filter((c): c is string => !!c))].sort((a, b) => a.localeCompare(b, "es")),
+    [productos]
+  );
+
+  // Ropa (RV-4): las combinaciones de un mismo modelo van en UNA fila, que se
+  // despliega. Los filtros se aplican a cada combinación: el modelo muestra
+  // solo las que pasaron (ej. "Sin stock" → los talles/colores sin stock).
+  const filasFiltradas = useMemo(() => {
+    const filas: Fila[] = [];
+    const porModelo = new Map<number, FilaModelo>();
+    for (const p of productosFiltrados) {
+      if (p.modeloId == null) {
+        filas.push({ tipo: "producto", producto: p });
+        continue;
+      }
+      let fila = porModelo.get(p.modeloId);
+      if (!fila) {
+        fila = {
+          tipo: "modelo",
+          modeloId: p.modeloId,
+          nombre: p.modelo?.nombre ?? p.nombre.split(" · ")[0],
+          marca: p.marca?.nombre ?? null,
+          variantes: [],
+        };
+        porModelo.set(p.modeloId, fila);
+        filas.push(fila);
+      }
+      fila.variantes.push(p);
+    }
+    // Dentro del modelo: por talle en orden natural (S, M, L, XL / 36, 38…) y después por color.
+    for (const fila of porModelo.values()) {
+      const orden = ordenarTalles([...new Set(fila.variantes.map((v) => v.talle ?? null))]);
+      fila.variantes.sort(
+        (a, b) => orden.indexOf(a.talle ?? null) - orden.indexOf(b.talle ?? null) || (a.color ?? "").localeCompare(b.color ?? "", "es")
+      );
+    }
+    return filas;
+  }, [productosFiltrados]);
+  const hayModelos = filasFiltradas.some((f) => f.tipo === "modelo");
+
+  function alternarModelo(modeloId: number) {
+    setExpandidos((prev) => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(modeloId)) nuevo.delete(modeloId);
+      else nuevo.add(modeloId);
+      return nuevo;
+    });
+  }
+
+  // 4. Paginación (por fila: un modelo cuenta como una)
+  const totalPaginas = Math.ceil(filasFiltradas.length / elementosPorPagina) || 1;
+  const filasPaginadas = useMemo(() => {
     const inicio = (paginaActual - 1) * elementosPorPagina;
-    return productosFiltrados.slice(inicio, inicio + elementosPorPagina);
-  }, [productosFiltrados, paginaActual]);
+    return filasFiltradas.slice(inicio, inicio + elementosPorPagina);
+  }, [filasFiltradas, paginaActual]);
 
   const formatMoney = (amount: number, currency: "USD" | "ARS") => {
     return new Intl.NumberFormat("es-AR", {
@@ -379,330 +465,14 @@ export default function ProductosAdmin() {
     }
   }
 
-  const inicioRango = productosFiltrados.length === 0 ? 0 : (paginaActual - 1) * elementosPorPagina + 1;
-  const finRango = Math.min(paginaActual * elementosPorPagina, productosFiltrados.length);
+  const inicioRango = filasFiltradas.length === 0 ? 0 : (paginaActual - 1) * elementosPorPagina + 1;
+  const finRango = Math.min(paginaActual * elementosPorPagina, filasFiltradas.length);
+  const textoCantidad = hayModelos
+    ? `${filasFiltradas.length} fila${filasFiltradas.length !== 1 ? "s" : ""} (${productosFiltrados.length} productos y combinaciones)`
+    : `${productosFiltrados.length} producto${productosFiltrados.length !== 1 ? "s" : ""}`;
 
-  return (
-    <div className="p-4 space-y-5 sm:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-text sm:text-2xl">
-            Catálogo de Productos
-          </h1>
-          <p className="text-sm text-text-dim">
-            Gestión de inventario y valores de venta
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap">
-          <button
-            type="button"
-            onClick={() => setIsPdfModalOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover cursor-pointer"
-          >
-            <FileText className="h-4 w-4 shrink-0" />
-            <span className="truncate">Generar PDF</span>
-          </button>
-          <Link
-            href="/productos/actualizar-precios"
-            className="bg-grad inline-flex items-center justify-center rounded-full px-4 py-2 text-center text-sm font-semibold text-[#050507] shadow-[0_6px_20px_rgba(34,197,94,0.22)] transition-transform hover:-translate-y-0.5 cursor-pointer"
-          >
-            + Actualizar Precios
-          </Link>
-          <button
-            type="button"
-            onClick={handleAbrirCrear}
-            className="bg-grad inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold text-[#050507] shadow-[0_6px_20px_rgba(34,197,94,0.22)] transition-transform hover:-translate-y-0.5 cursor-pointer"
-          >
-            + Nuevo Producto
-          </button>
-        </div>
-      </div>
-
-      {/* Tarjetas Resumen */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="min-w-0 rounded-2xl border border-border bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-text-dim">
-            Stock a Costo
-          </p>
-          <p className="mt-1 truncate text-xl font-semibold text-text sm:text-2xl">
-            {formatMoney(resumen.costoARS, "ARS")}
-          </p>
-          {configProducto.usaCotizacionUSD && (
-            <p className="mt-1 truncate text-xs font-medium text-text-dim">
-              {formatMoney(resumen.costoUSD, "USD")}
-            </p>
-          )}
-        </div>
-
-        <div className="min-w-0 rounded-2xl border border-border bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-text-dim">
-            Stock a Precio Venta
-          </p>
-          <p className="mt-1 truncate text-xl font-semibold text-text sm:text-2xl">
-            {formatMoney(resumen.ventaARS, "ARS")}
-          </p>
-          {configProducto.usaCotizacionUSD && (
-            <p className="mt-1 text-xs font-medium text-text-dim">
-              {formatMoney(resumen.ventaUSD, "USD")}
-            </p>
-          )}
-        </div>
-
-        <div className="min-w-0 rounded-2xl border border-border bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-text-dim">
-            Ganancia Potencial
-          </p>
-          <p className="mt-1 truncate text-xl font-semibold text-success sm:text-2xl">
-            {formatMoney(resumen.gananciaARS, "ARS")}
-          </p>
-          {configProducto.usaCotizacionUSD && (
-            <p className="mt-1 truncate text-xs font-medium text-success opacity-80">
-              {formatMoney(resumen.gananciaUSD, "USD")}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Búsqueda + Filtros */}
-      <div className="space-y-3 rounded-2xl border border-border bg-white p-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center lg:flex-1">
-            <div className="relative w-full md:w-80">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" />
-              <input
-                type="text"
-                placeholder="Buscar por nombre o marca..."
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setMostrarFiltros((prev) => !prev)}
-              className={cn(
-                "inline-flex items-center cursor-pointer justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
-                mostrarFiltros
-                  ? "border-primary bg-primary text-white"
-                  : "border-border bg-white text-text-dim hover:bg-surface-hover"
-              )}
-            >
-              <SlidersHorizontal className="h-4 w-4 shrink-0" />
-              Filtros
-              {filtrosActivosCount > 0 && (
-                <span
-                  className={cn(
-                    "flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold",
-                    mostrarFiltros ? "bg-white text-primary" : "bg-primary text-white"
-                  )}
-                >
-                  {filtrosActivosCount}
-                </span>
-              )}
-            </button>
-
-            {configProducto.usaCotizacionUSD && (
-            <div className="flex overflow-hidden rounded-lg border border-border md:hidden">
-              <button
-                type="button"
-                onClick={() => setMonedaVista("USD")}
-                className={cn(
-                  "flex-1 px-3 py-2 text-sm font-medium transition-colors",
-                  monedaVista === "USD"
-                    ? "bg-primary text-white"
-                    : "bg-white text-text-dim hover:bg-surface-hover"
-                )}
-              >
-                USD
-              </button>
-              <button
-                type="button"
-                onClick={() => setMonedaVista("ARS")}
-                className={cn(
-                  "flex-1 px-3 py-2 text-sm font-medium transition-colors",
-                  monedaVista === "ARS"
-                    ? "bg-primary text-white"
-                    : "bg-white text-text-dim hover:bg-surface-hover"
-                )}
-              >
-                ARS
-              </button>
-            </div>
-            )}
-
-          </div>
-
-          <p className="text-xs text-text-dim lg:text-right">
-            Mostrando {inicioRango}–{finRango} de {productosFiltrados.length} productos
-          </p>
-        </div>
-
-        {/* Panel de filtros — solo visible si mostrarFiltros es true */}
-        {mostrarFiltros && (
-          <div className="space-y-3 border-t border-border pt-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-              <div>
-                <label className="block text-xs font-medium text-text-dim">Marca</label>
-                <Select
-                    value={filtroMarcaId}
-                    onChange={setFiltroMarcaId}
-                    options={[
-                      { value: "", label: "Todas las marcas" },
-                      ...marcas.map((m) => ({ value: String(m.id), label: m.nombre })),
-                    ]}
-                    className="mt-1"
-                  /> 
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-text-dim">Categoría</label>
-                <Select
-                  value={filtroCategoriaId}
-                  onChange={setFiltroCategoriaId}
-                  options={[
-                    { value: "", label: "Todas las categorías" },
-                    ...categorias.map((c) => ({ value: String(c.id), label: c.nombre })),
-                  ]}
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-text-dim">Stock</label>
-                <Select
-                  value={filtroStock}
-                  onChange={(v) => setFiltroStock(v as FiltroStock)}
-                  options={[
-                    { value: "todos", label: "Todos" },
-                    { value: "sin_stock", label: "Sin stock" },
-                    { value: "stock_bajo", label: "Stock bajo" },
-                  ]}
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-text-dim">Foto</label>
-                <Select
-                  value={filtroFoto}
-                  onChange={(v) => setFiltroFoto(v as FiltroFoto)}
-                  options={[
-                    { value: "todas", label: "Todas" },
-                    { value: "con_foto", label: "Con foto" },
-                    { value: "sin_foto", label: "Sin foto" },
-                  ]}
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-text-dim">Estado</label>
-                <Select
-                  value={filtroEstado}
-                  onChange={(v) => setFiltroEstado(v as FiltroEstado)}
-                  options={[
-                    { value: "activos", label: "Activos" },
-                    { value: "inactivos", label: "Inactivos" },
-                    { value: "todos", label: "Todos" },
-                  ]}
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-text-dim">Ordenar por</label>
-                <Select
-                  value={ordenarPor}
-                  onChange={(v) => setOrdenarPor(v as OrdenarPor)}
-                  options={[
-                    { value: "", label: "Sin ordenar" },
-                    { value: "nombre_asc", label: "Nombre (A-Z)" },
-                    { value: "nombre_desc", label: "Nombre (Z-A)" },
-                    { value: "stock_asc", label: "Stock (menor a mayor)" },
-                    { value: "stock_desc", label: "Stock (mayor a menor)" },
-                    { value: "ganancia_asc", label: "% Ganancia (menor a mayor)" },
-                    { value: "ganancia_desc", label: "% Ganancia (mayor a menor)" },
-                  ]}
-                  className="mt-1"
-                />
-              </div>
-            </div>
-
-            {/* Acceso rápido por stock */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-xs font-medium uppercase tracking-wide text-text-dim">
-                Acceso rápido:
-              </span>
-              <button
-                type="button"
-                onClick={() => setFiltroStock(filtroStock === "sin_stock" ? "todos" : "sin_stock")}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                  filtroStock === "sin_stock"
-                    ? "border-[#ba1a1a] bg-danger text-white"
-                    : "border-[#f5c2c2] bg-danger/10 text-danger hover:bg-[#f8d7d7]"
-                )}
-              >
-                Sin stock
-                <span className="rounded-full bg-black/10 px-1.5">{conteoSinStock}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setFiltroStock(filtroStock === "stock_bajo" ? "todos" : "stock_bajo")}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                  filtroStock === "stock_bajo"
-                    ? "border-[#a15c00] bg-[#a15c00] text-white"
-                    : "border-[#f2dca3] bg-[#fdf3dc] text-warning hover:bg-[#f9ecc7]"
-                )}
-              >
-                Stock bajo
-                <span className="rounded-full bg-black/10 px-1.5">{conteoStockBajo}</span>
-              </button>
-
-              {filtrosActivosCount > 0 && (
-                <button
-                  type="button"
-                  onClick={limpiarFiltros}
-                  className="ml-auto text-xs font-medium text-primary underline-offset-2 hover:underline"
-                >
-                  Limpiar filtros
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Tabla */}
-      <div className="overflow-hidden rounded-2xl border border-border bg-white">
-        {cargando ? (
-          <p className="p-8 text-center text-sm text-text-dim">Cargando...</p>
-        ) : productosPaginados.length === 0 ? (
-          <p className="p-8 text-center text-sm text-text-dim">
-            No se encontraron productos que coincidan con la búsqueda.
-          </p>
-        ) : (
-          <>
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[900px] text-sm">
-                <thead className="bg-topbar">
-                  <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-white">
-                    <th className="px-4 py-3">Producto</th>
-                    <th className="px-4 py-3">Marca</th>
-                    <th className="px-4 py-3">Stock</th>
-                    <th className="px-4 py-3">Costo</th>
-                    <th className="px-4 py-3 text-primary-soft">Venta</th>
-                    <th className="px-4 py-3">Gan. Min.</th>
-                    <th className="px-4 py-3">Mayorista</th>
-                    <th className="px-4 py-3 text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {productosPaginados.map((p) => {
+  // ---- Filas de la tabla (escritorio) y tarjetas (celular) ----
+  const filaProductoDesktop = (p: Producto, enModelo = false) => {
                     const cotizacion = configProducto.cotizacionUSD;
                     const costo = {
                       usd: toUsd(p.precioCosto, p.monedaPrecio, cotizacion),
@@ -734,9 +504,11 @@ export default function ProductosAdmin() {
                       <tr
                         key={p.id}
                         onClick={() => setProductoDetalle(p)}
-                        className="cursor-pointer border-t border-border hover:bg-surface"
+                        className={cn("cursor-pointer border-t border-border hover:bg-surface", enModelo && "bg-surface/50")}
                       >
-                        <td className="px-4 py-3 font-semibold text-text">{p.nombre}</td>
+                        <td className={cn("px-4 py-3 font-semibold text-text", enModelo && "pl-12 font-medium")}>
+                          {enModelo ? [p.talle, p.color].filter(Boolean).join(" · ") || p.nombre : p.nombre}
+                        </td>
                         <td className="px-4 py-3 text-text-dim">{p.marca?.nombre ?? "-"}</td>
                         <td className="px-4 py-3">
                           <span className="inline-flex items-center gap-1.5 font-medium text-text">
@@ -837,13 +609,9 @@ export default function ProductosAdmin() {
                         </td>
                       </tr>
                     );
-                  })}
-                </tbody>
-              </table>
-            </div>
+  };
 
-            <div className="divide-y divide-border md:hidden">
-              {productosPaginados.map((p) => {
+  const tarjetaProductoMobile = (p: Producto, enModelo = false) => {
                 const porcentajeGanancia =
                   p.precioCosto > 0
                     ? ((p.precioVenta - p.precioCosto) / p.precioCosto) * 100
@@ -856,7 +624,7 @@ export default function ProductosAdmin() {
                     : toArs(valor, p.monedaPrecio, cotizacion);
 
                 return (
-                  <div key={p.id} className="p-4">
+                  <div key={p.id} className={cn("p-4", enModelo && "bg-surface/50 pl-8")}>
                     <div
                       role="button"
                       tabIndex={0}
@@ -868,7 +636,7 @@ export default function ProductosAdmin() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-text">{p.nombre}</p>
+                          <p className="truncate font-medium text-text">{enModelo ? [p.talle, p.color].filter(Boolean).join(" · ") || p.nombre : p.nombre}</p>
                           <p className="truncate text-xs text-text-dim">{p.marca?.nombre ?? "-"}</p>
                         </div>
                         <span className="shrink-0 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
@@ -960,7 +728,532 @@ export default function ProductosAdmin() {
                     </div>
                   </div>
                 );
-              })}
+  };
+
+  /** Resumen de un modelo: stock total, rangos de precio y alerta de stock. */
+  function resumenModelo(variantes: Producto[]) {
+    const cot = configProducto.cotizacionUSD;
+    const enMoneda = (valor: number, p: Producto, moneda: "USD" | "ARS") =>
+      moneda === "USD" ? toUsd(valor, p.monedaPrecio, cot) : toArs(valor, p.monedaPrecio, cot);
+    const rango = (valores: number[], moneda: "USD" | "ARS") => {
+      if (valores.length === 0) return null;
+      const min = Math.min(...valores);
+      const max = Math.max(...valores);
+      return Math.round(min) === Math.round(max)
+        ? formatCurrency(min, moneda)
+        : `${formatCurrency(min, moneda)} – ${formatCurrency(max, moneda)}`;
+    };
+    const precios = (campo: "precioCosto" | "precioVenta", moneda: "USD" | "ARS") =>
+      rango(variantes.map((v) => enMoneda(v[campo], v, moneda)), moneda);
+    const mayoristas = (moneda: "USD" | "ARS") =>
+      rango(variantes.filter((v) => v.precioMayorista != null).map((v) => enMoneda(v.precioMayorista!, v, moneda)), moneda);
+    const stock = variantes.reduce((a, v) => a + v.stockActual, 0);
+    const alguna = variantes.some(
+      (v) => v.stockActual <= 0 || (v.stockMinimo != null && v.stockMinimo > 0 && v.stockActual <= v.stockMinimo)
+    );
+    const gananciaMin = Math.min(
+      ...variantes.map((v) => (v.precioCosto > 0 ? ((v.precioVenta - v.precioCosto) / v.precioCosto) * 100 : 0))
+    );
+    return { precios, mayoristas, stock, alguna, gananciaMin };
+  }
+
+  const filaModeloDesktop = (fila: FilaModelo) => {
+    const r = resumenModelo(fila.variantes);
+    const abierto = expandidos.has(fila.modeloId);
+    const moneda = configProducto.usaCotizacionUSD ? "USD" : "ARS";
+    return (
+      <tr
+        key={`modelo-${fila.modeloId}`}
+        onClick={() => alternarModelo(fila.modeloId)}
+        aria-expanded={abierto}
+        className="cursor-pointer border-t border-border hover:bg-surface"
+      >
+        <td className="px-4 py-3">
+          <span className="flex items-center gap-2">
+            <ChevronRight className={cn("h-4 w-4 shrink-0 text-text-dim transition-transform", abierto && "rotate-90")} />
+            <Shirt className="h-4 w-4 shrink-0 text-primary" />
+            <span className="min-w-0">
+              <span className="block truncate font-semibold text-text">{fila.nombre}</span>
+              <span className="block text-xs font-normal text-text-dim">
+                {fila.variantes.length} combinaci{fila.variantes.length === 1 ? "ón" : "ones"}
+              </span>
+            </span>
+          </span>
+        </td>
+        <td className="px-4 py-3 text-text-dim">{fila.marca ?? "-"}</td>
+        <td className="px-4 py-3">
+          <span className="inline-flex items-center gap-1.5 font-medium text-text" title={r.alguna ? "Hay talles o colores sin stock o debajo del mínimo" : undefined}>
+            <span className={cn("h-2 w-2 rounded-full", r.stock <= 0 ? "bg-danger" : r.alguna ? "bg-[#d97706]" : "bg-success")} />
+            {r.stock}
+          </span>
+        </td>
+        <td className="px-4 py-3 font-semibold text-text">{r.precios("precioCosto", moneda)}</td>
+        <td className="bg-success/10 px-4 py-3 font-bold text-primary">{r.precios("precioVenta", moneda)}</td>
+        <td className="px-4 py-3">
+          <span className={cn("font-bold", r.gananciaMin >= 0 ? "text-primary" : "text-danger")}>
+            {r.gananciaMin >= 0 ? "+" : ""}
+            {r.gananciaMin.toFixed(0)}%
+          </span>
+        </td>
+        <td className="px-4 py-3 font-bold text-primary">{r.mayoristas(moneda) ?? <span className="font-normal text-text-dim">-</span>}</td>
+        <td className="px-4 py-3">
+          {usaTallesColores && (
+          <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setStockModeloId(fila.modeloId)}
+              className="rounded-lg p-1.5 text-primary hover:bg-surface-hover"
+              title="Stock por talle y color"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setModeloEditarId(fila.modeloId)}
+              className="rounded-lg p-1.5 text-primary hover:bg-surface-hover"
+              title="Editar modelo (precios y combinaciones)"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          </div>
+          )}
+        </td>
+      </tr>
+    );
+  };
+
+  const tarjetaModeloMobile = (fila: FilaModelo) => {
+    const r = resumenModelo(fila.variantes);
+    const abierto = expandidos.has(fila.modeloId);
+    return (
+      <div key={`modelo-${fila.modeloId}`} className="p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Shirt className="h-4 w-4 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <p className="truncate font-medium text-text">{fila.nombre}</p>
+              <p className="truncate text-xs text-text-dim">
+                {fila.marca ? `${fila.marca} · ` : ""}
+                {fila.variantes.length} combinaci{fila.variantes.length === 1 ? "ón" : "ones"}
+              </p>
+            </div>
+          </div>
+          <span className={cn("shrink-0 font-medium", r.stock <= 0 ? "text-danger" : r.alguna ? "text-warning" : "text-text")}>
+            {r.stock} u.
+          </span>
+        </div>
+        <p className="mt-2 text-sm text-text">
+          <span className="text-xs text-text-dim">Venta </span>
+          <span className="font-mono font-medium">{r.precios("precioVenta", monedaVista)}</span>
+        </p>
+        <div className="mt-3 flex items-center justify-end gap-1 border-t border-border pt-3">
+          <button
+            type="button"
+            onClick={() => alternarModelo(fila.modeloId)}
+            className="mr-auto inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-text-dim hover:bg-surface-hover"
+          >
+            <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", abierto && "rotate-90")} />
+            {abierto ? "Ocultar" : "Ver talles"}
+          </button>
+          {usaTallesColores && (
+            <>
+              <button
+                type="button"
+                onClick={() => setStockModeloId(fila.modeloId)}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-surface-hover"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Stock
+              </button>
+              <button
+                type="button"
+                onClick={() => setModeloEditarId(fila.modeloId)}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-surface-hover"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Editar
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="p-4 space-y-5 sm:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-text sm:text-2xl">
+            Catálogo de Productos
+          </h1>
+          <p className="text-sm text-text-dim">
+            Gestión de inventario y valores de venta
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsPdfModalOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover cursor-pointer"
+          >
+            <FileText className="h-4 w-4 shrink-0" />
+            <span className="truncate">Generar PDF</span>
+          </button>
+          <Link
+            href="/productos/actualizar-precios"
+            className="bg-grad inline-flex items-center justify-center rounded-full px-4 py-2 text-center text-sm font-semibold text-[#050507] shadow-[0_6px_20px_rgba(34,197,94,0.22)] transition-transform hover:-translate-y-0.5 cursor-pointer"
+          >
+            + Actualizar Precios
+          </Link>
+          <button
+            type="button"
+            onClick={handleAbrirCrear}
+            className="bg-grad inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold text-[#050507] shadow-[0_6px_20px_rgba(34,197,94,0.22)] transition-transform hover:-translate-y-0.5 cursor-pointer"
+          >
+            + Nuevo Producto
+          </button>
+          {usaTallesColores && (
+            <button
+              type="button"
+              onClick={() => setModeloNuevoAbierto(true)}
+              className="inline-flex items-center justify-center rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 cursor-pointer"
+            >
+              + Nuevo Modelo
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Tarjetas Resumen */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="min-w-0 rounded-2xl border border-border bg-white p-4">
+          <p className="text-xs uppercase tracking-wide text-text-dim">
+            Stock a Costo
+          </p>
+          <p className="mt-1 truncate text-xl font-semibold text-text sm:text-2xl">
+            {formatMoney(resumen.costoARS, "ARS")}
+          </p>
+          {configProducto.usaCotizacionUSD && (
+            <p className="mt-1 truncate text-xs font-medium text-text-dim">
+              {formatMoney(resumen.costoUSD, "USD")}
+            </p>
+          )}
+        </div>
+
+        <div className="min-w-0 rounded-2xl border border-border bg-white p-4">
+          <p className="text-xs uppercase tracking-wide text-text-dim">
+            Stock a Precio Venta
+          </p>
+          <p className="mt-1 truncate text-xl font-semibold text-text sm:text-2xl">
+            {formatMoney(resumen.ventaARS, "ARS")}
+          </p>
+          {configProducto.usaCotizacionUSD && (
+            <p className="mt-1 text-xs font-medium text-text-dim">
+              {formatMoney(resumen.ventaUSD, "USD")}
+            </p>
+          )}
+        </div>
+
+        <div className="min-w-0 rounded-2xl border border-border bg-white p-4">
+          <p className="text-xs uppercase tracking-wide text-text-dim">
+            Ganancia Potencial
+          </p>
+          <p className="mt-1 truncate text-xl font-semibold text-success sm:text-2xl">
+            {formatMoney(resumen.gananciaARS, "ARS")}
+          </p>
+          {configProducto.usaCotizacionUSD && (
+            <p className="mt-1 truncate text-xs font-medium text-success opacity-80">
+              {formatMoney(resumen.gananciaUSD, "USD")}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Búsqueda + Filtros */}
+      <div className="space-y-3 rounded-2xl border border-border bg-white p-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center lg:flex-1">
+            <div className="relative w-full md:w-80">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" />
+              <input
+                type="text"
+                placeholder={textos.buscarProductoListado}
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-3 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setMostrarFiltros((prev) => !prev)}
+              className={cn(
+                "inline-flex items-center cursor-pointer justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium transition-colors",
+                mostrarFiltros
+                  ? "border-primary bg-primary text-white"
+                  : "border-border bg-white text-text-dim hover:bg-surface-hover"
+              )}
+            >
+              <SlidersHorizontal className="h-4 w-4 shrink-0" />
+              Filtros
+              {filtrosActivosCount > 0 && (
+                <span
+                  className={cn(
+                    "flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold",
+                    mostrarFiltros ? "bg-white text-primary" : "bg-primary text-white"
+                  )}
+                >
+                  {filtrosActivosCount}
+                </span>
+              )}
+            </button>
+
+            {configProducto.usaCotizacionUSD && (
+            <div className="flex overflow-hidden rounded-lg border border-border md:hidden">
+              <button
+                type="button"
+                onClick={() => setMonedaVista("USD")}
+                className={cn(
+                  "flex-1 px-3 py-2 text-sm font-medium transition-colors",
+                  monedaVista === "USD"
+                    ? "bg-primary text-white"
+                    : "bg-white text-text-dim hover:bg-surface-hover"
+                )}
+              >
+                USD
+              </button>
+              <button
+                type="button"
+                onClick={() => setMonedaVista("ARS")}
+                className={cn(
+                  "flex-1 px-3 py-2 text-sm font-medium transition-colors",
+                  monedaVista === "ARS"
+                    ? "bg-primary text-white"
+                    : "bg-white text-text-dim hover:bg-surface-hover"
+                )}
+              >
+                ARS
+              </button>
+            </div>
+            )}
+
+          </div>
+
+          <p className="text-xs text-text-dim lg:text-right">
+            Mostrando {inicioRango}–{finRango} de {textoCantidad}
+          </p>
+        </div>
+
+        {/* Panel de filtros — solo visible si mostrarFiltros es true */}
+        {mostrarFiltros && (
+          <div className="space-y-3 border-t border-border pt-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div>
+                <label className="block text-xs font-medium text-text-dim">Marca</label>
+                <Select
+                    value={filtroMarcaId}
+                    onChange={setFiltroMarcaId}
+                    options={[
+                      { value: "", label: "Todas las marcas" },
+                      ...marcas.map((m) => ({ value: String(m.id), label: m.nombre })),
+                    ]}
+                    className="mt-1"
+                  /> 
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-text-dim">Categoría</label>
+                <Select
+                  value={filtroCategoriaId}
+                  onChange={setFiltroCategoriaId}
+                  options={[
+                    { value: "", label: "Todas las categorías" },
+                    ...categorias.map((c) => ({ value: String(c.id), label: c.nombre })),
+                  ]}
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-text-dim">Stock</label>
+                <Select
+                  value={filtroStock}
+                  onChange={(v) => setFiltroStock(v as FiltroStock)}
+                  options={[
+                    { value: "todos", label: "Todos" },
+                    { value: "sin_stock", label: "Sin stock" },
+                    { value: "stock_bajo", label: "Stock bajo" },
+                  ]}
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-text-dim">Foto</label>
+                <Select
+                  value={filtroFoto}
+                  onChange={(v) => setFiltroFoto(v as FiltroFoto)}
+                  options={[
+                    { value: "todas", label: "Todas" },
+                    { value: "con_foto", label: "Con foto" },
+                    { value: "sin_foto", label: "Sin foto" },
+                  ]}
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-text-dim">Estado</label>
+                <Select
+                  value={filtroEstado}
+                  onChange={(v) => setFiltroEstado(v as FiltroEstado)}
+                  options={[
+                    { value: "activos", label: "Activos" },
+                    { value: "inactivos", label: "Inactivos" },
+                    { value: "todos", label: "Todos" },
+                  ]}
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-text-dim">Ordenar por</label>
+                <Select
+                  value={ordenarPor}
+                  onChange={(v) => setOrdenarPor(v as OrdenarPor)}
+                  options={[
+                    { value: "", label: "Sin ordenar" },
+                    { value: "nombre_asc", label: "Nombre (A-Z)" },
+                    { value: "nombre_desc", label: "Nombre (Z-A)" },
+                    { value: "stock_asc", label: "Stock (menor a mayor)" },
+                    { value: "stock_desc", label: "Stock (mayor a menor)" },
+                    { value: "ganancia_asc", label: "% Ganancia (menor a mayor)" },
+                    { value: "ganancia_desc", label: "% Ganancia (mayor a menor)" },
+                  ]}
+                  className="mt-1"
+                />
+              </div>
+
+              {opcionesTalles.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-text-dim">Talle</label>
+                  <Select
+                    value={filtroTalle}
+                    onChange={setFiltroTalle}
+                    options={[{ value: "", label: "Todos los talles" }, ...opcionesTalles.map((t) => ({ value: t, label: t }))]}
+                    className="mt-1"
+                  />
+                </div>
+              )}
+
+              {opcionesColores.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-text-dim">Color</label>
+                  <Select
+                    value={filtroColor}
+                    onChange={setFiltroColor}
+                    options={[{ value: "", label: "Todos los colores" }, ...opcionesColores.map((c) => ({ value: c, label: c }))]}
+                    className="mt-1"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Acceso rápido por stock */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-xs font-medium uppercase tracking-wide text-text-dim">
+                Acceso rápido:
+              </span>
+              <button
+                type="button"
+                onClick={() => setFiltroStock(filtroStock === "sin_stock" ? "todos" : "sin_stock")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  filtroStock === "sin_stock"
+                    ? "border-[#ba1a1a] bg-danger text-white"
+                    : "border-[#f5c2c2] bg-danger/10 text-danger hover:bg-[#f8d7d7]"
+                )}
+              >
+                Sin stock
+                <span className="rounded-full bg-black/10 px-1.5">{conteoSinStock}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltroStock(filtroStock === "stock_bajo" ? "todos" : "stock_bajo")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  filtroStock === "stock_bajo"
+                    ? "border-[#a15c00] bg-[#a15c00] text-white"
+                    : "border-[#f2dca3] bg-[#fdf3dc] text-warning hover:bg-[#f9ecc7]"
+                )}
+              >
+                Stock bajo
+                <span className="rounded-full bg-black/10 px-1.5">{conteoStockBajo}</span>
+              </button>
+
+              {filtrosActivosCount > 0 && (
+                <button
+                  type="button"
+                  onClick={limpiarFiltros}
+                  className="ml-auto text-xs font-medium text-primary underline-offset-2 hover:underline"
+                >
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Tabla */}
+      <div className="overflow-hidden rounded-2xl border border-border bg-white">
+        {cargando ? (
+          <p className="p-8 text-center text-sm text-text-dim">Cargando...</p>
+        ) : filasPaginadas.length === 0 ? (
+          <p className="p-8 text-center text-sm text-text-dim">
+            No se encontraron productos que coincidan con la búsqueda.
+          </p>
+        ) : (
+          <>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[900px] text-sm">
+                <thead className="bg-topbar">
+                  <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-white">
+                    <th className="px-4 py-3">Producto</th>
+                    <th className="px-4 py-3">Marca</th>
+                    <th className="px-4 py-3">Stock</th>
+                    <th className="px-4 py-3">Costo</th>
+                    <th className="px-4 py-3 text-primary-soft">Venta</th>
+                    <th className="px-4 py-3">Gan. Min.</th>
+                    <th className="px-4 py-3">Mayorista</th>
+                    <th className="px-4 py-3 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filasPaginadas.map((fila) =>
+                    fila.tipo === "producto"
+                      ? filaProductoDesktop(fila.producto)
+                      : [
+                          filaModeloDesktop(fila),
+                          ...(expandidos.has(fila.modeloId) ? fila.variantes.map((v) => filaProductoDesktop(v, true)) : []),
+                        ]
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="divide-y divide-border md:hidden">
+              {filasPaginadas.map((fila) =>
+                fila.tipo === "producto"
+                  ? tarjetaProductoMobile(fila.producto)
+                  : [
+                      tarjetaModeloMobile(fila),
+                      ...(expandidos.has(fila.modeloId) ? fila.variantes.map((v) => tarjetaProductoMobile(v, true)) : []),
+                    ]
+              )}
             </div>
           </>
         )}
@@ -969,9 +1262,7 @@ export default function ProductosAdmin() {
       {/* Paginación */}
       {productosFiltrados.length > 0 && (
         <div className="flex flex-col gap-2 text-sm text-text-dim sm:flex-row sm:items-center sm:justify-between">
-          <span>
-            {productosFiltrados.length} producto{productosFiltrados.length !== 1 ? "s" : ""}
-          </span>
+          <span>{textoCantidad}</span>
           <div className="flex items-center gap-2">
             <button
               disabled={paginaActual === 1}
@@ -1026,11 +1317,43 @@ export default function ProductosAdmin() {
         variant={productoADesactivar?.activo ? "danger" : "default"}
         loading={desactivandoId === productoADesactivar?.id}
       />
+      {usaTallesColores && (
+        <ModeloFormModal isOpen={modeloNuevoAbierto} onClose={() => setModeloNuevoAbierto(false)} onSuccess={cargarProductos} />
+      )}
+      {stockModeloId !== null && (
+        <StockModeloModal
+          key={`stock-${stockModeloId}`}
+          modeloId={stockModeloId}
+          onClose={() => setStockModeloId(null)}
+          onChanged={cargarProductos}
+          onEditarModelo={() => {
+            setModeloEditarId(stockModeloId);
+            setStockModeloId(null);
+          }}
+        />
+      )}
+      {usaTallesColores && modeloEditarId !== null && (
+        <ModeloEditarModal
+          key={modeloEditarId}
+          modeloId={modeloEditarId}
+          onClose={() => setModeloEditarId(null)}
+          onChanged={cargarProductos}
+        />
+      )}
+
       <ProductoDetalleModal
         isOpen={!!productoDetalle}
         producto={productoDetalle}
         configProducto={configProducto}
         onClose={() => setProductoDetalle(null)}
+        onEditarModelo={
+          usaTallesColores && productoDetalle?.modeloId
+            ? () => {
+                setModeloEditarId(productoDetalle.modeloId ?? null);
+                setProductoDetalle(null);
+              }
+            : undefined
+        }
         onEditar={() => {
           if (productoDetalle) handleAbrirEditar(productoDetalle);
           setProductoDetalle(null);

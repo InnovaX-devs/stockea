@@ -2,12 +2,14 @@
 
 import { Pencil, Ban, X, CheckCircle, ImageIcon } from "lucide-react";
 import { toArs, toUsd, formatCurrency } from "@/lib/currency";
+import { useRubro } from "@/components/layout/rubro-context";
 
 interface ProductoDetalle {
   id: string | number;
   nombre: string;
   fotoUrl?: string | null;
   contenidoMl?: number | null;
+  modeloId?: number | null;
   marca?: { nombre: string } | null;
   categoria?: { nombre: string } | null;
   stockActual: number;
@@ -30,6 +32,8 @@ interface ProductoDetalleModalProps {
   configProducto: ConfigProducto;
   onClose: () => void;
   onEditar: () => void;
+  /** Solo para combinaciones de un modelo de ropa: abre la edición del modelo. */
+  onEditarModelo?: () => void;
   onDesactivar: () => void;
 }
 
@@ -39,8 +43,10 @@ export function ProductoDetalleModal({
   configProducto,
   onClose,
   onEditar,
+  onEditarModelo,
   onDesactivar,
 }: ProductoDetalleModalProps) {
+  const { usaMl } = useRubro();
   if (!isOpen || !producto) return null;
 
   const cotizacion = configProducto.cotizacionUSD;
@@ -126,7 +132,7 @@ export function ProductoDetalleModal({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5">
-          <div className="grid grid-cols-3 gap-2">
+          <div className={`grid gap-2 ${usaMl ? "grid-cols-3" : "grid-cols-2"}`}>
             <div className="rounded-xl bg-success/10 p-3 text-center">
               <p className="text-[10px] uppercase tracking-wide text-text-dim">
                 Stock actual
@@ -143,14 +149,16 @@ export function ProductoDetalleModal({
                 {producto.stockMinimo ?? 0}
               </p>
             </div>
-            <div className="rounded-xl bg-surface p-3 text-center">
-              <p className="text-[10px] uppercase tracking-wide text-text-dim">
-                Volumen
-              </p>
-              <p className="mt-1 text-lg font-bold text-text">
-                {producto.contenidoMl ? `${producto.contenidoMl}ml` : "-"}
-              </p>
-            </div>
+            {usaMl && (
+              <div className="rounded-xl bg-surface p-3 text-center">
+                <p className="text-[10px] uppercase tracking-wide text-text-dim">
+                  Volumen
+                </p>
+                <p className="mt-1 text-lg font-bold text-text">
+                  {producto.contenidoMl ? `${producto.contenidoMl}ml` : "-"}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="mt-4 overflow-hidden rounded-xl border border-border">
@@ -225,6 +233,15 @@ export function ProductoDetalleModal({
             <Pencil className="h-4 w-4" />
             Editar producto
           </button>
+          {onEditarModelo && (
+            <button
+              type="button"
+              onClick={onEditarModelo}
+              className="flex items-center justify-center gap-2 rounded-lg border border-primary px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/10"
+            >
+              Editar modelo
+            </button>
+          )}
           <button
             type="button"
             onClick={onDesactivar}

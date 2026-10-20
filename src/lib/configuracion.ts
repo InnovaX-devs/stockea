@@ -80,6 +80,8 @@ export async function actualizarConfiguracion(
     costoPromedioPonderado: boolean;
     horaAperturaCaja: string;
     cajaTurnoContinuo: boolean;
+    tallesSugeridos: string[];
+    coloresSugeridos: string[];
   }>
 ) {
   const empresaId = await obtenerEmpresaIdActual();

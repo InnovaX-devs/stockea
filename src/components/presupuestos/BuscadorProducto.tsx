@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { toArs } from "@/lib/currency";
 import type { ProductoBusqueda } from "@/types/presupuesto";
 
+import { useRubro } from "@/components/layout/rubro-context";
+
 export default function BuscadorProducto({
   tipoPrecio,
   onAgregar,
@@ -13,6 +15,7 @@ export default function BuscadorProducto({
   onAgregar: (producto: ProductoBusqueda) => void;
   cotizacionUSD: number;
 }) {
+  const { textos } = useRubro();
   const [query, setQuery] = useState("");
   const [resultados, setResultados] = useState<ProductoBusqueda[]>([]);
   const [abierto, setAbierto] = useState(false);
@@ -82,7 +85,7 @@ export default function BuscadorProducto({
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => setAbierto(true)}
-          placeholder="Buscar producto (incluye productos sin stock)..."
+          placeholder={textos.buscarProductoPresupuesto}
           className="w-full pl-9 pr-3 py-2.5 border-2 border-primary rounded-lg text-sm focus:outline-none"
         />
       </div>

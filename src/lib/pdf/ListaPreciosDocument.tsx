@@ -11,7 +11,6 @@ type ProductoLista = {
   stockActual: number;
   precioVenta: number;
   precioMayorista: number | null;
-  precioCosto: number;
   monedaPrecio: "ARS" | "USD";
   contenidoMl: number | null;
 };

@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Search, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Search, Loader2, Shirt, ChevronRight } from "lucide-react";
 import { useDebounce } from "@/lib/hooks/use-debounce";
 import type { ProductoBusquedaDTO } from "@/types/producto";
 import { formatCurrency, toArs } from "@/lib/currency";
 import { useVenta } from "@/components/ventas/venta-context";
 import { buscarProductos } from "@/lib/offline/buscar";
+import { useRubro } from "@/components/layout/rubro-context";
+import { agruparResultados, type FilaBusqueda } from "@/lib/agrupar-variantes";
+import { SelectorVariante } from "@/components/ventas/selector-variante";
 
 
 const UMBRAL_LECTORA_MS = 40;
@@ -15,6 +18,7 @@ type Props = { onSeleccionar: (producto: ProductoBusquedaDTO) => void };
 
 export function BuscadorProducto({ onSeleccionar }: Props) {
   const { cotizacionUSD } = useVenta();
+  const { textos } = useRubro();
   const [query, setQuery] = useState("");
   const [resultados, setResultados] = useState<ProductoBusquedaDTO[]>([]);
   const [abierto, setAbierto] = useState(false);
@@ -24,6 +28,10 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
   const ultimaTecla = useRef<number>(0);
   const esLectora = useRef(false);
   const debouncedQuery = useDebounce(query, 250);
+  // Ropa (RV-5): las combinaciones de un modelo van en una sola fila; al
+  // elegirla se abre la grilla de talle × color.
+  const filas = useMemo(() => agruparResultados(resultados), [resultados]);
+  const [modeloAbierto, setModeloAbierto] = useState<{ modeloId: number; nombre: string } | null>(null);
 
   useEffect(() => {
     if (!debouncedQuery.trim()) {
@@ -61,6 +69,13 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
     setQuery("");
     setResultados([]);
     setAbierto(false);
+    setModeloAbierto(null);
+  }
+
+  function elegirFila(fila: FilaBusqueda) {
+    if (fila.tipo === "producto") return seleccionar(fila.producto);
+    setAbierto(false);
+    setModeloAbierto({ modeloId: fila.modeloId, nombre: fila.nombre });
   }
 
   async function buscarPorCodigoExacto(codigo: string) {
@@ -96,8 +111,8 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
         esLectora.current = false;
         return;
       }
-      if (abierto && activeIndex >= 0 && resultados[activeIndex]) {
-        seleccionar(resultados[activeIndex]);
+      if (abierto && activeIndex >= 0 && filas[activeIndex]) {
+        elegirFila(filas[activeIndex]);
         return;
       }
       if (query.trim()) {
@@ -105,10 +120,10 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
       }
       return;
     }
-    if (!abierto || resultados.length === 0) return;
+    if (!abierto || filas.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIndex((i) => Math.min(i + 1, resultados.length - 1));
+      setActiveIndex((i) => Math.min(i + 1, filas.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveIndex((i) => Math.max(i - 1, 0));
@@ -126,39 +141,80 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
           onChange={handleChange}
           onFocus={() => setAbierto(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Buscar producto o escanear código de barras..."
+          placeholder={textos.buscarProductoVenta}
           className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-9 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none"
         />
         {cargando && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-text-dim" />}
       </div>
+
+      {modeloAbierto && (
+        <SelectorVariante
+          modeloId={modeloAbierto.modeloId}
+          nombre={modeloAbierto.nombre}
+          cotizacionUSD={cotizacionUSD}
+          onElegir={seleccionar}
+          onCerrar={() => setModeloAbierto(null)}
+        />
+      )}
 
       {abierto && (query.trim() || resultados.length > 0) && (
         <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-surface shadow-lg">
           {resultados.length === 0 && !cargando && (
             <div className="px-3 py-2 text-sm text-text-dim">Sin resultados para &quot;{query}&quot;</div>
           )}
-          {resultados.map((p, i) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => seleccionar(p)}
-              onMouseEnter={() => setActiveIndex(i)}
-              className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm ${i === activeIndex ? "bg-surface-hover" : ""}`}
-            >
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate font-medium text-text">
-                  {p.nombre}
-                  {p.marca && <span className="ml-1 text-text-dim">· {p.marca.nombre}</span>}
+          {filas.map((fila, i) =>
+            fila.tipo === "producto" ? (
+              <button
+                key={`p-${fila.producto.id}`}
+                type="button"
+                onClick={() => elegirFila(fila)}
+                onMouseEnter={() => setActiveIndex(i)}
+                className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm ${i === activeIndex ? "bg-surface-hover" : ""}`}
+              >
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate font-medium text-text">
+                    {fila.producto.nombre}
+                    {fila.producto.marca && <span className="ml-1 text-text-dim">· {fila.producto.marca.nombre}</span>}
+                  </span>
+                  <span className="truncate text-xs text-text-dim">
+                    Stock: {fila.producto.stockActual}{fila.producto.codigoBarras ? ` · ${fila.producto.codigoBarras}` : ""}
+                  </span>
                 </span>
-                <span className="truncate text-xs text-text-dim">
-                  Stock: {p.stockActual}{p.codigoBarras ? ` · ${p.codigoBarras}` : ""}
+                <span className="shrink-0 text-sm font-semibold text-text">
+                  {formatCurrency(toArs(fila.producto.precioVenta, fila.producto.monedaPrecio, cotizacionUSD), "ARS")}
                 </span>
-              </span>
-              <span className="shrink-0 text-sm font-semibold text-text">
-                {formatCurrency(toArs(p.precioVenta, p.monedaPrecio, cotizacionUSD), "ARS")}
-              </span>
-            </button>
-          ))}
+              </button>
+            ) : (
+              <button
+                key={`m-${fila.modeloId}`}
+                type="button"
+                onClick={() => elegirFila(fila)}
+                onMouseEnter={() => setActiveIndex(i)}
+                className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm ${i === activeIndex ? "bg-surface-hover" : ""}`}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <Shirt size={15} className="shrink-0 text-primary" />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate font-medium text-text">
+                      {fila.nombre}
+                      {fila.marca && <span className="ml-1 text-text-dim">· {fila.marca}</span>}
+                    </span>
+                    <span className="truncate text-xs text-text-dim">
+                      Elegir talle y color · Stock: {fila.stock}
+                    </span>
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-text">
+                  {(() => {
+                    const precios = fila.variantes.map((v) => toArs(v.precioVenta, v.monedaPrecio, cotizacionUSD));
+                    const min = Math.min(...precios);
+                    return `${Math.max(...precios) > min ? "desde " : ""}${formatCurrency(min, "ARS")}`;
+                  })()}
+                  <ChevronRight size={14} className="text-text-dim" />
+                </span>
+              </button>
+            )
+          )}
         </div>
       )}
     </div>

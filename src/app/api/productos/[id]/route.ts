@@ -5,6 +5,9 @@ import type { Prisma } from "@prisma/client";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
 import { ajustarStock } from "@/lib/stock";
+import { esFotoPermitida } from "@/lib/fotos";
+import { obtenerConfiguracion } from "@/lib/configuracion";
+import { configRubro } from "@/lib/rubro";
 
 export async function PUT(
   request: NextRequest,
@@ -23,6 +26,11 @@ export async function PUT(
     }
 
     const body = await request.json();
+
+    // La foto tiene que venir de nuestro upload (Vercel Blob). Vacío = sin foto.
+    if (body.fotoUrl && !esFotoPermitida(body.fotoUrl)) {
+      return NextResponse.json({ error: "La foto no es válida. Subila de nuevo." }, { status: 400 });
+    }
 
     const productoAnterior = await prisma.producto.findFirst({
       where: { id: productoId, empresaId },
@@ -68,12 +76,16 @@ export async function PUT(
         ? String(body.ubicacion).trim()
         : null;
 
-    // Contenido en ml de la botella
-    const contenidoMl =
-      body.contenidoMl !== undefined &&
-      body.contenidoMl !== "" &&
-      body.contenidoMl !== null &&
-      !isNaN(Number(body.contenidoMl))
+    // Contenido en ml de la botella. Si el rubro no usa ml, el campo está oculto:
+    // se deja como está (undefined = Prisma no lo toca) para que cambiar de
+    // rubro y volver no pierda los datos.
+    const usaMl = configRubro((await obtenerConfiguracion()).rubro).usaMl;
+    const contenidoMl = !usaMl
+      ? undefined
+      : body.contenidoMl !== undefined &&
+          body.contenidoMl !== "" &&
+          body.contenidoMl !== null &&
+          !isNaN(Number(body.contenidoMl))
         ? Number(body.contenidoMl)
         : null;
 
@@ -250,7 +262,10 @@ export async function PUT(
       body.fotoUrl !== undefined &&
       fotoAnterior &&
       fotoAnterior !== body.fotoUrl &&
-      fotoAnterior.includes("public.blob.vercel-storage.com")
+      esFotoPermitida(fotoAnterior) &&
+      // Solo si ningún otro producto (de esta u otra empresa) usa esa foto:
+      // nunca borrar una foto ajena por haber copiado su dirección.
+      (await prisma.producto.count({ where: { fotoUrl: fotoAnterior } })) === 0
     ) {
       try {
         await del(fotoAnterior);

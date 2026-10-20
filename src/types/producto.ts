@@ -36,4 +36,9 @@ export type ProductoBusquedaDTO = {
   precioMayorista: number | null;
   contenidoMl: number | null;
   marca: { nombre: string } | null;
+  /** Ropa (RV-2): modelo al que pertenece esta combinación talle × color. */
+  modeloId?: number | null;
+  modeloNombre?: string | null;
+  talle?: string | null;
+  color?: string | null;
 };

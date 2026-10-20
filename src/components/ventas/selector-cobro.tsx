@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CreditCard, Plus, X } from "lucide-react";
 import { SelectorCuentaModal } from "./selector-cuenta-modal";
+import { CalculadoraVuelto } from "./calculadora-vuelto";
 import { formatCurrency, esCuentaUSD, redondearUSD } from "@/lib/currency";
 import { useCotizacionUSD } from "@/lib/hooks/use-cotizacion";
 import type { ModoCobro, PagoLinea, CuentaOption } from "@/types/pago";
@@ -16,6 +17,8 @@ interface Props {
   onCambiarPagos: (pagos: PagoLinea[]) => void;
   /** Cotización a usar para las cuentas en USD. Si no se pasa, se trae de la configuración. */
   cotizacionUSD?: number;
+  /** Enter en "Paga con" (calculadora de vuelto): confirmar sin ir al botón. */
+  onConfirmarRapido?: () => void;
 }
 
 export function SelectorCobro({
@@ -26,6 +29,7 @@ export function SelectorCobro({
   onCambiarModo,
   onCambiarPagos,
   cotizacionUSD,
+  onConfirmarRapido,
 }: Props) {
   const [cuentasCache, setCuentasCache] = useState<Record<number, CuentaOption>>({});
   const [filaSeleccionandoCuenta, setFilaSeleccionandoCuenta] = useState<string | null>(null);
@@ -129,6 +133,12 @@ export function SelectorCobro({
       ]);
     }
   }
+
+  // Parte que se paga en efectivo en pesos: sobre eso se calcula el vuelto
+  // (en un pago mixto, la parte con tarjeta/transferencia no da vuelto).
+  const montoEfectivo = pagos
+    .filter((p) => p.cuentaId != null && cuentasCache[p.cuentaId]?.tipo === "EFECTIVO_ARS")
+    .reduce((acc, p) => acc + p.monto, 0);
 
   const esValido =
     modo === "A_CUENTA"
@@ -273,6 +283,10 @@ export function SelectorCobro({
 
       {!esValido && modo !== "MIXTO" && pagos.some((p) => p.cuentaId == null) && (
         <p className="text-xs text-danger">Falta seleccionar la cuenta</p>
+      )}
+
+      {montoEfectivo > 0 && (
+        <CalculadoraVuelto montoEfectivo={montoEfectivo} onEnter={esValido ? onConfirmarRapido : undefined} />
       )}
 
       {filaSeleccionandoCuenta && (
