@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { esErrorDeNombreUnico, mensajeNombreDuplicado } from "@/lib/nombre-duplicado";
 
 // FIX: evita que Next.js cachee este GET como estático.
 // Sin esto, /api/categorias puede devolver siempre la misma
@@ -44,9 +45,18 @@ export async function POST(request: NextRequest) {
 
     if (!nombre || !nombre.trim()) {
       return NextResponse.json(
-        { message: "El nombre de la categoría es requerido" },
+        { error: "El nombre de la categoría es requerido" },
         { status: 400 }
       );
+    }
+
+    // Sin distinguir mayúsculas: "arroces" choca con "Arroces".
+    const existente = await prisma.categoria.findFirst({
+      where: { empresaId, nombre: { equals: nombre.trim(), mode: "insensitive" } },
+      select: { nombre: true, activa: true },
+    });
+    if (existente) {
+      return NextResponse.json({ error: mensajeNombreDuplicado("categoría", existente) }, { status: 409 });
     }
 
     const nuevaCategoria = await prisma.categoria.create({
@@ -59,9 +69,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(nuevaCategoria, { status: 201 });
   } catch (error) {
+    if (esErrorDeNombreUnico(error)) {
+      return NextResponse.json({ error: "Ya existe una categoría con ese nombre." }, { status: 409 });
+    }
     console.error("Error al crear categoría:", error);
     return NextResponse.json(
-      { message: "Error interno al crear la categoría" },
+      { error: "Error interno al crear la categoría" },
       { status: 500 }
     );
   }

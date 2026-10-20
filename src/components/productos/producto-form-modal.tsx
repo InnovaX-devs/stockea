@@ -234,7 +234,7 @@ export function ProductoFormModal({
         setMostrarAltaMarca(false);
       } else {
         const errData = await res.json();
-        await avisar(errData.message || "Error al crear la marca", { titulo: "No se pudo crear la marca", variante: "error" });
+        await avisar(errData.error || errData.message || "Error al crear la marca", { titulo: "No se pudo crear la marca", variante: "error" });
       }
     } catch (err) {
       console.error("Error al crear marca rápida:", err);
@@ -267,7 +267,7 @@ export function ProductoFormModal({
         setMostrarAltaCategoria(false);
       } else {
         const errData = await res.json();
-        await avisar(errData.message || "Error al crear la categoría", { titulo: "No se pudo crear la categoría", variante: "error" });
+        await avisar(errData.error || errData.message || "Error al crear la categoría", { titulo: "No se pudo crear la categoría", variante: "error" });
       }
     } catch (err) {
       console.error("Error al crear categoría rápida:", err);
