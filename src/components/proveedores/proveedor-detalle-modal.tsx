@@ -11,6 +11,7 @@ interface ProveedorDetalle {
   notas: string | null;
   cantidadCompras: number;
   totalComprado: number;
+  deuda?: number;
 }
 
 interface Props {
@@ -18,6 +19,9 @@ interface Props {
   onClose: () => void;
   proveedor: ProveedorDetalle | null;
   onSuccess: () => void;
+  /** Accesos directos a Pagar y Cuenta corriente (CP-2). */
+  onPagar?: () => void;
+  onCuentaCorriente?: () => void;
 }
 
 type CampoEditable = "nombre" | "personaContacto" | "telefono" | "email" | "notas";
@@ -32,7 +36,7 @@ const LABELS: Record<CampoEditable, string> = {
 
 const CAMPOS = Object.keys(LABELS) as CampoEditable[];
 
-export function ProveedorDetalleModal({ isOpen, onClose, proveedor, onSuccess }: Props) {
+export function ProveedorDetalleModal({ isOpen, onClose, proveedor, onSuccess, onPagar, onCuentaCorriente }: Props) {
   const [valores, setValores] = useState<Record<CampoEditable, string>>({
     nombre: "",
     personaContacto: "",
@@ -198,7 +202,36 @@ export function ProveedorDetalleModal({ isOpen, onClose, proveedor, onSuccess }:
               {formatMoney(proveedor.totalComprado)}
             </p>
           </div>
+          <div className="col-span-2">
+            <p className="text-xs uppercase tracking-wide text-text-dim">Deuda</p>
+            <p className={`mt-1 text-sm font-medium ${(proveedor.deuda ?? 0) > 0.5 ? "text-danger" : "text-text"}`}>
+              {(proveedor.deuda ?? 0) > 0.5 ? formatMoney(proveedor.deuda ?? 0) : "Al día"}
+            </p>
+          </div>
         </div>
+
+        {(onPagar || onCuentaCorriente) && (
+          <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+            {onCuentaCorriente && (
+              <button
+                type="button"
+                onClick={onCuentaCorriente}
+                className="rounded-full border border-border px-4 py-2 text-sm text-primary hover:bg-surface-hover cursor-pointer"
+              >
+                Cuenta corriente
+              </button>
+            )}
+            {onPagar && (proveedor.deuda ?? 0) > 0.5 && (
+              <button
+                type="button"
+                onClick={onPagar}
+                className="bg-grad rounded-full px-4 py-2 text-sm font-semibold text-[#050507] cursor-pointer"
+              >
+                Pagar
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

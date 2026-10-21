@@ -20,8 +20,8 @@ export default function ProveedoresTable({
   onCuentaCorriente: (proveedor: ProveedorConCompras) => void;
 }) {
   const acciones = (p: ProveedorConCompras) =>
-    p.esVirtual ? null : (
-      <div className="flex items-center justify-end gap-3" onClick={(e) => e.stopPropagation()}>
+    (
+      <div className="flex items-center justify-end gap-3 not-italic" onClick={(e) => e.stopPropagation()}>
         <button onClick={() => onCuentaCorriente(p)} className="text-primary hover:underline text-sm cursor-pointer">
           Cuenta corriente
         </button>

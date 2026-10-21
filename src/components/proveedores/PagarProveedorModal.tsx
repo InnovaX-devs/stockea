@@ -10,10 +10,13 @@ const fmt = (n: number) => n.toLocaleString("es-AR", { style: "currency", curren
 
 export function PagarProveedorModal({
   proveedor,
+  compra,
   onClose,
   onSuccess,
 }: {
   proveedor: { id: string; nombre: string; deuda: number } | null;
+  /** Si viene, se paga solo el saldo de esa compra (deuda = lo que le falta). */
+  compra?: { id: number; numero: number } | null;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -53,6 +56,7 @@ export function PagarProveedorModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(compra ? { compraId: compra.id } : {}),
           pagos: filas.filter((f) => Number(f.monto) > 0).map((f) => ({ cuentaId: f.cuentaId, monto: Number(f.monto) })),
         }),
       });
@@ -70,15 +74,20 @@ export function PagarProveedorModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm">
       <div className="my-8 w-full max-w-md rounded-2xl border border-border bg-surface p-4 shadow-2xl sm:p-6">
         <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
-          <h2 className="min-w-0 truncate text-lg font-semibold text-text">Pagar a {proveedor.nombre}</h2>
+          <h2 className="min-w-0 truncate text-lg font-semibold text-text">
+            {compra ? `Pagar compra #${compra.numero}` : `Pagar a ${proveedor.nombre}`}
+          </h2>
           <button onClick={onClose} className="shrink-0 rounded-lg p-1 text-text-dim hover:bg-surface-hover hover:text-text cursor-pointer">✕</button>
         </div>
 
         <p className="mt-4 text-sm text-text-dim">
-          Deuda actual: <span className="font-semibold text-text">{fmt(deuda)}</span>
+          {compra ? `${proveedor.nombre} · Saldo de la compra: ` : "Deuda actual: "}
+          <span className="font-semibold text-text">{fmt(deuda)}</span>
         </p>
         <p className="mt-1 text-xs text-text-dim">
-          El pago se aplica primero a la deuda inicial y después a las compras más viejas.
+          {compra
+            ? "El pago se aplica solo a esta compra."
+            : "El pago se aplica primero a la deuda inicial y después a las compras más viejas."}
         </p>
 
         {error && <div className="mt-4 rounded-lg bg-danger/10 p-3 text-xs text-danger">{error}</div>}

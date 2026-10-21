@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { obtenerEmpresaIdActual } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
-import { obtenerCuentaCorriente } from "@/lib/cuenta-corriente-proveedor";
+import { leerProveedorId, obtenerCuentaCorriente } from "@/lib/cuenta-corriente-proveedor";
 import { ResumenProveedorDocument } from "@/lib/pdf/ResumenProveedorDocument";
 
 export const runtime = "nodejs";
@@ -11,8 +11,8 @@ export const dynamic = "force-dynamic";
 /** GET /api/proveedores/[id]/resumen → PDF "Resumen de cuenta del proveedor" (CP-2). */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const empresaId = await obtenerEmpresaIdActual();
-  const proveedorId = Number((await params).id);
-  if (!Number.isInteger(proveedorId) || proveedorId <= 0) {
+  const proveedorId = leerProveedorId((await params).id);
+  if (proveedorId === undefined) {
     return NextResponse.json({ error: "Proveedor inválido." }, { status: 400 });
   }
 

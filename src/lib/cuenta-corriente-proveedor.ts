@@ -17,6 +17,16 @@ import { redondearPesos, saldoPendiente } from "@/lib/compras-pago";
 type Db = Prisma.TransactionClient;
 
 const TOLERANCIA = 0.005;
+export const SIN_ESPECIFICAR = "Sin especificar";
+/** Valor de la URL para las compras sin proveedor. */
+export const ID_SIN_ESPECIFICAR = "sin-especificar";
+
+/** Lee el :id de la URL: número, null (sin especificar) o undefined si es inválido. */
+export function leerProveedorId(raw: string): number | null | undefined {
+  if (raw === ID_SIN_ESPECIFICAR) return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : undefined;
+}
 const WHERE_COMPRA_REAL = { confirmada: true, cancelada: false } satisfies Prisma.CompraWhereInput;
 
 // ---------- Cálculo puro ----------
@@ -125,27 +135,40 @@ export const SELECT_DEUDA_PROVEEDOR = {
 // ---------- Consultas ----------
 
 /** Estado para pagar (dentro de la transacción del pago). null = no existe. */
-export async function obtenerEstadoDeuda(db: Db, empresaId: number, proveedorId: number) {
-  const prov = await db.proveedor.findFirst({
-    where: { id: proveedorId, empresaId },
-    select: { id: true, nombre: true, deudaInicial: true, pagos: { select: { aplicadoDeudaInicial: true } } },
-  });
+export async function obtenerEstadoDeuda(
+  db: Db,
+  empresaId: number,
+  proveedorId: number | null,
+  /** Si viene, el estado incluye solo esa compra (pago desde el listado de Compras). */
+  soloCompraId?: number
+) {
+  // proveedorId null = compras "Sin especificar" (sin proveedor): sin deuda inicial ni gastos.
+  const prov =
+    proveedorId == null
+      ? { id: 0, nombre: SIN_ESPECIFICAR, deudaInicial: 0, pagos: [] as { aplicadoDeudaInicial: number }[] }
+      : await db.proveedor.findFirst({
+          where: { id: proveedorId, empresaId },
+          select: { id: true, nombre: true, deudaInicial: true, pagos: { select: { aplicadoDeudaInicial: true } } },
+        });
   if (!prov) return null;
 
   const compras = await db.compra.findMany({
-    where: { ...WHERE_COMPRA_REAL, proveedorId, empresaId },
+    where: { ...WHERE_COMPRA_REAL, proveedorId, empresaId, ...(soloCompraId != null ? { id: soloCompraId } : {}) },
     orderBy: [{ fecha: "asc" }, { id: "asc" }],
     select: { id: true, numero: true, totalARS: true, montoPagado: true, cuentaId: true, cotizacionUsada: true },
   });
-  const gastos = await db.gasto.findMany({
-    where: { proveedorId, empresaId, estadoPago: "PENDIENTE" },
-    orderBy: [{ fecha: "asc" }, { id: "asc" }],
-    select: { id: true, concepto: true, monto: true },
-  });
+  const gastos =
+    proveedorId == null || soloCompraId != null
+      ? []
+      : await db.gasto.findMany({
+          where: { proveedorId, empresaId, estadoPago: "PENDIENTE" },
+          orderBy: [{ fecha: "asc" }, { id: "asc" }],
+          select: { id: true, concepto: true, monto: true },
+        });
 
   const inicialPagado = prov.pagos.reduce((a, x) => a + x.aplicadoDeudaInicial, 0);
   const estado: EstadoDeuda = {
-    deudaInicial: Math.max(0, redondearPesos(prov.deudaInicial - inicialPagado)),
+    deudaInicial: soloCompraId != null ? 0 : Math.max(0, redondearPesos(prov.deudaInicial - inicialPagado)),
     compras: compras
       .map((c) => ({ ...c, totalARS: c.totalARS ?? 0, montoPagadoInicial: c.montoPagado }))
       .filter((c) => saldoPendiente(c) > TOLERANCIA),
@@ -165,49 +188,65 @@ export type EventoCuentaCorriente = {
 };
 
 /** Historial: compras (cargo), pagos (abono) y saldo acumulado. */
-export async function obtenerCuentaCorriente(empresaId: number, proveedorId: number) {
-  const prov = await prisma.proveedor.findFirst({
-    where: { id: proveedorId, empresaId },
-    select: {
-      id: true,
-      nombre: true,
-      deudaInicial: true,
-      createdAt: true,
-      pagos: {
-        orderBy: { fecha: "asc" },
-        select: {
-          id: true,
-          fecha: true,
-          montoARS: true,
-          aplicadoDeudaInicial: true,
-          compras: { select: { montoARS: true, compra: { select: { numero: true } } } },
-          movimientosCaja: {
-            select: {
-              cuenta: { select: { nombre: true } },
-              gasto: { select: { id: true, concepto: true, monto: true, fecha: true } },
-            },
-          },
-        },
-      },
-      gastos: {
-        where: { estadoPago: "PENDIENTE" },
-        orderBy: { fecha: "asc" },
-        select: { id: true, concepto: true, monto: true, fecha: true },
-      },
-      compras: {
-        where: WHERE_COMPRA_REAL,
-        orderBy: [{ fecha: "asc" }, { id: "asc" }],
-        select: {
-          id: true,
-          numero: true,
-          fecha: true,
-          totalARS: true,
-          montoPagado: true,
-          pagosProveedor: { select: { montoARS: true } },
-        },
+export async function obtenerCuentaCorriente(empresaId: number, proveedorId: number | null) {
+  const PAGOS_SELECT = {
+    id: true,
+    fecha: true,
+    montoARS: true,
+    aplicadoDeudaInicial: true,
+    compras: { select: { montoARS: true, compra: { select: { numero: true } } } },
+    movimientosCaja: {
+      select: {
+        cuenta: { select: { nombre: true } },
+        gasto: { select: { id: true, concepto: true, monto: true, fecha: true } },
       },
     },
-  });
+  } satisfies Prisma.PagoProveedorSelect;
+  const COMPRAS_SELECT = {
+    id: true,
+    numero: true,
+    fecha: true,
+    totalARS: true,
+    montoPagado: true,
+    pagosProveedor: { select: { montoARS: true } },
+  } satisfies Prisma.CompraSelect;
+  const ORDEN_COMPRAS = [{ fecha: "asc" as const }, { id: "asc" as const }];
+
+  const prov =
+    proveedorId == null
+      ? {
+          id: 0,
+          nombre: SIN_ESPECIFICAR,
+          deudaInicial: 0,
+          createdAt: new Date(0),
+          pagos: await prisma.pagoProveedor.findMany({
+            where: { empresaId, proveedorId: null },
+            orderBy: { fecha: "asc" },
+            select: PAGOS_SELECT,
+          }),
+          gastos: [] as { id: number; concepto: string; monto: number; fecha: Date }[],
+          compras: await prisma.compra.findMany({
+            where: { ...WHERE_COMPRA_REAL, empresaId, proveedorId: null },
+            orderBy: ORDEN_COMPRAS,
+            select: COMPRAS_SELECT,
+          }),
+        }
+      : await prisma.proveedor.findFirst({
+          where: { id: proveedorId, empresaId },
+          select: {
+            id: true,
+            nombre: true,
+            deudaInicial: true,
+            createdAt: true,
+            pagos: { orderBy: { fecha: "asc" }, select: PAGOS_SELECT },
+            gastos: {
+              where: { estadoPago: "PENDIENTE" },
+              orderBy: { fecha: "asc" },
+              select: { id: true, concepto: true, monto: true, fecha: true },
+            },
+            compras: { where: WHERE_COMPRA_REAL, orderBy: ORDEN_COMPRAS, select: COMPRAS_SELECT },
+          },
+        });
   if (!prov) return null;
 
   type Crudo = Omit<EventoCuentaCorriente, "saldo"> & { orden: number };
@@ -279,8 +318,18 @@ export async function resumenDeudaProveedores(empresaId: number, top = 5) {
     where: { empresaId },
     select: { id: true, nombre: true, ...SELECT_DEUDA_PROVEEDOR },
   });
-  const conDeuda = proveedores
-    .map((p) => ({ id: p.id, nombre: p.nombre, deuda: deudaDeProveedor(p) }))
+  const sinProveedor = await prisma.compra.findMany({
+    where: { ...WHERE_COMPRA_REAL, empresaId, proveedorId: null },
+    select: { totalARS: true, montoPagado: true },
+  });
+  const conDeuda = [
+    ...proveedores.map((p) => ({ id: p.id, nombre: p.nombre, deuda: deudaDeProveedor(p) })),
+    {
+      id: 0,
+      nombre: SIN_ESPECIFICAR,
+      deuda: redondearPesos(sinProveedor.reduce((a, c) => a + saldoPendiente(c), 0)),
+    },
+  ]
     .filter((p) => p.deuda > 0.5)
     .sort((a, b) => b.deuda - a.deuda);
   return {

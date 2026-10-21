@@ -9,6 +9,7 @@ const SECCIONES = [
   { href: "/reportes/ropa", label: "Ropa", soloRopa: true },
   { href: "/reportes/inventario", label: "Inventario" },
   { href: "/reportes/cuentas-por-cobrar", label: "Cuentas por Cobrar" },
+  { href: "/reportes/cuentas-por-pagar", label: "Cuentas por Pagar" },
   { href: "/reportes/estado-resultados", label: "Estado de Resultados" },
 ];
 
