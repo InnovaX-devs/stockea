@@ -60,6 +60,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const resultado = await prisma.$transaction(
       async (tx) => {
+        // Dos pagos al mismo proveedor a la vez se hacen uno detrás del otro: así la
+        // deuda inicial no se puede pagar dos veces (las compras y los gastos ya
+        // tienen su propio control, pero la deuda inicial no).
+        if (proveedorId != null) {
+          await tx.$queryRaw`SELECT id FROM "Proveedor" WHERE id = ${proveedorId} AND "empresaId" = ${empresaId} FOR UPDATE`;
+        }
         const datos = await obtenerEstadoDeuda(tx, empresaId, proveedorId, compraId);
         if (!datos) throw new ErrorPago("Proveedor no encontrado", 404);
         const { proveedor, estado } = datos;
@@ -130,7 +136,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
                 empresaId,
                 cuentaId: p.cuentaId,
                 tipo: "EGRESO" as const,
-                concepto: "PAGO_A_PROVEEDOR" as const,
+                // Un gasto pendiente que se salda acá sigue siendo un GASTO: con ese concepto
+                // lo cuentan el estado de resultados y el análisis de gastos (igual que /gastos/[id]/pagar).
+                concepto: a.tipo === "GASTO" ? ("GASTO" as const) : ("PAGO_A_PROVEEDOR" as const),
                 monto: debitos[i],
                 saldoResultante: saldo,
                 compraId: a.compra?.id ?? null,

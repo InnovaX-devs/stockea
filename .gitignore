@@ -4,5 +4,5 @@ node_modules/
 *.log
 .vercel
 .env*
-next-end.d.ts*:Zone.Identifier
+next-env.d.ts
 *:Zone.Identifier
