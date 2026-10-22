@@ -64,7 +64,8 @@ function NuevaVentaContenido() {
     useVenta();
   // "Solo descontar stock" saca mercadería sin venta: es solo del admin.
   const esAdmin = useEsAdmin();
-  // Vender sin conexión y los productos de precio abierto son del plan Premium.
+  // Vender sin conexión, los productos de precio abierto y el ticket para la
+  // comandera son del plan Premium.
   const premium = useEsPremium();
 
   const [advertenciaStock, setAdvertenciaStock] = useState<{
@@ -165,6 +166,7 @@ function NuevaVentaContenido() {
 
   /** Después de guardar la venta: queda como "último ticket" y se imprime si está configurado así. */
   function ticketDeLaVenta(ticket: DatosTicket) {
+    if (!premium) return; // ticket para comandera: solo plan Premium
     setUltimoTicket(ticket);
     if (leerConfigTicket().imprimirAlConfirmar) imprimirTicket(ticket).catch(() => {});
   }
@@ -531,7 +533,7 @@ function NuevaVentaContenido() {
       return;
     }
     const ticketConNumero = { ...ticket, numero: resultado.numero };
-    toast.success(`Venta #${resultado.numero} confirmada`, { action: accionTicket(ticketConNumero) });
+    toast.success(`Venta #${resultado.numero} confirmada`, premium ? { action: accionTicket(ticketConNumero) } : undefined);
     limpiarVenta();
     ticketDeLaVenta(ticketConNumero);
     if (facturacion?.disponible && emitirFactura) await facturarLaVenta(resultado.ventaId);
@@ -546,7 +548,7 @@ function NuevaVentaContenido() {
           <h1 className="text-xl font-semibold text-text sm:text-2xl">Nueva Venta</h1>
           <p className="text-sm text-text-dim">Buscá cliente y productos, y confirmá el cobro</p>
         </div>
-        <BarraTicket ultimoTicket={ultimoTicket} />
+        {premium && <BarraTicket ultimoTicket={ultimoTicket} />}
       </div>
 
       {presupuestoIdOrigen != null && (

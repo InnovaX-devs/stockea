@@ -12,8 +12,8 @@ import type { Configuracion } from "@prisma/client";
  *   valor cargado en Configuración (un cliente Premium puede no vender en
  *   dólares igual).
  * - El resto de los módulos Premium (Reportes avanzados, Flujo de caja,
- *   facturación ARCA, venta sin conexión, cierre de caja, precio abierto y
- *   etiquetas de góndola) están 100% atados a la licencia, sin un campo
+ *   facturación ARCA, venta sin conexión, cierre de caja, precio abierto,
+ *   etiquetas de góndola y ticket para comandera) están 100% atados a la licencia, sin un campo
  *   propio en la base — no tiene sentido tenerlos sueltos si siempre van
  *   juntos en el mismo paquete.
  */
@@ -44,6 +44,8 @@ function conFlagsDeLicencia<T extends Pick<Configuracion, "licencia" | "usaCotiz
     habilitarPrecioAbierto: esPremium,
     /** Etiquetas de góndola en PDF. */
     habilitarEtiquetas: esPremium,
+    /** Ticket de venta para la comandera (impresora térmica). */
+    habilitarTicket: esPremium,
   };
 }
 
