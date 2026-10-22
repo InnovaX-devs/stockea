@@ -5,11 +5,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Settings, Wrench } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useEsPremium } from "@/components/layout/plan-context";
 import { SECCIONES_CONFIGURACION } from "@/components/configuracion/secciones";
 
 /** Engranaje de la barra superior: desplegable con las secciones de Configuración (solo admin). */
 export function MenuConfiguracion({ esDesarrollador = false }: { esDesarrollador?: boolean }) {
   const pathname = usePathname();
+  const premium = useEsPremium();
   const [abierto, setAbierto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const activa = pathname === "/configuracion" || pathname?.startsWith("/configuracion/");
@@ -53,7 +55,7 @@ export function MenuConfiguracion({ esDesarrollador = false }: { esDesarrollador
           className="bg-topbar absolute right-0 top-[calc(100%+6px)] z-[60] min-w-[260px] rounded-xl border border-white/10 p-1.5 shadow-xl"
         >
           <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/50">Configuración</p>
-          {SECCIONES_CONFIGURACION.map(({ label, href, icon: Icon, descripcion }) => {
+          {SECCIONES_CONFIGURACION.filter((s) => premium || !s.premium).map(({ label, href, icon: Icon, descripcion }) => {
             const actual = pathname === href;
             return (
               <Link

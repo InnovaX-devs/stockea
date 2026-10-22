@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { useEsPremium } from "@/components/layout/plan-context";
 import { SECCIONES_CONFIGURACION } from "./secciones";
 
 /** Pestañas de Configuración (Negocio, Usuarios, Facturación electrónica). */
 export function TabsConfiguracion() {
   const pathname = usePathname();
+  const premium = useEsPremium();
   return (
     <nav className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-white p-1" aria-label="Secciones de configuración">
-      {SECCIONES_CONFIGURACION.map(({ label, href, icon: Icon }) => {
+      {SECCIONES_CONFIGURACION.filter((s) => premium || !s.premium).map(({ label, href, icon: Icon }) => {
         const activa = pathname === href;
         return (
           <Link

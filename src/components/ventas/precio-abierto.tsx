@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useEsPremium } from "@/components/layout/plan-context";
 import { X } from "lucide-react";
 import type { ProductoBusquedaDTO } from "@/types/producto";
 import { formatCurrency } from "@/lib/currency";
@@ -16,8 +17,10 @@ import { listarPrecioAbierto } from "@/lib/offline/buscar";
 /** Botones rápidos, arriba del buscador. No muestra nada si el negocio no tiene ninguno. */
 export function BotonesPrecioAbierto({ onElegir }: { onElegir: (producto: ProductoBusquedaDTO) => void }) {
   const [productos, setProductos] = useState<ProductoBusquedaDTO[]>([]);
+  const premium = useEsPremium();
 
   useEffect(() => {
+    if (!premium) return; // productos especiales: solo plan Premium
     const controller = new AbortController();
     listarPrecioAbierto(controller.signal)
       .then(setProductos)
@@ -25,9 +28,9 @@ export function BotonesPrecioAbierto({ onElegir }: { onElegir: (producto: Produc
         if (err.name !== "AbortError") console.error(err);
       });
     return () => controller.abort();
-  }, []);
+  }, [premium]);
 
-  if (productos.length === 0) return null;
+  if (!premium || productos.length === 0) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label="Productos de precio abierto">

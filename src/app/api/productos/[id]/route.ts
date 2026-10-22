@@ -88,7 +88,7 @@ export async function PUT(
 
     // Precio abierto / sin control de stock / % de costo estimado. Solo se
     // guarda lo que viene: las pantallas que no lo muestran no lo tocan.
-    const resultadoAbierto = leerPrecioAbierto(body);
+    const resultadoAbierto = leerPrecioAbierto(body, (await obtenerConfiguracion()).habilitarPrecioAbierto);
     if (!resultadoAbierto.ok) {
       return NextResponse.json({ error: resultadoAbierto.error }, { status: 400 });
     }

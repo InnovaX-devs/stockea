@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { obtenerUsuarioActualOpcional } from "@/lib/empresa";
 import { RolProvider } from "@/components/layout/rol-context";
 import { RubroProvider } from "@/components/layout/rubro-context";
+import { PlanProvider } from "@/components/layout/plan-context";
 import { prisma } from "@/lib/prisma";
 import { obtenerContextoSucursal } from "@/lib/sucursal";
 import { SincronizadorCatalogo } from "@/components/pwa/sincronizador-catalogo";
@@ -42,7 +43,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <RolProvider rol={usuario.rol}>
     <RubroProvider rubro={configuracion.rubro}>
-    <SincronizadorCatalogo sucursalKey={String(contextoSucursal.actual?.id ?? "todas")} />
+    <PlanProvider premium={configuracion.licencia === "PREMIUM"}>
+    {/* La copia del catálogo para vender sin conexión es del plan Premium. */}
+    {configuracion.habilitarSinConexion && (
+      <SincronizadorCatalogo sucursalKey={String(contextoSucursal.actual?.id ?? "todas")} />
+    )}
     <div className="flex min-h-dvh flex-col bg-bg">
       <Topbar
         logoUrl={configuracion.logoUrl ?? null}
@@ -72,6 +77,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         <DevCredit />
       </footer>
     </div>
+    </PlanProvider>
     </RubroProvider>
     </RolProvider>
   );

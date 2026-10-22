@@ -17,9 +17,12 @@ export type DatosPrecioAbierto = {
 };
 
 export function leerPrecioAbierto(
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  /** Productos especiales: solo plan Premium. En Básico estos campos no se tocan. */
+  habilitado = true
 ): { ok: true; datos: DatosPrecioAbierto } | { ok: false; error: string } {
   const datos: DatosPrecioAbierto = {};
+  if (!habilitado) return { ok: true, datos };
 
   if (body.precioAbierto !== undefined) datos.precioAbierto = body.precioAbierto === true;
   if (body.controlaStock !== undefined) datos.controlaStock = body.controlaStock !== false;

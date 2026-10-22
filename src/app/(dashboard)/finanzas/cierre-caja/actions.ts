@@ -15,9 +15,17 @@ import {
 import { fechaISOAR, inicioDiaAR } from "@/lib/timezone";
 import { obtenerContextoSucursal, requerirSucursalId } from "@/lib/sucursal";
 import { filtroCuentasDeSucursal } from "@/lib/cuenta-sucursal";
+import { obtenerConfiguracion } from "@/lib/configuracion";
+
+/** Apertura y cierre de caja: solo plan Premium. */
+async function requerirCierreCaja() {
+  if (!(await obtenerConfiguracion()).habilitarCierreCaja) {
+    throw new Error("El cierre de caja está disponible en el plan Pro.");
+  }
+}
 
 /**
- * Apertura y cierre de caja por turno (Básico y Premium).
+ * Apertura y cierre de caja por turno (solo Premium).
  *
  * - El efectivo se CUENTA y la diferencia se ajusta siempre.
  * - Bancos / billeteras (solo admin, opcional): se carga el saldo que muestra
@@ -301,6 +309,8 @@ export async function estadoCajaParaVenta(): Promise<{ abierta: boolean; horaApe
   const { actual } = await obtenerContextoSucursal();
   // En "Todas" no se vende (lo frena la venta misma): no hay aviso de caja.
   if (!actual) return { abierta: true, horaApertura: "07:00", sucursalId: null };
+  // Plan Básico: sin turnos, la caja está siempre abierta.
+  if (!(await obtenerConfiguracion()).habilitarCierreCaja) return { abierta: true, horaApertura: "07:00", sucursalId: actual.id };
   const sesion = await asegurarAperturaAutomatica(usuario.empresaId, actual.id);
   const config = await prisma.configuracion.findUnique({
     where: { empresaId: usuario.empresaId },
@@ -312,6 +322,7 @@ export async function estadoCajaParaVenta(): Promise<{ abierta: boolean; horaApe
 /** Abrir caja a mano. El admin puede además cargar el cambio contado. */
 export async function abrirCaja(input: { conteos?: { cuentaId: number; contado: number }[] } = {}): Promise<Resultado> {
   try {
+    await requerirCierreCaja();
     const usuario = await obtenerUsuarioActual();
     const nombre = await nombreUsuario(usuario.id);
     const caja = await cajaActual();
@@ -341,6 +352,7 @@ export async function abrirCaja(input: { conteos?: { cuentaId: number; contado: 
 /** Corregir el cambio de apertura (solo admin, antes del primer movimiento). */
 export async function revisarApertura(conteos: { cuentaId: number; contado: number }[]): Promise<Resultado> {
   try {
+    await requerirCierreCaja();
     const admin = await requerirAdmin();
     const nombre = await nombreUsuario(admin.id);
     const caja = await cajaActual();
@@ -370,6 +382,7 @@ export async function registrarCierre(input: {
   observacion?: string;
 }): Promise<ResultadoCierre> {
   try {
+    await requerirCierreCaja();
     const usuario = await obtenerUsuarioActual();
     const esAdmin = usuario.rol === "ADMIN";
     const usuarioNombre = await nombreUsuario(usuario.id);
@@ -603,6 +616,7 @@ export async function listarCierres(): Promise<CierreHistorial[]> {
 /** Anula el último cierre: revierte ajustes y retiros y reabre el turno. */
 export async function anularUltimoCierre(cierreId: number): Promise<Resultado> {
   try {
+    await requerirCierreCaja();
     const admin = await requerirAdmin();
     const nombre = await nombreUsuario(admin.id);
 

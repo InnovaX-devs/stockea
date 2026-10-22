@@ -11,8 +11,9 @@ import type { Configuracion } from "@prisma/client";
  *   importar lo que haya en la base (piso duro). Con PREMIUM, respeta el
  *   valor cargado en Configuración (un cliente Premium puede no vender en
  *   dólares igual).
- * - El resto de los módulos Premium (Presupuestos, Reportes avanzados,
- *   Gastos/Flujo de caja) están 100% atados a la licencia, sin un campo
+ * - El resto de los módulos Premium (Reportes avanzados, Flujo de caja,
+ *   facturación ARCA, venta sin conexión, cierre de caja, precio abierto y
+ *   etiquetas de góndola) están 100% atados a la licencia, sin un campo
  *   propio en la base — no tiene sentido tenerlos sueltos si siempre van
  *   juntos en el mismo paquete.
  */
@@ -32,6 +33,17 @@ function conFlagsDeLicencia<T extends Pick<Configuracion, "licencia" | "usaCotiz
     habilitarFlujoCaja: esPremium,
     /** @deprecated usar habilitarFlujoCaja (Flujo de caja + análisis de gastos). */
     habilitarGastosFlujoCaja: esPremium,
+    // Solo Premium (plan Pro de la web):
+    /** Factura electrónica ARCA (las notas de crédito de facturas ya emitidas se siguen pudiendo hacer). */
+    habilitarFacturacion: esPremium,
+    /** Vender sin conexión: copia del catálogo y cola de ventas en la compu. */
+    habilitarSinConexion: esPremium,
+    /** Apertura y cierre de caja por turno. En Básico la caja está siempre abierta. */
+    habilitarCierreCaja: esPremium,
+    /** Productos especiales: precio abierto (verdura, fiambre) y sin control de stock. */
+    habilitarPrecioAbierto: esPremium,
+    /** Etiquetas de góndola en PDF. */
+    habilitarEtiquetas: esPremium,
   };
 }
 

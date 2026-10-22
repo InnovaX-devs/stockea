@@ -5,6 +5,7 @@ import { BarcodeInput } from "@/components/ui/barcode-input";
 import Select from "@/components/ui/select";
 import { avisar } from "@/components/ui/dialogos";
 import { useRubro } from "@/components/layout/rubro-context";
+import { useEsPremium } from "@/components/layout/plan-context";
 import { ETIQUETA_UNIDAD, esUnidadContenido, type UnidadContenido } from "@/lib/rubro";
 
 function calcularPorcentaje(costo: number, precio: number): number {
@@ -78,6 +79,7 @@ export function ProductoFormModal({
   usaCotizacionUSD = false,
 }: ProductoFormModalProps) {
   const { usaContenido, unidadesContenido } = useRubro();
+  const premium = useEsPremium();
   const [formData, setFormData] = useState<ProductoFormData>({
     nombre: "",
     codigoBarras: "",
@@ -950,6 +952,8 @@ export function ProductoFormModal({
               />
               Producto Destacado
             </label>
+            {/* Productos especiales (precio abierto / sin stock): solo plan Premium. */}
+            {premium && (<>
             <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
               <input
                 type="checkbox"
@@ -972,6 +976,7 @@ export function ProductoFormModal({
               />
               No controlar stock
             </label>
+            </>)}
           </div>
 
           <div className="space-y-2">
