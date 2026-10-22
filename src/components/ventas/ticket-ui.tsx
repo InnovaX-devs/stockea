@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Printer, Loader2, Settings2, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { datosTicketVenta } from "@/app/(dashboard)/ventas/ticket-actions";
+import { useEsPremium } from "@/components/layout/plan-context";
 import {
   imprimirTicket,
   leerConfigTicket,
@@ -29,6 +30,9 @@ export function BotonTicketVenta({
   className?: string;
 }) {
   const [imprimiendo, setImprimiendo] = useState(false);
+  // Ticket para la comandera: solo plan Premium.
+  const premium = useEsPremium();
+  if (!premium) return null;
   async function imprimir() {
     setImprimiendo(true);
     try {

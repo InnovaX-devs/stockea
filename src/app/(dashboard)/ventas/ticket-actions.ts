@@ -36,6 +36,9 @@ export async function datosTicketVenta(
   ventaId: number
 ): Promise<{ success: true; data: DatosTicket } | { success: false; error: string }> {
   if (!Number.isInteger(ventaId) || ventaId <= 0) return { success: false, error: "Venta inválida." };
+  if (!(await obtenerConfiguracion()).habilitarTicket) {
+    return { success: false, error: "El ticket para comandera está disponible en el plan Pro." };
+  }
   const empresaId = await obtenerEmpresaIdActual();
   const [venta, configuracion] = await Promise.all([
     prisma.venta.findFirst({
