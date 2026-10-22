@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { ProductoFormModal, type ProductoFormData } from "@/components/productos/producto-form-modal";
 import { PdfGeneratorModal } from "@/components/productos/pdf-generator-modal";
 import { EtiquetasModal } from "@/components/productos/etiquetas-modal";
+import { useEsPremium } from "@/components/layout/plan-context";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FileText, Search, SlidersHorizontal, Tag } from "lucide-react";
 import Link from "next/link";
@@ -119,6 +120,7 @@ export default function ProductosAdmin() {
 
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [isEtiquetasOpen, setIsEtiquetasOpen] = useState(false);
+  const premium = useEsPremium(); // etiquetas de góndola: solo plan Premium
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
   const [desactivandoId, setDesactivandoId] = useState<string | null>(null);
   const [productoADesactivar, setProductoADesactivar] = useState<Producto | null>(null);
@@ -931,6 +933,7 @@ export default function ProductosAdmin() {
             <FileText className="h-4 w-4 shrink-0" />
             <span className="truncate">Generar PDF</span>
           </button>
+          {premium && (
           <button
             type="button"
             onClick={() => setIsEtiquetasOpen(true)}
@@ -939,6 +942,7 @@ export default function ProductosAdmin() {
             <Tag className="h-4 w-4 shrink-0" />
             <span className="truncate">Etiquetas</span>
           </button>
+          )}
           <Link
             href="/productos/actualizar-precios"
             className="bg-grad inline-flex items-center justify-center rounded-full px-4 py-2 text-center text-sm font-semibold text-[#050507] shadow-[0_6px_20px_rgba(34,197,94,0.22)] transition-transform hover:-translate-y-0.5 cursor-pointer"

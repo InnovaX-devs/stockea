@@ -210,6 +210,9 @@ export async function crearVentaInterna(
         //     acá, en el servidor (no alcanza con lo que controla la pantalla):
         //     tiene que ser un monto real, mayor a cero.
         const abiertos = new Map(productosDelCarrito.filter((p) => p.precioAbierto).map((p) => [p.id, p.nombre]));
+        if (abiertos.size > 0 && !configuracionActual.habilitarPrecioAbierto) {
+          throw new Error("Los productos de precio abierto (verdura, fiambre…) están disponibles en el plan Pro.");
+        }
         for (const item of input.items) {
           const nombre = abiertos.get(item.productoId);
           if (nombre === undefined) continue;

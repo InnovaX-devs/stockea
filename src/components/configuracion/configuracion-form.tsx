@@ -408,6 +408,9 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
           </span>
         </label>
 
+        {/* Turnos de caja: solo plan Premium. En Básico se mandan los valores
+            guardados tal cual, así no se pierden si después pasa a Premium. */}
+        {esPremium ? (<>
         <label className="flex items-start justify-between gap-4">
           <span>
             <span className="text-sm font-medium text-text">Hora de apertura de la caja</span>
@@ -440,6 +443,10 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
             </p>
           </span>
         </label>
+        </>) : (<>
+          <input type="hidden" name="horaAperturaCaja" value={configuracion.horaAperturaCaja} />
+          {configuracion.cajaTurnoContinuo && <input type="hidden" name="cajaTurnoContinuo" value="on" />}
+        </>)}
       </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}

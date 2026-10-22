@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
     const contenidoGuardado = resultadoContenido.datos ?? { contenido: null, unidadContenido: null, contenidoMl: null };
 
     // Precio abierto / sin control de stock / % de costo estimado.
-    const resultadoAbierto = leerPrecioAbierto(body);
+    const resultadoAbierto = leerPrecioAbierto(body, (await obtenerConfiguracion()).habilitarPrecioAbierto);
     if (!resultadoAbierto.ok) {
       return NextResponse.json({ error: resultadoAbierto.error }, { status: 400 });
     }

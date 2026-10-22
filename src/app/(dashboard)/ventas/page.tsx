@@ -29,6 +29,7 @@ import { datosNegocioTicket } from "./ticket-actions";
 import { BarraTicket } from "@/components/ventas/ticket-ui";
 import { imprimirTicket, leerConfigTicket, leerNegocioTicket, guardarNegocioTicket, type DatosTicket, type NegocioTicket } from "@/lib/ticket";
 import { useRubro } from "@/components/layout/rubro-context";
+import { useEsPremium, MENSAJE_SOLO_PRO } from "@/components/layout/plan-context";
 import { contenidoVisible } from "@/lib/rubro";
 import { Tag, Gift } from "lucide-react";
 import { pedirTexto } from "@/components/ui/dialogos";
@@ -63,6 +64,8 @@ function NuevaVentaContenido() {
     useVenta();
   // "Solo descontar stock" saca mercadería sin venta: es solo del admin.
   const esAdmin = useEsAdmin();
+  // Vender sin conexión y los productos de precio abierto son del plan Premium.
+  const premium = useEsPremium();
 
   const [advertenciaStock, setAdvertenciaStock] = useState<{
     producto: ProductoBusquedaDTO;
@@ -235,6 +238,10 @@ function NuevaVentaContenido() {
   function agregarProducto(producto: ProductoBusquedaDTO) {
     // Precio abierto (desde los botones rápidos o desde el buscador): primero se pide el monto.
     if (producto.precioAbierto) {
+      if (!premium) {
+        toast.error(`Los productos de precio abierto: ${MENSAJE_SOLO_PRO}`);
+        return;
+      }
       setProductoMonto(producto);
       return;
     }
@@ -407,6 +414,16 @@ function NuevaVentaContenido() {
     motivo: "sin-red" | "fallo",
     ticket: DatosTicket
   ): Promise<boolean> {
+    // Plan Básico: no hay cola sin conexión.
+    if (!premium) {
+      toast.error(
+        motivo === "fallo"
+          ? "No se pudo confirmar la venta por un corte de conexión. Antes de cobrar de nuevo, revisá en el historial si quedó guardada."
+          : `No hay conexión a internet. Vender sin conexión: ${MENSAJE_SOLO_PRO}`,
+        { duration: 8000 }
+      );
+      return false;
+    }
     const alcance = await leerAlcance();
     if (!alcance) {
       toast.error("Para vender sin conexión, abrí el sistema una vez con internet.");

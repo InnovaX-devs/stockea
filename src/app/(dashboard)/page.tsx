@@ -21,6 +21,7 @@ import {
 import { TodasCuentasModal } from "@/components/dashboard/todas-cuentas-modal";
 import { ModalConsultarPrecio } from "@/components/ventas/modal-consultar-precio";
 import { formatCurrency } from "@/lib/currency";
+import { useEsPremium } from "@/components/layout/plan-context";
 
 interface CuentaPrincipal {
   id: number;
@@ -69,12 +70,14 @@ const ACCESOS_RAPIDOS = [
   { label: "Productos", href: "/productos", icon: FlaskConical },
   { label: "Clientes", href: "/clientes", icon: Users },
   { label: "Gastos", href: "/finanzas/gastos", icon: Wallet },
-  { label: "Reportes", href: "/reportes", icon: Droplets },
+  { label: "Reportes", href: "/reportes", icon: Droplets, premium: true },
 ];
 
 const OCULTO = "••••••";
 
 export default function DashboardPage() {
+  // Reportes es del plan Premium: en Básico no se muestra el acceso.
+  const premium = useEsPremium();
   const [datos, setDatos] = useState<DashboardData | null>(null);
   const [cargando, setCargando] = useState(true);
   const [modalCuentasAbierto, setModalCuentasAbierto] = useState(false);
@@ -285,8 +288,8 @@ export default function DashboardPage() {
       )}
 
       {/* Accesos rápidos */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {ACCESOS_RAPIDOS.map((a) => (
+      <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 ${premium ? "lg:grid-cols-6" : "lg:grid-cols-5"}`}>
+        {ACCESOS_RAPIDOS.filter((a) => premium || !a.premium).map((a) => (
           <Link
             key={a.href}
             href={a.href}

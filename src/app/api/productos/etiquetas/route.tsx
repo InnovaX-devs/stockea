@@ -35,6 +35,9 @@ export async function GET(request: NextRequest) {
   const marcaId = Number(sp.get("marcaId")) || null;
 
   const empresaId = await obtenerEmpresaIdActual();
+  if (!(await obtenerConfiguracion()).habilitarEtiquetas) {
+    return NextResponse.json({ error: "Las etiquetas de góndola están disponibles en el plan Pro." }, { status: 403 });
+  }
 
   const where: Prisma.ProductoWhereInput = {
     empresaId,

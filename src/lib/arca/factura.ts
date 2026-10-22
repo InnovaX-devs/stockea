@@ -130,6 +130,7 @@ const fechaDeArca = (yyyymmdd: string) => new Date(`${yyyymmdd.slice(0, 4)}-${yy
  */
 export async function prepararFacturaDeVenta(empresaId: number, ventaId: number, documento?: DocumentoReceptor | null) {
   const config = await prisma.configuracion.findUniqueOrThrow({ where: { empresaId } });
+  if (config.licencia !== "PREMIUM") throw new FacturaError("La factura electrónica está disponible en el plan Pro.");
   if (!config.facturacionHabilitada) throw new FacturaError("La facturación electrónica no está activada en Configuración.");
   if (!config.cuit || !config.condicionIva || !config.puntoVenta || !config.arcaCertificado) {
     throw new FacturaError("Faltan datos fiscales o el certificado en Configuración → Facturación.");
