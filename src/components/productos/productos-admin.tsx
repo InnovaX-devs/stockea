@@ -50,6 +50,9 @@ interface Producto {
   /** false = no descuenta ni suma stock (no entra en "sin stock" / "stock bajo"). */
   controlaStock?: boolean;
   costoEstimadoPct?: number | null;
+  iibbPct?: number | null;
+  percepcionIvaPct?: number | null;
+  ivaCostoPct?: number | null;
   precioCosto: number;
   precioVenta: number;
   precioMayorista?: number | null;
@@ -429,6 +432,9 @@ export default function ProductosAdmin() {
       precioAbierto: producto.precioAbierto ?? false,
       controlaStock: producto.controlaStock ?? true,
       costoEstimadoPct: producto.costoEstimadoPct ?? "",
+      iibbPct: producto.iibbPct ?? "",
+      percepcionIvaPct: producto.percepcionIvaPct ?? "",
+      ivaCostoPct: producto.ivaCostoPct ?? "",
       monedaPrecio: producto.monedaPrecio ?? "USD",
       precioCosto: producto.precioCosto ?? "",
       precioVenta: producto.precioVenta ?? "",
