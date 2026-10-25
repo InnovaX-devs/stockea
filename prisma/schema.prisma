@@ -205,6 +205,14 @@ model Producto {
   // 100% de ganancia. null = sin costo estimado.
   costoEstimadoPct Float?
 
+  // Impuestos que se suman al costo (plan Premium), en %. precioCosto guarda el
+  // costo FINAL (con estos impuestos): así reportes y ganancias no cambian.
+  // costo final = costo de compra × (1 + (iibb + percepción IVA + IVA) / 100).
+  // null = no se suma. Ver src/lib/impuestos-costo.ts.
+  iibbPct          Float?
+  percepcionIvaPct Float?
+  ivaCostoPct      Float?
+
   // Precios — moneda configurable por producto (no todos se cargan en USD)
   monedaPrecio    MonedaPrecio @default(USD)
   precioCosto     Float

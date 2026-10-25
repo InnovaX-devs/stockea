@@ -9,6 +9,7 @@ import { conStockDeSucursal, sucursalParaMostrarStock } from "@/lib/stock-sucurs
 import { esFotoPermitida } from "@/lib/fotos";
 import { leerContenido } from "@/lib/contenido";
 import { leerPrecioAbierto } from "@/lib/precio-abierto";
+import { leerImpuestosCosto } from "@/lib/impuestos-costo";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,9 @@ export async function GET(request: NextRequest) {
       precioAbierto: true,
       controlaStock: true,
       costoEstimadoPct: true,
+      iibbPct: true,
+      percepcionIvaPct: true,
+      ivaCostoPct: true,
       monedaPrecio: true,
       precioCosto: true,
       precioVenta: true,
@@ -195,6 +199,11 @@ export async function POST(request: NextRequest) {
     if (!resultadoAbierto.ok) {
       return NextResponse.json({ error: resultadoAbierto.error }, { status: 400 });
     }
+    // Impuestos sobre el costo (Premium). precioCosto ya llega con ellos sumados.
+    const resultadoImpuestos = leerImpuestosCosto(body, (await obtenerConfiguracion()).habilitarImpuestosCosto);
+    if (!resultadoImpuestos.ok) {
+      return NextResponse.json({ error: resultadoImpuestos.error }, { status: 400 });
+    }
 
     const marcaId = body.marcaId && String(body.marcaId).trim() !== "" 
       ? Number(body.marcaId) 
@@ -302,6 +311,7 @@ export async function POST(request: NextRequest) {
         stockMinimo,
         destacado: Boolean(body.destacado),
         ...resultadoAbierto.datos,
+        ...resultadoImpuestos.datos,
         monedaPrecio: body.monedaPrecio === "ARS" ? "ARS" : "USD",
         precioCosto,
         precioVenta,

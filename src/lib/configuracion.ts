@@ -46,6 +46,8 @@ function conFlagsDeLicencia<T extends Pick<Configuracion, "licencia" | "usaCotiz
     habilitarEtiquetas: esPremium,
     /** Ticket de venta para la comandera (impresora térmica). */
     habilitarTicket: esPremium,
+    /** Impuestos que se suman al costo del producto (IIBB, percepción IVA, IVA). */
+    habilitarImpuestosCosto: esPremium,
   };
 }
 
