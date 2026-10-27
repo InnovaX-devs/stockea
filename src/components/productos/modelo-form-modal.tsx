@@ -134,7 +134,7 @@ export function ModeloFormModal({ isOpen, onClose, onSuccess }: ModeloFormModalP
   }
 
   const valido =
-    nombre.trim() !== "" && costo !== "" && venta !== "" && activas.length > 0 && !Number.isNaN(Number(costo)) && !Number.isNaN(Number(venta));
+    nombre.trim() !== "" && venta !== "" && activas.length > 0 && !Number.isNaN(Number(costo)) && !Number.isNaN(Number(venta));
 
   async function guardar() {
     if (!valido || guardando) return;
@@ -226,7 +226,7 @@ export function ModeloFormModal({ isOpen, onClose, onSuccess }: ModeloFormModalP
           {/* Precios */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <label className={LABEL}>Costo *</label>
+              <label className={LABEL}>Costo (opcional)</label>
               <input type="number" min="0" step="0.01" value={costo} onChange={(e) => setCosto(e.target.value)} className={INPUT} />
             </div>
             <div>

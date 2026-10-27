@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   typedRoutes: false,
+  // Importación de productos desde Excel (src/lib/importar-productos-parseo.ts): se carga
+  // como paquete de Node en vez de empaquetarse.
+  serverExternalPackages: ["exceljs"],
   // Service worker (#39): que el navegador siempre busque la versión nueva.
   async headers() {
     return [

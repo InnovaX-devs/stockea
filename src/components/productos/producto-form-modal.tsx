@@ -477,7 +477,7 @@ export function ProductoFormModal({
     if (
       !formData.nombre.trim() ||
       (controla && formData.stockActual === "") ||
-      (!abierto && (formData.precioCosto === "" || formData.precioVenta === ""))
+      (!abierto && formData.precioVenta === "")
     ) {
       setErrorMsg("Por favor completa los campos obligatorios (*)");
       return;
@@ -548,7 +548,8 @@ export function ProductoFormModal({
         percepcionIvaPct: abierto ? null : impuestos.percepcionIvaPct ?? null,
         ivaCostoPct: abierto ? null : impuestos.ivaCostoPct ?? null,
         // Precio abierto: sin precio ni costo fijos (el monto se carga al vender).
-        precioCosto: abierto ? 0 : Number(formData.precioCosto),
+        // El costo es opcional: vacío = 0 (las ganancias se calculan como si no hubiera costo).
+        precioCosto: abierto ? 0 : Number(formData.precioCosto) || 0,
         precioVenta: abierto ? 0 : Number(formData.precioVenta),
         precioMayorista:
           abierto || formData.precioMayorista === "" || formData.precioMayorista === null
@@ -917,12 +918,12 @@ export function ProductoFormModal({
               {formData.precioAbierto !== true && (
               <div>
                 <label className="block text-xs font-medium text-text-dim">
-                  {conImpuestos ? "Costo final (con impuestos) *" : "Costo *"}
+                  {conImpuestos ? "Costo final (con impuestos)" : "Costo (opcional)"}
                 </label>
                 <input
                   type="number"
                   step="0.01"
-                  required
+                  placeholder="0"
                   readOnly={conImpuestos}
                   title={conImpuestos ? "Se calcula con el costo de compra y los impuestos" : undefined}
                   value={formData.precioCosto}
