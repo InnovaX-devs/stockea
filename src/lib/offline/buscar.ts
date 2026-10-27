@@ -22,6 +22,7 @@ function aDTO(p: ProductoLocal): ProductoBusquedaDTO {
     precioAbierto: p.precioAbierto ?? false,
     controlaStock: p.controlaStock ?? true,
     marca: p.marcaNombre ? { nombre: p.marcaNombre } : null,
+    fotoUrl: p.fotoUrl ?? null,
     modeloId: p.modeloId ?? null,
     modeloNombre: p.modeloNombre ?? null,
     talle: p.talle ?? null,
