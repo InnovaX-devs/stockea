@@ -363,7 +363,9 @@ export function Topbar({
                 <p className="px-3.5 pb-1.5 font-mono text-[11px] uppercase tracking-[0.1em] text-white">{item.label}</p>
                 {item.children.map((child) => {
                   const ChildIcon = child.icon;
-                  const isActive = pathname === child.href || pathname.startsWith(`${child.href}/`);
+                  // Igual que en escritorio: solo la coincidencia más específica
+                  // ("/ventas/historial" no marca también "/ventas").
+                  const isActive = child.href === mejorMatchDeGrupo(item, pathname);
                   return (
                     <Link
                       key={child.href}
