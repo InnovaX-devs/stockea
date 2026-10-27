@@ -146,6 +146,8 @@ export async function POST(request: NextRequest) {
     fecha: acotarFecha(leida.fecha),
     permitirStockNegativo: true,
     omitirControlCaja: true,
+    // Ya se vendió sin conexión: no se frena por el límite de cuenta corriente.
+    omitirLimiteCuentaCorriente: true,
   });
 
   if (!resultado.success) return rechazo(resultado.error, 422);

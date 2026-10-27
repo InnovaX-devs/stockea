@@ -7,6 +7,7 @@ import { CalculadoraVuelto } from "./calculadora-vuelto";
 import { formatCurrency, esCuentaUSD, redondearUSD } from "@/lib/currency";
 import { useCotizacionUSD } from "@/lib/hooks/use-cotizacion";
 import type { ModoCobro, PagoLinea, CuentaOption } from "@/types/pago";
+import { evaluarLimite, textoDeudaConLimite } from "@/lib/limite-cuenta-corriente";
 
 interface Props {
   total: number;
@@ -22,6 +23,8 @@ interface Props {
   /** "Paga con" de la calculadora de vuelto, si la pantalla lo quiere (ticket, #86). */
   pagaCon?: number | null;
   onCambiarPagaCon?: (monto: number | null) => void;
+  /** Deuda y límite de cuenta corriente del cliente elegido (null si no se pudo consultar). */
+  credito?: { deuda: number; limite: number | null } | null;
 }
 
 export function SelectorCobro({
@@ -35,6 +38,7 @@ export function SelectorCobro({
   onConfirmarRapido,
   pagaCon,
   onCambiarPagaCon,
+  credito,
 }: Props) {
   const [cuentasCache, setCuentasCache] = useState<Record<number, CuentaOption>>({});
   const [filaSeleccionandoCuenta, setFilaSeleccionandoCuenta] = useState<string | null>(null);
@@ -304,6 +308,8 @@ export function SelectorCobro({
         </p>
       )}
 
+      {modo === "A_CUENTA" && credito && <AvisoCredito credito={credito} saldo={totalRedondeado - Math.round(sumaPagada)} />}
+
       {!esValido && modo !== "MIXTO" && pagos.some((p) => p.cuentaId == null) && (
         <p className="text-xs text-danger">Falta seleccionar la cuenta</p>
       )}
@@ -319,6 +325,25 @@ export function SelectorCobro({
 
       {filaSeleccionandoCuenta && (
         <SelectorCuentaModal onSeleccionar={elegirCuenta} onClose={() => setFilaSeleccionandoCuenta(null)} />
+      )}
+    </div>
+  );
+}
+/** Deuda y límite del cliente, y si esta venta lo supera (CC: límite de cuenta corriente). */
+function AvisoCredito({ credito, saldo }: { credito: { deuda: number; limite: number | null }; saldo: number }) {
+  const evaluacion = evaluarLimite(credito.deuda, saldo, credito.limite);
+  if (!evaluacion.aplica) {
+    return credito.deuda > 0 ? <p className="text-xs text-text-dim">{textoDeudaConLimite(credito.deuda, null)}</p> : null;
+  }
+  return (
+    <div className={evaluacion.excede ? "rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger" : "text-xs text-text-dim"}>
+      <p>
+        {textoDeudaConLimite(credito.deuda, credito.limite)} · disponible {formatCurrency(evaluacion.disponible, "ARS")}
+      </p>
+      {evaluacion.excede && (
+        <p className="mt-0.5 font-semibold">
+          Supera el límite por {formatCurrency(evaluacion.deudaResultante - evaluacion.limite, "ARS")}
+        </p>
       )}
     </div>
   );

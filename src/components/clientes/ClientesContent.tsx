@@ -9,6 +9,7 @@ import type { ClienteConDeuda, Paginacion } from "@/lib/clientes";
 import type { ClienteBasico } from "@/components/clientes/ClienteForm";
 import ClientesTable from "./ClientesTable";
 import type { CuentaOption } from "./CobrarDeudaModal";
+import { useEsAdmin } from "@/components/layout/rol-context";
 
 export default function ClientesContent({
   clientes,
@@ -16,13 +17,18 @@ export default function ClientesContent({
   cuentas,
   umbralAlDia,
   paginacion,
+  limiteGeneral,
 }: {
   clientes: ClienteConDeuda[];
   resumen: { totalClientes: number; totalMayoristas: number; deudaTotal: number };
   cuentas: CuentaOption[];
   umbralAlDia: number;
   paginacion: Paginacion;
+  /** Límite de cuenta corriente de la empresa (null = sin límite). */
+  limiteGeneral: number | null;
 }) {
+  // El límite de cada cliente lo define solo el administrador.
+  const esAdmin = useEsAdmin();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -121,11 +127,13 @@ export default function ClientesContent({
                   tipoDocumento: clienteEditar.tipoDocumento,
                   numeroDocumento: clienteEditar.numeroDocumento ?? "",
                   condicionIva: clienteEditar.condicionIva ?? "CONSUMIDOR_FINAL",
+                  limiteCuentaCorriente: clienteEditar.limiteCuentaCorriente,
                 }
               : null
           }
           onSaved={handleSaved}
           onClose={cerrarModal}
+          limiteCuentaCorriente={esAdmin ? { general: limiteGeneral } : undefined}
         />
       )}
     </div>

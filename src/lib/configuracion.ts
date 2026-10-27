@@ -96,6 +96,7 @@ export async function actualizarConfiguracion(
     costoPromedioPonderado: boolean;
     horaAperturaCaja: string;
     cajaTurnoContinuo: boolean;
+    limiteCuentaCorriente: number | null;
     tallesSugeridos: string[];
     coloresSugeridos: string[];
   }>
