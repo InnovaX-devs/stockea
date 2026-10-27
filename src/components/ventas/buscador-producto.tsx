@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Loader2, Shirt, ChevronRight } from "lucide-react";
+import { Search, Loader2, Shirt, ChevronRight, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { useDebounce } from "@/lib/hooks/use-debounce";
 import type { ProductoBusquedaDTO } from "@/types/producto";
 import { formatCurrency, toArs } from "@/lib/currency";
@@ -12,6 +13,10 @@ import { contenidoVisible } from "@/lib/rubro";
 import { agruparResultados, type FilaBusqueda } from "@/lib/agrupar-variantes";
 import { SelectorVariante } from "@/components/ventas/selector-variante";
 import { MiniaturaProducto, VisorFoto, type FotoAmpliada } from "@/components/ventas/miniatura-producto";
+import { ProductoFormModal } from "@/components/productos/producto-form-modal";
+import { useRol } from "@/components/layout/rol-context";
+import { puedeCrearProductos } from "@/lib/permisos";
+import { valoresInicialesDesdeBusqueda, type ValoresInicialesProducto } from "@/lib/producto-rapido";
 
 
 const UMBRAL_LECTORA_MS = 40;
@@ -19,8 +24,11 @@ const UMBRAL_LECTORA_MS = 40;
 type Props = { onSeleccionar: (producto: ProductoBusquedaDTO) => void };
 
 export function BuscadorProducto({ onSeleccionar }: Props) {
-  const { cotizacionUSD } = useVenta();
+  const { cotizacionUSD, usaCotizacionUSD } = useVenta();
   const { textos, rubro } = useRubro();
+  // Crear un producto desde acá (#105): solo quien puede administrar productos (hoy, no el empleado).
+  const puedeCrear = puedeCrearProductos(useRol());
+  const [nuevoProducto, setNuevoProducto] = useState<ValoresInicialesProducto | null>(null);
   const [query, setQuery] = useState("");
   const [resultados, setResultados] = useState<ProductoBusquedaDTO[]>([]);
   const [abierto, setAbierto] = useState(false);
@@ -82,6 +90,15 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
     setModeloAbierto({ modeloId: fila.modeloId, nombre: fila.nombre });
   }
 
+  function abrirNuevoProducto(textoBuscado: string) {
+    if (!navigator.onLine) {
+      toast.error("Crear un producto requiere conexión a internet.");
+      return;
+    }
+    setAbierto(false);
+    setNuevoProducto(valoresInicialesDesdeBusqueda(textoBuscado));
+  }
+
   async function buscarPorCodigoExacto(codigo: string) {
     setCargando(true);
     try {
@@ -138,17 +155,28 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
 
   return (
     <div ref={contenedorRef} className="relative flex-1 min-w-[280px]">
-      <div className="relative">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
-        <input
-          value={query}
-          onChange={handleChange}
-          onFocus={() => setAbierto(true)}
-          onKeyDown={handleKeyDown}
-          placeholder={textos.buscarProductoVenta}
-          className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-9 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none"
-        />
-        {cargando && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-text-dim" />}
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" />
+          <input
+            value={query}
+            onChange={handleChange}
+            onFocus={() => setAbierto(true)}
+            onKeyDown={handleKeyDown}
+            placeholder={textos.buscarProductoVenta}
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-9 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none"
+          />
+          {cargando && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-text-dim" />}
+        </div>
+        {puedeCrear && (
+          <button
+            type="button"
+            onClick={() => abrirNuevoProducto(query)}
+            className="flex shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover"
+          >
+            <Plus size={14} /> Nuevo producto
+          </button>
+        )}
       </div>
 
       {modeloAbierto && (
@@ -167,6 +195,16 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
         <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-surface shadow-lg">
           {resultados.length === 0 && !cargando && (
             <div className="px-3 py-2 text-sm text-text-dim">Sin resultados para &quot;{query}&quot;</div>
+          )}
+          {puedeCrear && resultados.length === 0 && !cargando && query.trim() !== "" && query.trim() === debouncedQuery.trim() && (
+            <button
+              type="button"
+              onClick={() => abrirNuevoProducto(query)}
+              className="flex w-full cursor-pointer items-center gap-2 border-t border-border px-3 py-2 text-left text-sm font-medium text-primary hover:bg-surface-hover"
+            >
+              <Plus size={14} className="shrink-0" />
+              <span className="truncate">Crear producto &quot;{query.trim()}&quot;</span>
+            </button>
           )}
           {filas.map((fila, i) =>
             fila.tipo === "producto" ? (
@@ -249,6 +287,18 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
             )
           )}
         </div>
+      )}
+
+      {puedeCrear && (
+        <ProductoFormModal
+          isOpen={nuevoProducto != null}
+          onClose={() => setNuevoProducto(null)}
+          onSuccess={() => {}}
+          valoresIniciales={nuevoProducto}
+          usaCotizacionUSD={usaCotizacionUSD}
+          // Al guardar, el producto va directo a la venta (cantidad 1) y lo que ya estaba cargado no se toca.
+          onCreado={seleccionar}
+        />
       )}
     </div>
   );

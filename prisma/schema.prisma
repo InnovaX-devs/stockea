@@ -205,6 +205,14 @@ model Producto {
   // 100% de ganancia. null = sin costo estimado.
   costoEstimadoPct Float?
 
+  // Impuestos que se suman al costo (plan Premium), en %. precioCosto guarda el
+  // costo FINAL (con estos impuestos): así reportes y ganancias no cambian.
+  // costo final = costo de compra × (1 + (iibb + percepción IVA + IVA) / 100).
+  // null = no se suma. Ver src/lib/impuestos-costo.ts.
+  iibbPct          Float?
+  percepcionIvaPct Float?
+  ivaCostoPct      Float?
+
   // Precios — moneda configurable por producto (no todos se cargan en USD)
   monedaPrecio    MonedaPrecio @default(USD)
   precioCosto     Float
@@ -308,6 +316,10 @@ model Cliente {
   esMayorista Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
+
+  /// Límite de cuenta corriente propio, en ARS. null = usa el límite general
+  /// de la empresa (Configuracion.limiteCuentaCorriente). Ver src/lib/limite-cuenta-corriente.ts.
+  limiteCuentaCorriente Float?
 
   // Facturación: sin documento se factura como Consumidor Final.
   tipoDocumento   TipoDocumento?
@@ -816,6 +828,10 @@ model Configuracion {
   // Negocios que abren de corrido (24 h): al cerrar un turno se abre el
   // siguiente en el momento, así nunca queda la caja cerrada (ver cierre-caja).
   cajaTurnoContinuo Boolean @default(false)
+
+  // Clientes: tope de deuda en cuenta corriente para todos, en ARS.
+  // null = sin límite. Cada cliente puede tener el suyo (Cliente.limiteCuentaCorriente).
+  limiteCuentaCorriente Float?
 
   // Compras
   costoPromedioPonderado Boolean @default(true)

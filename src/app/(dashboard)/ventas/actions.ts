@@ -11,6 +11,8 @@ import { notaCreditoTrasAnular } from "@/lib/arca/factura";
 import { costoEstimadoDeLinea } from "@/lib/reportes";
 import { descontarStock, sumarStock, sucursalDeVenta, stockEnSucursal } from "@/lib/stock";
 import { crearVentaInterna, type PagoInput, type VentaInput, type ResultadoVenta } from "@/lib/ventas";
+import { getDeudaDeCliente } from "@/lib/clientes";
+import { limiteEfectivo } from "@/lib/limite-cuenta-corriente";
 import { filtroPorSucursal, obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
 import { validarCuentaParaSucursal } from "@/lib/cuenta-sucursal";
 import { Prisma } from "@prisma/client";
@@ -73,6 +75,26 @@ export async function confirmarVenta(input: VentaInput): Promise<ResultadoVenta>
 
 export async function registrarPedido(input: VentaInput): Promise<ResultadoVenta> {
   return crearVentaInterna(input, false);
+}
+
+export type CreditoCliente = { deuda: number; limite: number | null };
+
+/**
+ * Deuda actual y límite de cuenta corriente de un cliente, para avisar en la
+ * pantalla de venta ANTES de confirmar. El control definitivo lo hace
+ * crearVentaInterna al registrar la venta.
+ */
+export async function consultarCreditoCliente(clienteId: number): Promise<CreditoCliente | null> {
+  const empresaId = await obtenerEmpresaIdActual();
+  const [cliente, configuracion] = await Promise.all([
+    prisma.cliente.findFirst({ where: { id: clienteId, empresaId }, select: { limiteCuentaCorriente: true } }),
+    prisma.configuracion.findUnique({ where: { empresaId }, select: { limiteCuentaCorriente: true } }),
+  ]);
+  if (!cliente) return null;
+  return {
+    deuda: await getDeudaDeCliente(empresaId, clienteId),
+    limite: limiteEfectivo(cliente.limiteCuentaCorriente, configuracion?.limiteCuentaCorriente),
+  };
 }
 
 export async function listarVentas(filtros: FiltrosVentas): Promise<ResultadoListadoVentas> {

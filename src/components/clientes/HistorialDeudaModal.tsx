@@ -7,6 +7,7 @@ import { obtenerHistorialDeuda } from "@/app/(dashboard)/clientes/actions";
 import { formatFechaHoraAR, fechaISOAR } from "@/lib/timezone";
 import { etiquetaVenta, archivoComprobanteVenta } from "@/lib/numeracion";
 import { avisar } from "@/components/ui/dialogos";
+import { evaluarLimite, formatearPesosLimite, textoDeudaConLimite } from "@/lib/limite-cuenta-corriente";
 
 type EventoHistorial = {
   id: string;
@@ -50,11 +51,17 @@ const MODOS_RESUMEN: { valor: ModoResumen; texto: string }[] = [
 
 export default function HistorialDeudaModal({
   cliente,
+  deuda,
+  limite = null,
   onClose,
 }: {
   cliente: { id: number; nombre: string };
+  /** Deuda actual y límite de cuenta corriente (opcionales: si no vienen, no se muestra el resumen). */
+  deuda?: number;
+  limite?: number | null;
   onClose: () => void;
 }) {
+  const credito = deuda != null ? evaluarLimite(deuda, 0, limite) : null;
   const [eventos, setEventos] = useState<EventoHistorial[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -132,6 +139,19 @@ export default function HistorialDeudaModal({
           <div>
             <h2 className="text-lg font-bold text-text">Historial de deuda</h2>
             <p className="text-sm text-text-dim">{cliente.nombre}</p>
+            {deuda != null && (
+              <p className="mt-1 text-sm font-medium text-text">
+                {textoDeudaConLimite(deuda, limite)}
+                {credito?.aplica && (
+                  <span className={deuda > credito.limite + 0.5 ? "text-danger" : "text-text-dim"}>
+                    {" · "}
+                    {deuda > credito.limite + 0.5
+                      ? "supera el límite"
+                      : `disponible ${formatearPesosLimite(credito.disponible)}`}
+                  </span>
+                )}
+              </p>
+            )}
           </div>
           <button onClick={onClose} className="text-text-dim hover:text-text">
             <X size={20} />

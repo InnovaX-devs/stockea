@@ -6,6 +6,7 @@ import { obtenerContextoSucursal } from "@/lib/sucursal";
 import { filtroCuentasDeSucursal } from "@/lib/cuenta-sucursal";
 import { conStockDeSucursal } from "@/lib/stock-sucursal";
 import { esFotoPermitida } from "@/lib/fotos";
+import { obtenerConfiguracion } from "@/lib/configuracion";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,12 @@ const SOLAPE_MS = 5000;
 export async function GET(request: NextRequest) {
   const inicio = Date.now();
   const { empresaId } = await obtenerUsuarioActual();
+  // La copia del catálogo para vender sin conexión es del plan Premium.
+  // (La subida de ventas que ya quedaron en cola, /api/sync/ventas, no se
+  // bloquea: si una empresa baja de plan, esas ventas no se pierden.)
+  if (!(await obtenerConfiguracion()).habilitarSinConexion) {
+    return NextResponse.json({ error: "Vender sin conexión está disponible en el plan Pro." }, { status: 403 });
+  }
   const { actual } = await obtenerContextoSucursal();
   const sucursalId = actual?.id ?? null;
   const alcance = `${empresaId}:${sucursalId ?? "todas"}`;

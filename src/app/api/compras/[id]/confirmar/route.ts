@@ -13,6 +13,25 @@ import {
   redondearPrecio,
   type ModoCosto,
 } from "@/lib/calculos/actualizacion-precios";
+import { costoConImpuestos, tieneImpuestos, type ImpuestosCosto } from "@/lib/impuestos-costo";
+
+/**
+ * El costo de la compra es el de la factura del proveedor. Si el producto
+ * tiene impuestos sobre el costo (Premium: IIBB, percepción IVA, IVA), el
+ * costo que se guarda y con el que se calcula el margen es el FINAL.
+ */
+function conImpuestos<G extends { productoId: number; costoCompra: number }>(
+  grupos: G[],
+  producto: (id: number) => (ImpuestosCosto & { monedaPrecio: string }) | undefined,
+  habilitado: boolean
+): G[] {
+  if (!habilitado) return grupos;
+  return grupos.map((g) => {
+    const p = producto(g.productoId);
+    if (!p || !tieneImpuestos(p)) return g;
+    return { ...g, costoCompra: redondearPrecio(costoConImpuestos(g.costoCompra, p), p.monedaPrecio as Moneda) };
+  });
+}
 
 const TIPOS_CUENTA_USD = ["EFECTIVO_USD", "BANCO_USD"];
 
@@ -69,7 +88,7 @@ async function contexto() {
   // quedado en Configuración.
   const cotizacion = config.usaCotizacionUSD && config.cotizacionUSD > 0 ? config.cotizacionUSD : 1;
   const modoPorDefecto: ModoCosto = config.costoPromedioPonderado ?? true ? "PONDERADO" : "COMPRA";
-  return { cotizacion, modoPorDefecto };
+  return { cotizacion, modoPorDefecto, impuestosCosto: config.habilitarImpuestosCosto };
 }
 
 function idDesdeParams(id: string) {
@@ -87,16 +106,21 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const invalida = validarCompra(compra);
     if (invalida) return NextResponse.json({ error: invalida.error }, { status: invalida.status });
 
-    const { cotizacion, modoPorDefecto } = await contexto();
+    const { cotizacion, modoPorDefecto, impuestosCosto } = await contexto();
     const productos = await prisma.producto.findMany({
       where: { id: { in: compra!.items.map((i) => i.productoId) }, empresaId },
       select: {
         id: true, nombre: true, stockActual: true, monedaPrecio: true,
         precioCosto: true, precioVenta: true, precioMayorista: true,
+        iibbPct: true, percepcionIvaPct: true, ivaCostoPct: true,
       },
     });
     const porId = new Map<number, (typeof productos)[number]>(productos.map((p) => [p.id, p]));
-    const grupos = agruparPorProducto(compra!.items, (id) => (porId.get(id)?.monedaPrecio ?? "USD") as Moneda, cotizacion);
+    const grupos = conImpuestos(
+      agruparPorProducto(compra!.items, (id) => (porId.get(id)?.monedaPrecio ?? "USD") as Moneda, cotizacion),
+      (id) => porId.get(id),
+      impuestosCosto
+    );
 
     return NextResponse.json({
       numero: compra!.numero,
@@ -166,7 +190,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: e instanceof Error ? e.message : "Elegí una sucursal." }, { status: 400 });
     }
 
-    const { cotizacion, modoPorDefecto } = await contexto();
+    const { cotizacion, modoPorDefecto, impuestosCosto } = await contexto();
     const totalARS = redondearPesos(compra!.totalUSD * cotizacion);
 
     // ---- Pago ----
@@ -236,13 +260,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const compraActualizada = await prisma.$transaction(async (tx) => {
       const productos = await tx.producto.findMany({
         where: { id: { in: compra!.items.map((i) => i.productoId) }, empresaId },
-        select: { id: true, stockActual: true, controlaStock: true, precioCosto: true, precioVenta: true, precioMayorista: true, monedaPrecio: true },
+        select: {
+          id: true, stockActual: true, controlaStock: true, precioCosto: true, precioVenta: true, precioMayorista: true, monedaPrecio: true,
+          iibbPct: true, percepcionIvaPct: true, ivaCostoPct: true,
+        },
       });
       const porId = new Map<number, (typeof productos)[number]>(productos.map((p) => [p.id, p]));
       for (const item of compra!.items) {
         if (!porId.has(item.productoId)) throw new Error(`El producto ${item.productoId} de la compra ya no existe`);
       }
-      const grupos = agruparPorProducto(compra!.items, (id) => porId.get(id)!.monedaPrecio as Moneda, cotizacion);
+      const grupos = conImpuestos(
+        agruparPorProducto(compra!.items, (id) => porId.get(id)!.monedaPrecio as Moneda, cotizacion),
+        (id) => porId.get(id),
+        impuestosCosto
+      );
 
       // Se arma todo en memoria y se guarda en pocas consultas, sin importar
       // cuántos productos tenga la compra (antes eran ~5 consultas por

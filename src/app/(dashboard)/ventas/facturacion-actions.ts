@@ -65,10 +65,11 @@ export async function facturacionParaVenta(): Promise<{
   const usuario = await obtenerUsuarioActual();
   const c = await prisma.configuracion.findUnique({
     where: { empresaId: usuario.empresaId },
-    select: { facturacionHabilitada: true, facturarPorDefecto: true, arcaCertificado: true, arcaEntorno: true, arcaCertificadoVence: true },
+    select: { licencia: true, facturacionHabilitada: true, facturarPorDefecto: true, arcaCertificado: true, arcaEntorno: true, arcaCertificadoVence: true },
   });
   const vigente = Boolean(c?.arcaCertificado && (!c.arcaCertificadoVence || c.arcaCertificadoVence > new Date()));
-  const disponible = Boolean(c?.facturacionHabilitada && vigente);
+  // Factura electrónica: solo plan Premium.
+  const disponible = Boolean(c?.licencia === "PREMIUM" && c.facturacionHabilitada && vigente);
   const diasCertificado = c?.arcaCertificadoVence ? Math.floor((c.arcaCertificadoVence.getTime() - Date.now()) / 864e5) : null;
   return {
     disponible,

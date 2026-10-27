@@ -10,7 +10,7 @@ export default async function ClientesPage({
   const params = await searchParams;
   const paginaSolicitada = Number(params.page) || 1;
 
-  const [{ clientes, resumen, umbralAlDia, paginacion }, cuentas] = await Promise.all([
+  const [{ clientes, resumen, umbralAlDia, paginacion, limiteGeneral }, cuentas] = await Promise.all([
     getClientesData({
       busqueda: params.q,
       tipo: params.tipo as "mayorista" | "minorista" | undefined,
@@ -28,6 +28,7 @@ export default async function ClientesPage({
       cuentas={cuentas}
       umbralAlDia={umbralAlDia}
       paginacion={paginacion}
+      limiteGeneral={limiteGeneral}
     />
   );
 }

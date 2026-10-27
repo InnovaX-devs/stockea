@@ -9,6 +9,7 @@ import { esFotoPermitida } from "@/lib/fotos";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { leerContenido } from "@/lib/contenido";
 import { leerPrecioAbierto } from "@/lib/precio-abierto";
+import { leerImpuestosCosto } from "@/lib/impuestos-costo";
 
 export async function PUT(
   request: NextRequest,
@@ -88,9 +89,14 @@ export async function PUT(
 
     // Precio abierto / sin control de stock / % de costo estimado. Solo se
     // guarda lo que viene: las pantallas que no lo muestran no lo tocan.
-    const resultadoAbierto = leerPrecioAbierto(body);
+    const resultadoAbierto = leerPrecioAbierto(body, (await obtenerConfiguracion()).habilitarPrecioAbierto);
     if (!resultadoAbierto.ok) {
       return NextResponse.json({ error: resultadoAbierto.error }, { status: 400 });
+    }
+    // Impuestos sobre el costo (Premium). precioCosto ya llega con ellos sumados.
+    const resultadoImpuestos = leerImpuestosCosto(body, (await obtenerConfiguracion()).habilitarImpuestosCosto);
+    if (!resultadoImpuestos.ok) {
+      return NextResponse.json({ error: resultadoImpuestos.error }, { status: 400 });
     }
 
     // Código de barras
@@ -244,6 +250,7 @@ export async function PUT(
           stockMinimo: minimoTotal,
           destacado: Boolean(body.destacado),
           ...resultadoAbierto.datos,
+          ...resultadoImpuestos.datos,
           monedaPrecio: body.monedaPrecio || "USD",
           precioCosto: nuevoCosto,
           precioVenta: nuevoVenta,

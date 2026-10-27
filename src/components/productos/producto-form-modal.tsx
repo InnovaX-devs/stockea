@@ -5,7 +5,11 @@ import { BarcodeInput } from "@/components/ui/barcode-input";
 import Select from "@/components/ui/select";
 import { avisar } from "@/components/ui/dialogos";
 import { useRubro } from "@/components/layout/rubro-context";
+import { useEsPremium } from "@/components/layout/plan-context";
+import { costoConImpuestos, costoSinImpuestos, sumaImpuestos, type ImpuestosCosto } from "@/lib/impuestos-costo";
 import { ETIQUETA_UNIDAD, esUnidadContenido, type UnidadContenido } from "@/lib/rubro";
+import { productoCreadoADTO, type ValoresInicialesProducto } from "@/lib/producto-rapido";
+import type { ProductoBusquedaDTO } from "@/types/producto";
 
 function calcularPorcentaje(costo: number, precio: number): number {
   if (!costo || costo <= 0) return 0;
@@ -39,6 +43,10 @@ export interface ProductoFormData {
   controlaStock?: boolean;
   /** % del precio vendido que se estima como costo (solo precio abierto). "" = sin cargar. */
   costoEstimadoPct?: number | "";
+  /** Impuestos que se suman al costo (Premium), en %. "" = no se suma. */
+  iibbPct?: number | "";
+  percepcionIvaPct?: number | "";
+  ivaCostoPct?: number | "";
   monedaPrecio: "ARS" | "USD";
   precioCosto: number | "";
   precioVenta: number | "";
@@ -66,6 +74,16 @@ interface ProductoFormModalProps {
   marcasIniciales?: Marca[];
   categoriasIniciales?: Categoria[];
   usaCotizacionUSD?: boolean;
+  /** Alta nueva: nombre / código de barras con los que arranca el formulario (ej. lo que se buscó en Nueva compra). */
+  valoresIniciales?: ValoresInicialesProducto | null;
+  /** Se llama solo al CREAR un producto (no al editar), con el producto listo para sumar a una compra o venta. */
+  onCreado?: (producto: ProductoBusquedaDTO) => void;
+}
+
+/** Los % del formulario ("" = vacío) como números para los cálculos. */
+function aNumeros(d: { iibbPct?: number | "" | null; percepcionIvaPct?: number | "" | null; ivaCostoPct?: number | "" | null }): ImpuestosCosto {
+  const n = (v: number | "" | null | undefined) => (v === "" || v == null ? null : Number(v));
+  return { iibbPct: n(d.iibbPct), percepcionIvaPct: n(d.percepcionIvaPct), ivaCostoPct: n(d.ivaCostoPct) };
 }
 
 export function ProductoFormModal({
@@ -76,8 +94,11 @@ export function ProductoFormModal({
   marcasIniciales = [],
   categoriasIniciales = [],
   usaCotizacionUSD = false,
+  valoresIniciales = null,
+  onCreado,
 }: ProductoFormModalProps) {
   const { usaContenido, unidadesContenido } = useRubro();
+  const premium = useEsPremium();
   const [formData, setFormData] = useState<ProductoFormData>({
     nombre: "",
     codigoBarras: "",
@@ -129,6 +150,24 @@ export function ProductoFormModal({
       ? formData.unidadContenido
       : (unidadesContenido[0] ?? "ML");
   const [porcentajeVenta, setPorcentajeVenta] = useState<number | "">("");
+  // Generar código de barras interno (#106).
+  const [generandoCodigo, setGenerandoCodigo] = useState(false);
+  async function generarCodigoBarras() {
+    setGenerandoCodigo(true);
+    try {
+      const res = await fetch("/api/productos/codigo-barras", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.codigo) throw new Error(data?.error ?? "No se pudo generar el código.");
+      setFormData((prev) => (prev.codigoBarras?.trim() ? prev : { ...prev, codigoBarras: data.codigo }));
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "No se pudo generar el código.");
+    } finally {
+      setGenerandoCodigo(false);
+    }
+  }
+
+  // Costo de compra (sin impuestos). Solo se usa si hay impuestos sobre el costo.
+  const [costoCompra, setCostoCompra] = useState<number | "">("");
   const [porcentajeMayorista, setPorcentajeMayorista] = useState<number | "">("");
 
   const fetchAuxiliares = useCallback(async () => {
@@ -180,6 +219,9 @@ export function ProductoFormModal({
           precioAbierto: productoEditar.precioAbierto ?? false,
           controlaStock: productoEditar.controlaStock ?? true,
           costoEstimadoPct: productoEditar.costoEstimadoPct ?? "",
+          iibbPct: productoEditar.iibbPct ?? "",
+          percepcionIvaPct: productoEditar.percepcionIvaPct ?? "",
+          ivaCostoPct: productoEditar.ivaCostoPct ?? "",
           monedaPrecio: usaCotizacionUSD ? productoEditar.monedaPrecio ?? "USD" : "ARS",
           precioCosto: productoEditar.precioCosto ?? "",
           precioVenta: productoEditar.precioVenta ?? "",
@@ -192,6 +234,15 @@ export function ProductoFormModal({
         setPreviewUrl(productoEditar.fotoUrl || null);
 
         const costoInicial = Number(productoEditar.precioCosto) || 0;
+        // El costo guardado es el final (con impuestos): el de compra se obtiene dividiendo.
+        const impuestosIniciales = aNumeros(productoEditar);
+        setCostoCompra(
+          productoEditar.precioCosto === ""
+            ? ""
+            : sumaImpuestos(impuestosIniciales) > 0
+              ? costoSinImpuestos(costoInicial, impuestosIniciales)
+              : costoInicial
+        );
         setPorcentajeVenta(
           costoInicial > 0 && productoEditar.precioVenta !== ""
             ? redondear2(calcularPorcentaje(costoInicial, Number(productoEditar.precioVenta)))
@@ -204,8 +255,8 @@ export function ProductoFormModal({
         );
       } else {
         setFormData({
-          nombre: "",
-          codigoBarras: "",
+          nombre: valoresIniciales?.nombre ?? "",
+          codigoBarras: valoresIniciales?.codigoBarras ?? "",
           ubicacion: "",
           marcaId: "",
           categoriaId: "",
@@ -217,6 +268,9 @@ export function ProductoFormModal({
           precioAbierto: false,
           controlaStock: true,
           costoEstimadoPct: "",
+          iibbPct: "",
+          percepcionIvaPct: "",
+          ivaCostoPct: "",
           monedaPrecio: "ARS",
           precioCosto: "",
           precioVenta: "",
@@ -226,6 +280,7 @@ export function ProductoFormModal({
           fotoUrl: "",
         });
         setPreviewUrl(null);
+        setCostoCompra("");
         setPorcentajeVenta("");
         setPorcentajeMayorista("");
       }
@@ -233,7 +288,7 @@ export function ProductoFormModal({
       setErrorMsg("");
       setProductoInactivoId(null);
     }
-  }, [productoEditar, isOpen, fetchAuxiliares]);
+  }, [productoEditar, isOpen, fetchAuxiliares, valoresIniciales]);
 
   if (!isOpen) return null;
 
@@ -343,6 +398,28 @@ export function ProductoFormModal({
     });
   }
 
+  // --- Impuestos sobre el costo (Premium): costo final = compra × (1 + suma%) ---
+  const impuestos = aNumeros(formData);
+  const sumaImp = premium ? sumaImpuestos(impuestos) : 0;
+  const conImpuestos = sumaImp > 0;
+
+  function cambiarImpuesto(campo: "iibbPct" | "percepcionIvaPct" | "ivaCostoPct", valorStr: string) {
+    const valor = valorStr === "" ? "" : Number(valorStr);
+    const nuevos = aNumeros({ ...formData, [campo]: valor });
+    // Si recién se agrega un impuesto, el costo que estaba cargado es el de compra.
+    const base = conImpuestos ? costoCompra : formData.precioCosto;
+    if (!conImpuestos) setCostoCompra(base);
+    setFormData((prev) => ({ ...prev, [campo]: valor }));
+    if (base === "") return;
+    handleCostoChange(String(sumaImpuestos(nuevos) > 0 ? costoConImpuestos(Number(base), nuevos) : Number(base)));
+  }
+
+  function cambiarCostoCompra(valorStr: string) {
+    const valor = valorStr === "" ? "" : Number(valorStr);
+    setCostoCompra(valor);
+    handleCostoChange(valor === "" ? "" : String(costoConImpuestos(valor, impuestos)));
+  }
+
   function handleCostoBlur() {
     const costo = Number(formData.precioCosto) || 0;
     if (costo <= 0) return;
@@ -424,7 +501,7 @@ export function ProductoFormModal({
     if (
       !formData.nombre.trim() ||
       (controla && formData.stockActual === "") ||
-      (!abierto && (formData.precioCosto === "" || formData.precioVenta === ""))
+      (!abierto && formData.precioVenta === "")
     ) {
       setErrorMsg("Por favor completa los campos obligatorios (*)");
       return;
@@ -432,6 +509,14 @@ export function ProductoFormModal({
     const pctCosto = formData.costoEstimadoPct === "" || formData.costoEstimadoPct == null ? null : Number(formData.costoEstimadoPct);
     if (abierto && pctCosto != null && (!Number.isFinite(pctCosto) || pctCosto < 0 || pctCosto > 100)) {
       setErrorMsg("El % de costo estimado tiene que estar entre 0 y 100.");
+      return;
+    }
+
+    const pctInvalido = [impuestos.iibbPct, impuestos.percepcionIvaPct, impuestos.ivaCostoPct].some(
+      (v) => v != null && (!Number.isFinite(v) || v < 0 || v > 100)
+    );
+    if (premium && !abierto && pctInvalido) {
+      setErrorMsg("Los impuestos sobre el costo tienen que estar entre 0% y 100%.");
       return;
     }
 
@@ -482,8 +567,13 @@ export function ProductoFormModal({
         precioAbierto: abierto,
         controlaStock: controla,
         costoEstimadoPct: abierto ? pctCosto : null,
+        // Impuestos sobre el costo (Premium): precioCosto ya va con ellos sumados.
+        iibbPct: abierto ? null : impuestos.iibbPct ?? null,
+        percepcionIvaPct: abierto ? null : impuestos.percepcionIvaPct ?? null,
+        ivaCostoPct: abierto ? null : impuestos.ivaCostoPct ?? null,
         // Precio abierto: sin precio ni costo fijos (el monto se carga al vender).
-        precioCosto: abierto ? 0 : Number(formData.precioCosto),
+        // El costo es opcional: vacío = 0 (las ganancias se calculan como si no hubiera costo).
+        precioCosto: abierto ? 0 : Number(formData.precioCosto) || 0,
         precioVenta: abierto ? 0 : Number(formData.precioVenta),
         precioMayorista:
           abierto || formData.precioMayorista === "" || formData.precioMayorista === null
@@ -515,6 +605,10 @@ export function ProductoFormModal({
         throw new Error(data.error || data.message || "Error al guardar el producto");
       }
 
+      if (!productoEditar?.id && onCreado) {
+        const marca = data.marcaId != null ? marcas.find((m) => String(m.id) === String(data.marcaId)) : undefined;
+        onCreado(productoCreadoADTO(data, marca?.nombre ?? null));
+      }
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -599,14 +693,28 @@ export function ProductoFormModal({
               <label className="block text-xs font-medium text-text-dim">
                 Código de Barras
               </label>
-              <BarcodeInput
-                value={formData.codigoBarras}
-                onChange={(value) =>
-                  setFormData({ ...formData, codigoBarras: value })
-                }
-                placeholder="Escaneá o tipeá el código..."
-                className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
-              />
+              <div className="mt-1 flex gap-2">
+                <BarcodeInput
+                  value={formData.codigoBarras}
+                  onChange={(value) =>
+                    setFormData({ ...formData, codigoBarras: value })
+                  }
+                  placeholder="Escaneá o tipeá el código..."
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+                />
+                {/* Sin código: genera uno interno (EAN-13 que empieza con 29). Nunca pisa uno cargado. */}
+                {!formData.codigoBarras?.trim() && (
+                  <button
+                    type="button"
+                    onClick={generarCodigoBarras}
+                    disabled={generandoCodigo}
+                    title="Generar un código de barras interno para este producto"
+                    className="shrink-0 rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover disabled:opacity-50"
+                  >
+                    {generandoCodigo ? "…" : "Generar"}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -792,20 +900,78 @@ export function ProductoFormModal({
               </p>
             )}
 
+            {/* Impuestos que se suman al costo (Premium). */}
+            {premium && formData.precioAbierto !== true && (
+              <div className="space-y-2 rounded-xl border border-border p-3">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xs font-semibold text-text">Impuestos sobre el costo</span>
+                  <span className="text-[11px] text-text-dim">Opcional · se suman al costo de compra</span>
+                </div>
+                <div className={`grid grid-cols-2 gap-2 ${conImpuestos ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
+                  {conImpuestos && (
+                    <label className="text-[11px] text-text-dim">
+                      Costo de compra
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={costoCompra}
+                        onChange={(e) => cambiarCostoCompra(e.target.value)}
+                        onBlur={handleCostoBlur}
+                        className="mt-1 w-full rounded-lg border border-border bg-surface px-2 py-1.5 text-sm text-text focus:border-primary focus:outline-none"
+                      />
+                    </label>
+                  )}
+                  {([
+                    ["iibbPct", "Ingresos Brutos"],
+                    ["percepcionIvaPct", "Percep./ret. IVA"],
+                    ["ivaCostoPct", "IVA"],
+                  ] as const).map(([campo, etiqueta]) => (
+                    <label key={campo} className="text-[11px] text-text-dim">
+                      {etiqueta}
+                      <div className="relative mt-1">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          placeholder="0"
+                          value={formData[campo] ?? ""}
+                          onChange={(e) => cambiarImpuesto(campo, e.target.value)}
+                          className="w-full rounded-lg border border-border bg-surface py-1.5 pl-2 pr-6 text-sm text-text focus:border-primary focus:outline-none"
+                        />
+                        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-text-dim">%</span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {conImpuestos && (
+                  <p className="text-[11px] text-text-dim">
+                    Costo final = costo de compra + {sumaImp.toLocaleString("es-AR")}% ={" "}
+                    <span className="font-semibold text-text">
+                      {formData.precioCosto === "" ? "—" : `$ ${Number(formData.precioCosto).toLocaleString("es-AR", { maximumFractionDigits: 2 })}`}
+                    </span>
+                    . La ganancia se calcula sobre el costo final.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2">
               {formData.precioAbierto !== true && (
               <div>
                 <label className="block text-xs font-medium text-text-dim">
-                  Costo *
+                  {conImpuestos ? "Costo final (con impuestos)" : "Costo (opcional)"}
                 </label>
                 <input
                   type="number"
                   step="0.01"
-                  required
+                  placeholder="0"
+                  readOnly={conImpuestos}
+                  title={conImpuestos ? "Se calcula con el costo de compra y los impuestos" : undefined}
                   value={formData.precioCosto}
                   onChange={(e) => handleCostoChange(e.target.value)}
                   onBlur={handleCostoBlur}
-                  className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+                  className={`mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm text-text focus:border-primary focus:outline-none ${conImpuestos ? "bg-surface-hover font-semibold" : "bg-surface"}`}
                 />
               </div>
               )}
@@ -950,6 +1116,8 @@ export function ProductoFormModal({
               />
               Producto Destacado
             </label>
+            {/* Productos especiales (precio abierto / sin stock): solo plan Premium. */}
+            {premium && (<>
             <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
               <input
                 type="checkbox"
@@ -972,6 +1140,7 @@ export function ProductoFormModal({
               />
               No controlar stock
             </label>
+            </>)}
           </div>
 
           <div className="space-y-2">

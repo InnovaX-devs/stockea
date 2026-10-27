@@ -2,19 +2,34 @@
 
 import { useState } from "react";
 import CobrarDeudaModal, { type CuentaOption } from "./CobrarDeudaModal";
+import { formatearPesosLimite } from "@/lib/limite-cuenta-corriente";
 
 interface DeudaCellProps {
   cliente: { id: number; nombre: string };
   deuda: number;
+  /** Límite de cuenta corriente que le aplica (null = sin límite). */
+  limite?: number | null;
   umbralAlDia: number;
   cuentas: CuentaOption[];
 }
 
-export default function DeudaCell({ cliente, deuda, umbralAlDia, cuentas }: DeudaCellProps) {
+export default function DeudaCell({ cliente, deuda, limite = null, umbralAlDia, cuentas }: DeudaCellProps) {
   const [abierto, setAbierto] = useState(false);
+  const textoLimite =
+    limite == null ? null : (
+      <span className={`block text-xs ${deuda > limite + 0.5 ? "font-semibold text-danger" : "text-text-dim"}`}>
+        {deuda > limite + 0.5 ? "Supera el límite de " : "de "}
+        {formatearPesosLimite(limite)}
+      </span>
+    );
 
   if (deuda <= umbralAlDia) {
-    return <span className="text-green-600 font-medium">Al día</span>;
+    return (
+      <span className="font-medium text-green-600">
+        Al día
+        {limite != null && <span className="block text-xs font-normal text-text-dim">Límite {formatearPesosLimite(limite)}</span>}
+      </span>
+    );
   }
 
   return (
@@ -22,6 +37,7 @@ export default function DeudaCell({ cliente, deuda, umbralAlDia, cuentas }: Deud
       <div className="flex items-center gap-2">
         <span className="text-red-600 font-medium">
           ${deuda.toLocaleString("es-AR")}
+          {textoLimite}
         </span>
         <button
           onClick={() => setAbierto(true)}

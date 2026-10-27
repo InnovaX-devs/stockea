@@ -14,16 +14,29 @@ export type ClienteBasico = {
   esMayorista: boolean;
 };
 
+const pesos = (n: number) =>
+  n.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
+
 export default function ClienteForm({
   clienteInicial,
   onSuccess,
   onCancel,
+  limiteCuentaCorriente,
 }: {
   clienteInicial?: Partial<ClienteInput> & { id?: number };
   onSuccess: (cliente: ClienteBasico) => void;
   onCancel?: () => void;
+  /**
+   * Si se pasa, el formulario muestra el límite de cuenta corriente
+   * (solo para administradores). `general` = límite de la empresa, null = sin límite.
+   */
+  limiteCuentaCorriente?: { general: number | null };
 }) {
   const esEdicion = Boolean(clienteInicial?.id);
+  const mostrarLimite = limiteCuentaCorriente !== undefined;
+  const limitePropioInicial = clienteInicial?.limiteCuentaCorriente ?? null;
+  const [modoLimite, setModoLimite] = useState<"general" | "propio">(limitePropioInicial == null ? "general" : "propio");
+  const [montoLimite, setMontoLimite] = useState(limitePropioInicial == null ? "" : String(limitePropioInicial));
 
   const [values, setValues] = useState<ClienteInput>({
     nombre: clienteInicial?.nombre ?? "",
@@ -53,10 +66,25 @@ export default function ClienteForm({
       return;
     }
 
+    // Límite: "general" = null (usa el de la empresa); sin el bloque, no se toca.
+    let datos: ClienteInput = values;
+    if (mostrarLimite) {
+      if (modoLimite === "propio") {
+        const monto = Number(montoLimite.replace(/\./g, "").replace(",", "."));
+        if (montoLimite.trim() === "" || !Number.isFinite(monto) || monto < 0) {
+          setError("Ingresá el límite propio del cliente (cero o más).");
+          return;
+        }
+        datos = { ...values, limiteCuentaCorriente: monto };
+      } else {
+        datos = { ...values, limiteCuentaCorriente: null };
+      }
+    }
+
     setEnviando(true);
     const res = esEdicion
-      ? await actualizarCliente(clienteInicial!.id!, values)
-      : await crearCliente(values);
+      ? await actualizarCliente(clienteInicial!.id!, datos)
+      : await crearCliente(datos);
     setEnviando(false);
 
     if (!res.success) {
@@ -200,6 +228,53 @@ export default function ClienteForm({
         />
         Cliente mayorista
       </label>
+
+      {mostrarLimite && (
+        <fieldset className="space-y-2 rounded-lg border border-border p-3">
+          <legend className="px-1 text-[11px] font-bold uppercase tracking-wider text-text-dim">
+            Límite de cuenta corriente
+          </legend>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-text">
+            <input
+              type="radio"
+              name="modoLimite"
+              checked={modoLimite === "general"}
+              onChange={() => setModoLimite("general")}
+              className="cursor-pointer"
+            />
+            Usar el límite general
+            <span className="text-text-dim">
+              ({limiteCuentaCorriente.general == null ? "sin límite" : pesos(limiteCuentaCorriente.general)})
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-text">
+            <input
+              type="radio"
+              name="modoLimite"
+              checked={modoLimite === "propio"}
+              onChange={() => setModoLimite("propio")}
+              className="cursor-pointer"
+            />
+            Límite propio
+          </label>
+          {modoLimite === "propio" && (
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step="1"
+              value={montoLimite}
+              onChange={(e) => setMontoLimite(e.target.value)}
+              placeholder="Ej. 300000"
+              aria-label="Límite propio en pesos"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm"
+            />
+          )}
+          <p className="text-xs text-text-dim">
+            Es lo máximo que el cliente puede deber. Con $0 no se le puede dejar nada a cuenta.
+          </p>
+        </fieldset>
+      )}
 
       {error && <p className="text-sm text-danger">{error}</p>}
 

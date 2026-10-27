@@ -22,16 +22,26 @@ import { PanelVentasSinConexion } from "@/components/ventas/panel-ventas-sin-con
 import { leerAlcance, leerMeta, type EstadoCajaLocal } from "@/lib/offline/db";
 import { encolarVenta, nuevoIdCliente, sincronizarVentas } from "@/lib/offline/cola-ventas";
 import { obtenerPresupuestoParaConvertir } from "@/app/(dashboard)/presupuestos/actions";
-import { confirmarVenta, registrarPedido, descontarStockSinVenta, verificarStockDisponible, type StockDisponibilidad } from "./actions";
+import {
+  confirmarVenta,
+  registrarPedido,
+  descontarStockSinVenta,
+  verificarStockDisponible,
+  consultarCreditoCliente,
+  type StockDisponibilidad,
+  type CreditoCliente,
+} from "./actions";
 import { ModalStockComprometido } from "@/components/ventas/modal-stock-comprometido";
 import { facturacionParaVenta, facturarVenta } from "./facturacion-actions";
 import { datosNegocioTicket } from "./ticket-actions";
 import { BarraTicket } from "@/components/ventas/ticket-ui";
 import { imprimirTicket, leerConfigTicket, leerNegocioTicket, guardarNegocioTicket, type DatosTicket, type NegocioTicket } from "@/lib/ticket";
 import { useRubro } from "@/components/layout/rubro-context";
+import { useEsPremium, MENSAJE_SOLO_PRO } from "@/components/layout/plan-context";
 import { contenidoVisible } from "@/lib/rubro";
 import { Tag, Gift } from "lucide-react";
-import { pedirTexto } from "@/components/ui/dialogos";
+import { avisar, confirmar, pedirTexto } from "@/components/ui/dialogos";
+import type { ResultadoVenta } from "@/lib/ventas";
 
 
 export default function NuevaVentaPage() {
@@ -61,8 +71,44 @@ function NuevaVentaContenido() {
 
   const { tipoPrecio, cliente, setCliente, modoCobro, setModoCobro, pagos, setPagos, cotizacionUSD, usaCotizacionUSD } =
     useVenta();
+
+  // Deuda y límite de cuenta corriente del cliente, para avisar antes de
+  // confirmar una venta a cuenta. Se consulta solo con conexión; el control
+  // definitivo lo hace el servidor al registrar la venta.
+  const [creditoConsultado, setCreditoConsultado] = useState<{ clienteId: number; credito: CreditoCliente | null } | null>(null);
+  const clienteIdCredito = modoCobro === "A_CUENTA" ? cliente?.id ?? null : null;
+  useEffect(() => {
+    if (clienteIdCredito == null || !navigator.onLine) return;
+    let vigente = true;
+    consultarCreditoCliente(clienteIdCredito)
+      .then((credito) => vigente && setCreditoConsultado({ clienteId: clienteIdCredito, credito }))
+      .catch(() => vigente && setCreditoConsultado(null));
+    return () => {
+      vigente = false;
+    };
+  }, [clienteIdCredito]);
+  const credito =
+    clienteIdCredito != null && creditoConsultado?.clienteId === clienteIdCredito ? creditoConsultado.credito : null;
+
+  /**
+   * La venta supera el límite de cuenta corriente: al empleado se le avisa y
+   * no se registra; al administrador se le pregunta si la autoriza.
+   * Devuelve true si hay que reintentar con autorizarExcesoLimite.
+   */
+  async function autorizarExcesoDeLimite(resultado: ResultadoVenta): Promise<boolean> {
+    if (resultado.success || !resultado.limiteExcedido) return false;
+    const titulo = "Supera el límite de cuenta corriente";
+    if (!resultado.limiteExcedido.puedeAutorizar) {
+      await avisar(resultado.error, { titulo, variante: "advertencia" });
+      return false;
+    }
+    return confirmar(resultado.error, { titulo, confirmar: "Autorizar venta", cancelar: "Revisar el cobro" });
+  }
   // "Solo descontar stock" saca mercadería sin venta: es solo del admin.
   const esAdmin = useEsAdmin();
+  // Vender sin conexión, los productos de precio abierto y el ticket para la
+  // comandera son del plan Premium.
+  const premium = useEsPremium();
 
   const [advertenciaStock, setAdvertenciaStock] = useState<{
     producto: ProductoBusquedaDTO;
@@ -162,6 +208,7 @@ function NuevaVentaContenido() {
 
   /** Después de guardar la venta: queda como "último ticket" y se imprime si está configurado así. */
   function ticketDeLaVenta(ticket: DatosTicket) {
+    if (!premium) return; // ticket para comandera: solo plan Premium
     setUltimoTicket(ticket);
     if (leerConfigTicket().imprimirAlConfirmar) imprimirTicket(ticket).catch(() => {});
   }
@@ -205,7 +252,20 @@ function NuevaVentaContenido() {
     }
   }
 
+  /** Mismo producto, mismo tipo de precio y mismo precio: se suma a esa línea (#103). */
+  const mismaLinea = (it: ItemCarrito, producto: ProductoBusquedaDTO, precioUnitarioArs: number) =>
+    it.producto.id === producto.id &&
+    it.tipoPrecio === tipoPrecio &&
+    !it.producto.precioAbierto &&
+    Math.abs(it.precioUnitarioArs - precioUnitarioArs) < 0.005;
+
   function agregarAlCarrito(producto: ProductoBusquedaDTO, precioUnitarioArs: number) {
+    // Escanear de nuevo un producto que ya está en el carrito suma 1 a su línea.
+    // Si esa línea tiene otro tipo de precio o un precio cambiado a mano, va en
+    // una línea nueva (así se puede vender el mismo producto a dos precios).
+    // Se decide sobre el carrito más reciente (prev): dos escaneos seguidos,
+    // mientras se verifica el stock, igual terminan en la misma línea.
+    const etiquetaPrecio = tipoPrecio === "MAYORISTA" ? "May" : "Min";
     const nuevoItem: ItemCarrito = {
       id: `${producto.id}-${Date.now()}`,
       producto,
@@ -213,9 +273,19 @@ function NuevaVentaContenido() {
       cantidad: 1,
       precioUnitarioArs,
     };
+    setCarrito((prev) => {
+      const existente = prev.find((it) => mismaLinea(it, producto, precioUnitarioArs));
+      return existente
+        ? prev.map((it) => (it.id === existente.id ? { ...it, cantidad: it.cantidad + 1 } : it))
+        : [...prev, nuevoItem];
+    });
 
-    setCarrito((prev) => [...prev, nuevoItem]);
-    toast.success(`${producto.nombre} agregado (${tipoPrecio === "MAYORISTA" ? "May" : "Min"})`);
+    const enCarrito = carrito.find((it) => mismaLinea(it, producto, precioUnitarioArs));
+    toast.success(
+      enCarrito
+        ? `${producto.nombre} · ${enCarrito.cantidad + 1} unidades (${etiquetaPrecio})`
+        : `${producto.nombre} agregado (${etiquetaPrecio})`
+    );
   }
 
   /** Precio abierto: la línea queda con cantidad 1 y el monto que se cargó. Se puede repetir. */
@@ -235,6 +305,10 @@ function NuevaVentaContenido() {
   function agregarProducto(producto: ProductoBusquedaDTO) {
     // Precio abierto (desde los botones rápidos o desde el buscador): primero se pide el monto.
     if (producto.precioAbierto) {
+      if (!premium) {
+        toast.error(`Los productos de precio abierto: ${MENSAJE_SOLO_PRO}`);
+        return;
+      }
       setProductoMonto(producto);
       return;
     }
@@ -351,8 +425,16 @@ function NuevaVentaContenido() {
       return;
     }
     setProcesando(true);
-    const resultado = await registrarPedido({ ...armarInput(), cotizacionUSD });
+    const inputPedido = { ...armarInput(), cotizacionUSD };
+    let resultado = await registrarPedido(inputPedido);
     setProcesando(false);
+
+    if (!resultado.success && resultado.limiteExcedido) {
+      if (!(await autorizarExcesoDeLimite(resultado))) return;
+      setProcesando(true);
+      resultado = await registrarPedido({ ...inputPedido, autorizarExcesoLimite: true });
+      setProcesando(false);
+    }
 
     if (!resultado.success) {
       toast.error(resultado.error);
@@ -407,6 +489,16 @@ function NuevaVentaContenido() {
     motivo: "sin-red" | "fallo",
     ticket: DatosTicket
   ): Promise<boolean> {
+    // Plan Básico: no hay cola sin conexión.
+    if (!premium) {
+      toast.error(
+        motivo === "fallo"
+          ? "No se pudo confirmar la venta por un corte de conexión. Antes de cobrar de nuevo, revisá en el historial si quedó guardada."
+          : `No hay conexión a internet. Vender sin conexión: ${MENSAJE_SOLO_PRO}`,
+        { duration: 8000 }
+      );
+      return false;
+    }
     const alcance = await leerAlcance();
     if (!alcance) {
       toast.error("Para vender sin conexión, abrí el sistema una vez con internet.");
@@ -509,12 +601,28 @@ function NuevaVentaContenido() {
     }
     setProcesando(false);
 
+    // Supera el límite de cuenta corriente: si es admin y la autoriza, se
+    // reintenta con el mismo id (la primera no se guardó).
+    if (!resultado.success && resultado.limiteExcedido) {
+      if (!(await autorizarExcesoDeLimite(resultado))) return;
+      setProcesando(true);
+      try {
+        resultado = await confirmarVenta({ ...input, autorizarExcesoLimite: true });
+      } catch {
+        // Sin conexión al reintentar: va a la cola (al sincronizar no se frena por el límite).
+        await guardarEnLaCola(input, "fallo", ticket);
+        setProcesando(false);
+        return;
+      }
+      setProcesando(false);
+    }
+
     if (!resultado.success) {
       toast.error(resultado.error);
       return;
     }
     const ticketConNumero = { ...ticket, numero: resultado.numero };
-    toast.success(`Venta #${resultado.numero} confirmada`, { action: accionTicket(ticketConNumero) });
+    toast.success(`Venta #${resultado.numero} confirmada`, premium ? { action: accionTicket(ticketConNumero) } : undefined);
     limpiarVenta();
     ticketDeLaVenta(ticketConNumero);
     if (facturacion?.disponible && emitirFactura) await facturarLaVenta(resultado.ventaId);
@@ -529,7 +637,7 @@ function NuevaVentaContenido() {
           <h1 className="text-xl font-semibold text-text sm:text-2xl">Nueva Venta</h1>
           <p className="text-sm text-text-dim">Buscá cliente y productos, y confirmá el cobro</p>
         </div>
-        <BarraTicket ultimoTicket={ultimoTicket} />
+        {premium && <BarraTicket ultimoTicket={ultimoTicket} />}
       </div>
 
       {presupuestoIdOrigen != null && (
@@ -584,6 +692,7 @@ function NuevaVentaContenido() {
               onCambiarPagos={setPagos}
               cotizacionUSD={usaCotizacionUSD ? cotizacionUSD : 1}
               onConfirmarRapido={procesando ? undefined : handleConfirmarVenta}
+              credito={credito}
             />
             <ResumenVenta
               subtotal={subtotal}

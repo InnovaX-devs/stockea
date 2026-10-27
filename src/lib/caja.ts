@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { fechaISOAR } from "@/lib/timezone";
 
 /**
- * Turnos de caja (Básico y Premium).
+ * Turnos de caja (solo Premium: en Básico la caja está siempre abierta y no
+ * se cierra; mensajeSiCajaCerrada no bloquea nada).
  *
  * - La caja se ABRE sola a la hora configurada (Configuracion.horaAperturaCaja,
  *   por defecto 07:00 de Argentina) o a mano con "Abrir caja ahora".
@@ -107,6 +108,9 @@ export async function asegurarAperturaAutomatica(empresaId: number, sucursalId: 
  * si la caja está cerrada, o null si se puede seguir.
  */
 export async function mensajeSiCajaCerrada(empresaId: number, sucursalId: number): Promise<string | null> {
+  // Plan Básico: sin turnos de caja, la caja está siempre abierta.
+  const plan = await prisma.configuracion.findUnique({ where: { empresaId }, select: { licencia: true } });
+  if (plan?.licencia !== "PREMIUM") return null;
   const sesion = await asegurarAperturaAutomatica(empresaId, sucursalId);
   return sesion
     ? null

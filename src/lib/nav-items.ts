@@ -68,7 +68,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Nueva Venta", href: "/ventas", icon: ShoppingCart },
       { label: "Historial de Ventas", href: "/ventas/historial", icon: Receipt },
       { label: "Pedidos", href: "/ventas/pedidos", icon: Package },
-      { label: "Comprobantes", href: "/ventas/comprobantes", icon: FileText },
+      { label: "Comprobantes", href: "/ventas/comprobantes", icon: FileText, premium: true },
     ],
   },
   {
@@ -76,7 +76,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Calculator,
     children: [
       { label: "Cuentas Financieras", href: "/finanzas", icon: Calculator },
-      { label: "Cierre de caja", href: "/finanzas/cierre-caja", icon: ClipboardCheck },
+      { label: "Cierre de caja", href: "/finanzas/cierre-caja", icon: ClipboardCheck, premium: true },
       { label: "Flujo de Caja", href: "/finanzas/flujo-caja", icon: ArrowLeftRight, premium: true },
       { label: "Gastos", href: "/finanzas/gastos", icon: Wallet },
     ],

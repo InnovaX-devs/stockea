@@ -8,8 +8,11 @@ import { cn } from "@/lib/cn";
 import { ProductoFormModal, type ProductoFormData } from "@/components/productos/producto-form-modal";
 import { PdfGeneratorModal } from "@/components/productos/pdf-generator-modal";
 import { EtiquetasModal } from "@/components/productos/etiquetas-modal";
+import { ImportarProductosModal } from "@/components/productos/importar-productos-modal";
+import { useEsPremium } from "@/components/layout/plan-context";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { FileText, Search, SlidersHorizontal, Tag } from "lucide-react";
+import { Barcode, FileSpreadsheet, FileText, Search, SlidersHorizontal, Tag } from "lucide-react";
+import { CodigosBarrasModal } from "@/components/productos/codigos-barras-modal";
 import Link from "next/link";
 import { Pencil, ImageIcon, Ban, CheckCircle, X, ChevronRight, LayoutGrid, Shirt } from "lucide-react";
 import { toArs, toUsd, formatCurrency } from "@/lib/currency";
@@ -49,6 +52,9 @@ interface Producto {
   /** false = no descuenta ni suma stock (no entra en "sin stock" / "stock bajo"). */
   controlaStock?: boolean;
   costoEstimadoPct?: number | null;
+  iibbPct?: number | null;
+  percepcionIvaPct?: number | null;
+  ivaCostoPct?: number | null;
   precioCosto: number;
   precioVenta: number;
   precioMayorista?: number | null;
@@ -119,6 +125,9 @@ export default function ProductosAdmin() {
 
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [isEtiquetasOpen, setIsEtiquetasOpen] = useState(false);
+  const [isCodigosOpen, setIsCodigosOpen] = useState(false); // #106
+  const [isImportarOpen, setIsImportarOpen] = useState(false);
+  const premium = useEsPremium(); // etiquetas de góndola: solo plan Premium
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
   const [desactivandoId, setDesactivandoId] = useState<string | null>(null);
   const [productoADesactivar, setProductoADesactivar] = useState<Producto | null>(null);
@@ -427,6 +436,9 @@ export default function ProductosAdmin() {
       precioAbierto: producto.precioAbierto ?? false,
       controlaStock: producto.controlaStock ?? true,
       costoEstimadoPct: producto.costoEstimadoPct ?? "",
+      iibbPct: producto.iibbPct ?? "",
+      percepcionIvaPct: producto.percepcionIvaPct ?? "",
+      ivaCostoPct: producto.ivaCostoPct ?? "",
       monedaPrecio: producto.monedaPrecio ?? "USD",
       precioCosto: producto.precioCosto ?? "",
       precioVenta: producto.precioVenta ?? "",
@@ -931,6 +943,17 @@ export default function ProductosAdmin() {
             <FileText className="h-4 w-4 shrink-0" />
             <span className="truncate">Generar PDF</span>
           </button>
+          {premium && (
+          <button
+            type="button"
+            onClick={() => setIsImportarOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover cursor-pointer"
+          >
+            <FileSpreadsheet className="h-4 w-4 shrink-0" />
+            <span className="truncate">Importar productos</span>
+          </button>
+          )}
+          {premium && (
           <button
             type="button"
             onClick={() => setIsEtiquetasOpen(true)}
@@ -938,6 +961,15 @@ export default function ProductosAdmin() {
           >
             <Tag className="h-4 w-4 shrink-0" />
             <span className="truncate">Etiquetas</span>
+          </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setIsCodigosOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover cursor-pointer"
+          >
+            <Barcode className="h-4 w-4 shrink-0" />
+            <span className="truncate">Códigos de barras</span>
           </button>
           <Link
             href="/productos/actualizar-precios"
@@ -1337,6 +1369,13 @@ export default function ProductosAdmin() {
       />
 
       <EtiquetasModal abierto={isEtiquetasOpen} onCerrar={() => setIsEtiquetasOpen(false)} />
+      <CodigosBarrasModal
+        abierto={isCodigosOpen}
+        onCerrar={() => setIsCodigosOpen(false)}
+        productos={productos}
+        onCodigosGenerados={cargarProductos}
+      />
+      {premium && <ImportarProductosModal abierto={isImportarOpen} onCerrar={() => setIsImportarOpen(false)} onImportado={cargarProductos} permiteUSD={configProducto.usaCotizacionUSD} />}
 
       <ConfirmDialog
         isOpen={!!productoADesactivar}

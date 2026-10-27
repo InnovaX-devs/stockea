@@ -9,6 +9,7 @@ import { conStockDeSucursal, sucursalParaMostrarStock } from "@/lib/stock-sucurs
 import { esFotoPermitida } from "@/lib/fotos";
 import { leerContenido } from "@/lib/contenido";
 import { leerPrecioAbierto } from "@/lib/precio-abierto";
+import { leerImpuestosCosto } from "@/lib/impuestos-costo";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,9 @@ export async function GET(request: NextRequest) {
       precioAbierto: true,
       controlaStock: true,
       costoEstimadoPct: true,
+      iibbPct: true,
+      percepcionIvaPct: true,
+      ivaCostoPct: true,
       monedaPrecio: true,
       precioCosto: true,
       precioVenta: true,
@@ -163,13 +167,11 @@ export async function POST(request: NextRequest) {
       !body.nombre.trim() ||
       body.stockActual === undefined ||
       body.stockActual === "" ||
-      body.precioCosto === undefined ||
-      body.precioCosto === "" ||
       body.precioVenta === undefined ||
       body.precioVenta === ""
     ) {
       return NextResponse.json(
-        { error: "Nombre, stock actual, precio de costo y precio de venta son obligatorios" },
+        { error: "Nombre, stock actual y precio de venta son obligatorios" },
         { status: 400 }
       );
     }
@@ -191,9 +193,14 @@ export async function POST(request: NextRequest) {
     const contenidoGuardado = resultadoContenido.datos ?? { contenido: null, unidadContenido: null, contenidoMl: null };
 
     // Precio abierto / sin control de stock / % de costo estimado.
-    const resultadoAbierto = leerPrecioAbierto(body);
+    const resultadoAbierto = leerPrecioAbierto(body, (await obtenerConfiguracion()).habilitarPrecioAbierto);
     if (!resultadoAbierto.ok) {
       return NextResponse.json({ error: resultadoAbierto.error }, { status: 400 });
+    }
+    // Impuestos sobre el costo (Premium). precioCosto ya llega con ellos sumados.
+    const resultadoImpuestos = leerImpuestosCosto(body, (await obtenerConfiguracion()).habilitarImpuestosCosto);
+    if (!resultadoImpuestos.ok) {
+      return NextResponse.json({ error: resultadoImpuestos.error }, { status: 400 });
     }
 
     const marcaId = body.marcaId && String(body.marcaId).trim() !== "" 
@@ -206,7 +213,11 @@ export async function POST(request: NextRequest) {
 
     const stockActual = Number(body.stockActual);
     const stockMinimo = body.stockMinimo !== undefined && body.stockMinimo !== "" ? Number(body.stockMinimo) : 0;
-    const precioCosto = Number(body.precioCosto);
+    // El costo es opcional: sin costo se guarda 0.
+    const precioCosto = body.precioCosto === undefined || body.precioCosto === null || body.precioCosto === "" ? 0 : Number(body.precioCosto);
+    if (!Number.isFinite(precioCosto) || precioCosto < 0) {
+      return NextResponse.json({ error: "El costo tiene que ser un número válido" }, { status: 400 });
+    }
     const precioVenta = Number(body.precioVenta);
 
     const precioMayorista = body.precioMayorista !== undefined && body.precioMayorista !== "" && body.precioMayorista !== null
@@ -302,6 +313,7 @@ export async function POST(request: NextRequest) {
         stockMinimo,
         destacado: Boolean(body.destacado),
         ...resultadoAbierto.datos,
+        ...resultadoImpuestos.datos,
         monedaPrecio: body.monedaPrecio === "ARS" ? "ARS" : "USD",
         precioCosto,
         precioVenta,
