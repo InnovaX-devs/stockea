@@ -5,6 +5,7 @@ import { obtenerUsuarioActual } from "@/lib/empresa";
 import { obtenerContextoSucursal } from "@/lib/sucursal";
 import { filtroCuentasDeSucursal } from "@/lib/cuenta-sucursal";
 import { conStockDeSucursal } from "@/lib/stock-sucursal";
+import { esFotoPermitida } from "@/lib/fotos";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 
 export const dynamic = "force-dynamic";
@@ -72,6 +73,7 @@ export async function GET(request: NextRequest) {
         activo: true,
         precioAbierto: true,
         controlaStock: true,
+        fotoUrl: true,
         marca: { select: { nombre: true } },
         modeloId: true,
         talle: true,
@@ -97,6 +99,8 @@ export async function GET(request: NextRequest) {
   // Stock de la sucursal actual (o total si es "Todas" / sucursal única).
   const productos = (await conStockDeSucursal(productosDb)).map(({ marca, modelo, ...p }) => ({
     ...p,
+    // Solo la URL (no la imagen) va a la copia local; solo hosts de Vercel Blob.
+    fotoUrl: esFotoPermitida(p.fotoUrl) ? p.fotoUrl : null,
     marcaNombre: marca?.nombre ?? null,
     modeloNombre: modelo?.nombre ?? null,
   }));

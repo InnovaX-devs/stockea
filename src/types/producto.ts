@@ -47,4 +47,6 @@ export type ProductoBusquedaDTO = {
   modeloNombre?: string | null;
   talle?: string | null;
   color?: string | null;
+  /** Foto del producto (Vercel Blob), para mostrar una miniatura al vender. Ausente/null = sin foto. */
+  fotoUrl?: string | null;
 };

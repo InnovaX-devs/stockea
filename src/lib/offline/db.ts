@@ -19,6 +19,8 @@ export type ProductoLocal = {
   /** false = no descuenta stock (tampoco en la copia local). */
   controlaStock: boolean;
   marcaNombre: string | null;
+  /** Foto (#108): solo la URL; la imagen se ve si el navegador la tiene en caché. */
+  fotoUrl?: string | null;
   /** Ropa (RV-5): modelo, talle y color de esta combinación (null en el resto). */
   modeloId: number | null;
   modeloNombre: string | null;
@@ -146,6 +148,18 @@ class StockeaDB extends Dexie {
     // sincronización completa la próxima vez (mientras tanto se leen como
     // "precio fijo, con stock", que es lo que eran todos).
     this.version(5)
+      .stores({
+        productos: "id, codigoBarras, modeloId",
+        clientes: "id, telefono",
+        cuentas: "id",
+        meta: "clave",
+        outbox: "++id, &idCliente, estado, empresaId",
+      })
+      .upgrade((tx) => tx.table("meta").delete("ultimaCompleta"));
+    // v6 (#108): fotoUrl en cada producto (no es un índice). Mismos índices; las
+    // copias guardadas antes no la tienen, así que se fuerza una sincronización
+    // completa la próxima vez (mientras tanto esos productos muestran el ícono).
+    this.version(6)
       .stores({
         productos: "id, codigoBarras, modeloId",
         clientes: "id, telefono",
