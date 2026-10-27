@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { obtenerUsuarioActual } from "@/lib/empresa";
 import { conStockDeSucursal } from "@/lib/stock-sucursal";
+import { esFotoPermitida } from "@/lib/fotos";
 
 export async function GET(request: NextRequest) {
   const { empresaId, rol } = await obtenerUsuarioActual();
@@ -55,12 +56,15 @@ export async function GET(request: NextRequest) {
       color: true,
       precioAbierto: true,
       controlaStock: true,
+      fotoUrl: true,
       modelo: { select: { nombre: true } },
     },
   });
   // Stock de la sucursal en la que se está vendiendo (ver src/lib/stock-sucursal.ts).
   const items = (await conStockDeSucursal(encontrados)).map(({ modelo, ...p }) => ({
     ...p,
+    // Solo URLs de Vercel Blob: next/image falla con cualquier otro host (ver next.config.ts).
+    fotoUrl: esFotoPermitida(p.fotoUrl) ? p.fotoUrl : null,
     modeloNombre: modelo?.nombre ?? null,
   }));
 
