@@ -48,6 +48,8 @@ function conFlagsDeLicencia<T extends Pick<Configuracion, "licencia" | "usaCotiz
     habilitarTicket: esPremium,
     /** Impuestos que se suman al costo del producto (IIBB, percepción IVA, IVA). */
     habilitarImpuestosCosto: esPremium,
+    /** Importar productos desde Excel (carga inicial del inventario). */
+    habilitarImportacion: esPremium,
   };
 }
 

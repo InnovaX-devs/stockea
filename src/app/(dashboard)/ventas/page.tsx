@@ -252,7 +252,20 @@ function NuevaVentaContenido() {
     }
   }
 
+  /** Mismo producto, mismo tipo de precio y mismo precio: se suma a esa línea (#103). */
+  const mismaLinea = (it: ItemCarrito, producto: ProductoBusquedaDTO, precioUnitarioArs: number) =>
+    it.producto.id === producto.id &&
+    it.tipoPrecio === tipoPrecio &&
+    !it.producto.precioAbierto &&
+    Math.abs(it.precioUnitarioArs - precioUnitarioArs) < 0.005;
+
   function agregarAlCarrito(producto: ProductoBusquedaDTO, precioUnitarioArs: number) {
+    // Escanear de nuevo un producto que ya está en el carrito suma 1 a su línea.
+    // Si esa línea tiene otro tipo de precio o un precio cambiado a mano, va en
+    // una línea nueva (así se puede vender el mismo producto a dos precios).
+    // Se decide sobre el carrito más reciente (prev): dos escaneos seguidos,
+    // mientras se verifica el stock, igual terminan en la misma línea.
+    const etiquetaPrecio = tipoPrecio === "MAYORISTA" ? "May" : "Min";
     const nuevoItem: ItemCarrito = {
       id: `${producto.id}-${Date.now()}`,
       producto,
@@ -260,9 +273,19 @@ function NuevaVentaContenido() {
       cantidad: 1,
       precioUnitarioArs,
     };
+    setCarrito((prev) => {
+      const existente = prev.find((it) => mismaLinea(it, producto, precioUnitarioArs));
+      return existente
+        ? prev.map((it) => (it.id === existente.id ? { ...it, cantidad: it.cantidad + 1 } : it))
+        : [...prev, nuevoItem];
+    });
 
-    setCarrito((prev) => [...prev, nuevoItem]);
-    toast.success(`${producto.nombre} agregado (${tipoPrecio === "MAYORISTA" ? "May" : "Min"})`);
+    const enCarrito = carrito.find((it) => mismaLinea(it, producto, precioUnitarioArs));
+    toast.success(
+      enCarrito
+        ? `${producto.nombre} · ${enCarrito.cantidad + 1} unidades (${etiquetaPrecio})`
+        : `${producto.nombre} agregado (${etiquetaPrecio})`
+    );
   }
 
   /** Precio abierto: la línea queda con cantidad 1 y el monto que se cargó. Se puede repetir. */
