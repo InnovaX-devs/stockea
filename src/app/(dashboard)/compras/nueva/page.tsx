@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import Select from "@/components/ui/select";
 import { ConfirmarCompraModal } from "@/components/compras/confirmar-compra-modal";
 import { GrillaCantidades, cantidadDe, sumarCantidades } from "@/components/ui/grilla-cantidades";
 import { agruparResultados } from "@/lib/agrupar-variantes";
 import type { ProductoBusquedaDTO } from "@/types/producto";
+import { ProductoFormModal } from "@/components/productos/producto-form-modal";
+import { valoresInicialesDesdeBusqueda, type ValoresInicialesProducto } from "@/lib/producto-rapido";
 
 interface Proveedor {
   id: number;
@@ -89,6 +91,10 @@ export default function NuevaCompraPage() {
   const [busqueda, setBusqueda] = useState("");
   const [resultados, setResultados] = useState<ProductoBusquedaDTO[]>([]);
   const [buscando, setBuscando] = useState(false);
+  // Texto de la última búsqueda ya resuelta: para no mostrar "sin resultados" mientras se escribe.
+  const [busquedaResuelta, setBusquedaResuelta] = useState("");
+  // Alta rápida de producto (#105): valores con los que arranca el formulario (null = cerrado).
+  const [nuevoProducto, setNuevoProducto] = useState<ValoresInicialesProducto | null>(null);
   const inputBusquedaRef = useRef<HTMLInputElement>(null);
 
   // Carrito: productos sueltos + modelos con grilla
@@ -141,6 +147,7 @@ export default function NuevaCompraPage() {
         setResultados([]);
       } finally {
         setBuscando(false);
+        setBusquedaResuelta(busqueda.trim());
       }
     }, 250);
     return () => clearTimeout(timeout);
@@ -235,6 +242,18 @@ export default function NuevaCompraPage() {
     },
     [bloques, costoInicial]
   );
+
+  const abrirNuevoProducto = () => {
+    setError(null);
+    setNuevoProducto(valoresInicialesDesdeBusqueda(busqueda));
+  };
+
+  const cerrarNuevoProducto = () => {
+    setNuevoProducto(null);
+    inputBusquedaRef.current?.focus();
+  };
+
+  const sinResultados = busqueda.trim() !== "" && !buscando && busquedaResuelta === busqueda.trim() && filas.length === 0;
 
   const handleKeyDownBusqueda = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter" || filas.length === 0) return;
@@ -546,16 +565,38 @@ export default function NuevaCompraPage() {
       <div className="space-y-3 rounded-2xl border border-border bg-white p-4">
         <p className="text-xs uppercase tracking-wide text-text-dim">Buscar producto / modelo / código de barras</p>
         <div className="relative">
-          <input
-            ref={inputBusquedaRef}
-            type="text"
-            autoFocus
-            placeholder="Nombre o código de barras..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            onKeyDown={handleKeyDownBusqueda}
-            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-primary"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputBusquedaRef}
+              type="text"
+              autoFocus
+              placeholder="Nombre o código de barras..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              onKeyDown={handleKeyDownBusqueda}
+              className="min-w-0 flex-1 rounded-lg border border-border bg-white px-3 py-2 text-sm text-text placeholder:text-text-dim focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <button
+              type="button"
+              onClick={abrirNuevoProducto}
+              className="flex shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover"
+            >
+              <Plus size={14} /> Nuevo producto
+            </button>
+          </div>
+          {sinResultados && (
+            <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-border bg-white shadow-lg">
+              <p className="px-3 py-2 text-sm text-text-dim">Sin resultados para &quot;{busqueda.trim()}&quot;</p>
+              <button
+                type="button"
+                onClick={abrirNuevoProducto}
+                className="flex w-full cursor-pointer items-center gap-2 border-t border-border px-3 py-2 text-left text-sm font-medium text-primary hover:bg-surface-hover"
+              >
+                <Plus size={14} className="shrink-0" />
+                <span className="truncate">Crear producto &quot;{busqueda.trim()}&quot;</span>
+              </button>
+            </div>
+          )}
           {(filas.length > 0 || buscando) && (
             <div className="absolute z-10 mt-1 max-h-80 w-full overflow-auto rounded-lg border border-border bg-white shadow-lg">
               {buscando ? (
@@ -871,6 +912,16 @@ export default function NuevaCompraPage() {
 
         {error && <p className="text-sm text-danger">{error}</p>}
       </div>
+
+      {/* Alta rápida de producto (#105): al guardar entra a la compra con cantidad 1; cancelar no cambia nada. */}
+      <ProductoFormModal
+        isOpen={nuevoProducto != null}
+        onClose={cerrarNuevoProducto}
+        onSuccess={() => {}}
+        valoresIniciales={nuevoProducto}
+        usaCotizacionUSD={usaCotizacionUSD}
+        onCreado={agregarAlCarrito}
+      />
     </div>
   );
 }
