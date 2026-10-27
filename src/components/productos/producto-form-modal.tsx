@@ -8,6 +8,8 @@ import { useRubro } from "@/components/layout/rubro-context";
 import { useEsPremium } from "@/components/layout/plan-context";
 import { costoConImpuestos, costoSinImpuestos, sumaImpuestos, type ImpuestosCosto } from "@/lib/impuestos-costo";
 import { ETIQUETA_UNIDAD, esUnidadContenido, type UnidadContenido } from "@/lib/rubro";
+import { productoCreadoADTO, type ValoresInicialesProducto } from "@/lib/producto-rapido";
+import type { ProductoBusquedaDTO } from "@/types/producto";
 
 function calcularPorcentaje(costo: number, precio: number): number {
   if (!costo || costo <= 0) return 0;
@@ -72,6 +74,10 @@ interface ProductoFormModalProps {
   marcasIniciales?: Marca[];
   categoriasIniciales?: Categoria[];
   usaCotizacionUSD?: boolean;
+  /** Alta nueva: nombre / código de barras con los que arranca el formulario (ej. lo que se buscó en Nueva compra). */
+  valoresIniciales?: ValoresInicialesProducto | null;
+  /** Se llama solo al CREAR un producto (no al editar), con el producto listo para sumar a una compra o venta. */
+  onCreado?: (producto: ProductoBusquedaDTO) => void;
 }
 
 /** Los % del formulario ("" = vacío) como números para los cálculos. */
@@ -88,6 +94,8 @@ export function ProductoFormModal({
   marcasIniciales = [],
   categoriasIniciales = [],
   usaCotizacionUSD = false,
+  valoresIniciales = null,
+  onCreado,
 }: ProductoFormModalProps) {
   const { usaContenido, unidadesContenido } = useRubro();
   const premium = useEsPremium();
@@ -247,8 +255,8 @@ export function ProductoFormModal({
         );
       } else {
         setFormData({
-          nombre: "",
-          codigoBarras: "",
+          nombre: valoresIniciales?.nombre ?? "",
+          codigoBarras: valoresIniciales?.codigoBarras ?? "",
           ubicacion: "",
           marcaId: "",
           categoriaId: "",
@@ -280,7 +288,7 @@ export function ProductoFormModal({
       setErrorMsg("");
       setProductoInactivoId(null);
     }
-  }, [productoEditar, isOpen, fetchAuxiliares]);
+  }, [productoEditar, isOpen, fetchAuxiliares, valoresIniciales]);
 
   if (!isOpen) return null;
 
@@ -597,6 +605,10 @@ export function ProductoFormModal({
         throw new Error(data.error || data.message || "Error al guardar el producto");
       }
 
+      if (!productoEditar?.id && onCreado) {
+        const marca = data.marcaId != null ? marcas.find((m) => String(m.id) === String(data.marcaId)) : undefined;
+        onCreado(productoCreadoADTO(data, marca?.nombre ?? null));
+      }
       onSuccess();
       onClose();
     } catch (err: any) {

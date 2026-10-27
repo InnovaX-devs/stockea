@@ -55,6 +55,16 @@ const API_EMPLEADO: { patron: RegExp; metodos: string[] }[] = [
   { patron: /^\/api\/ventas\/\d+\/comprobante$/, metodos: ["GET"] },
 ];
 
+/**
+ * ¿Puede este rol crear productos? Hoy solo el ADMIN: el empleado ve Productos
+ * como catálogo (POST /api/productos no está en API_EMPLEADO). Lo usan las
+ * pantallas para mostrar u ocultar "Crear producto" (ej. Nueva venta, #105);
+ * el servidor igual lo bloquea.
+ */
+export function puedeCrearProductos(rol: Rol | undefined): boolean {
+  return puedeAcceder(rol, "/api/productos", "POST");
+}
+
 export function esRutaApi(pathname: string) {
   return pathname === "/api" || pathname.startsWith("/api/");
 }
