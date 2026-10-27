@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Minus, Plus, Pencil, Trash2, Check } from "lucide-react";
 import type { ItemCarrito, TipoPrecioLinea } from "@/types/item-carrito";
 import { formatCurrency } from "@/lib/currency";
+import { MiniaturaProducto, VisorFoto, type FotoAmpliada } from "@/components/ventas/miniatura-producto";
 
 interface Props {
   items: ItemCarrito[];
@@ -19,9 +20,13 @@ interface FilaProps {
   onCambiarPrecio: (id: string, precioArs: number) => void;
   onCambiarTipoPrecio: (id: string, tipo: TipoPrecioLinea) => void;
   onEliminar: (id: string) => void;
+  onAmpliar: (foto: FotoAmpliada) => void;
 }
 
 export function TablaCarrito(props: Props) {
+  // Foto agrandada (#108). Va antes del return temprano (reglas de los hooks).
+  const [foto, setFoto] = useState<FotoAmpliada | null>(null);
+
   if (props.items.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-surface p-8 text-center text-sm text-text-dim">
@@ -46,7 +51,7 @@ export function TablaCarrito(props: Props) {
           </thead>
           <tbody>
             {props.items.map((item) => (
-              <FilaCarrito key={item.id} item={item} {...props} />
+              <FilaCarrito key={item.id} item={item} {...props} onAmpliar={setFoto} />
             ))}
           </tbody>
         </table>
@@ -55,9 +60,11 @@ export function TablaCarrito(props: Props) {
       {/* Mobile: tarjetas */}
       <div className="space-y-3 md:hidden">
         {props.items.map((item) => (
-          <TarjetaCarrito key={item.id} item={item} {...props} />
+          <TarjetaCarrito key={item.id} item={item} {...props} onAmpliar={setFoto} />
         ))}
       </div>
+
+      <VisorFoto foto={foto} onCerrar={() => setFoto(null)} />
     </>
   );
 }
@@ -115,7 +122,7 @@ function usePrecioEditable(item: ItemCarrito, onCambiarPrecio: (id: string, prec
   return { editando, temp, setTemp, abrir, confirmar };
 }
 
-function FilaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTipoPrecio, onEliminar }: FilaProps) {
+function FilaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTipoPrecio, onEliminar, onAmpliar }: FilaProps) {
   const { editando, temp, setTemp, abrir, confirmar } = usePrecioEditable(item, onCambiarPrecio);
   const total = item.cantidad * item.precioUnitarioArs;
 
@@ -123,6 +130,7 @@ function FilaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTipoPr
     <tr className="border-b border-border bg-surface last:border-0">
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
+          <MiniaturaProducto fotoUrl={item.producto.fotoUrl} nombre={item.producto.nombre} onAmpliar={onAmpliar} />
           {!item.producto.precioAbierto && <TogglePrecioLinea item={item} onCambiarTipoPrecio={onCambiarTipoPrecio} />}
           <span className="font-medium text-text">
             {item.producto.nombre}
@@ -201,16 +209,19 @@ function FilaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTipoPr
   );
 }
 
-function TarjetaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTipoPrecio, onEliminar }: FilaProps) {
+function TarjetaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTipoPrecio, onEliminar, onAmpliar }: FilaProps) {
   const { editando, temp, setTemp, abrir, confirmar } = usePrecioEditable(item, onCambiarPrecio);
   const total = item.cantidad * item.precioUnitarioArs;
 
   return (
     <div className="rounded-xl border border-border bg-surface p-3">
       <div className="flex items-start justify-between gap-2">
-        <span className="font-medium text-text">
-          {item.producto.nombre}
-        </span>
+        <div className="flex min-w-0 items-start gap-2">
+          <MiniaturaProducto fotoUrl={item.producto.fotoUrl} nombre={item.producto.nombre} onAmpliar={onAmpliar} />
+          <span className="font-medium text-text">
+            {item.producto.nombre}
+          </span>
+        </div>
         <button
           type="button"
           onClick={() => onEliminar(item.id)}

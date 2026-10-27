@@ -33,6 +33,10 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
+    // Miniaturas de productos en Nueva venta (#108): que el navegador conserve
+    // la imagen ya optimizada 30 días, así se ve también sin conexión. La URL
+    // de la foto cambia al subir una nueva (lleva la fecha), no queda vieja.
+    minimumCacheTTL: 60 * 60 * 24 * 30,
     remotePatterns: [
       {
         protocol: "https",

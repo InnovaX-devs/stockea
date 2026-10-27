@@ -11,6 +11,7 @@ import { useRubro } from "@/components/layout/rubro-context";
 import { contenidoVisible } from "@/lib/rubro";
 import { agruparResultados, type FilaBusqueda } from "@/lib/agrupar-variantes";
 import { SelectorVariante } from "@/components/ventas/selector-variante";
+import { MiniaturaProducto, VisorFoto, type FotoAmpliada } from "@/components/ventas/miniatura-producto";
 
 
 const UMBRAL_LECTORA_MS = 40;
@@ -33,6 +34,8 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
   // elegirla se abre la grilla de talle × color.
   const filas = useMemo(() => agruparResultados(resultados), [resultados]);
   const [modeloAbierto, setModeloAbierto] = useState<{ modeloId: number; nombre: string } | null>(null);
+  // Foto agrandada (#108): el estado vive acá (no en la fila) porque la lista se desmonta al cerrarse.
+  const [fotoAmpliada, setFotoAmpliada] = useState<FotoAmpliada | null>(null);
 
   useEffect(() => {
     if (!debouncedQuery.trim()) {
@@ -158,6 +161,8 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
         />
       )}
 
+      <VisorFoto foto={fotoAmpliada} onCerrar={() => setFotoAmpliada(null)} />
+
       {abierto && (query.trim() || resultados.length > 0) && (
         <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-surface shadow-lg">
           {resultados.length === 0 && !cargando && (
@@ -165,44 +170,63 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
           )}
           {filas.map((fila, i) =>
             fila.tipo === "producto" ? (
-              <button
+              <div
                 key={`p-${fila.producto.id}`}
-                type="button"
-                onClick={() => elegirFila(fila)}
                 onMouseEnter={() => setActiveIndex(i)}
-                className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm ${i === activeIndex ? "bg-surface-hover" : ""}`}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${i === activeIndex ? "bg-surface-hover" : ""}`}
               >
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate font-medium text-text">
-                    {fila.producto.nombre}
-                    {fila.producto.marca && <span className="ml-1 text-text-dim">· {fila.producto.marca.nombre}</span>}
+                <MiniaturaProducto
+                  fotoUrl={fila.producto.fotoUrl}
+                  nombre={fila.producto.nombre}
+                  onAmpliar={setFotoAmpliada}
+                  tabIndex={-1}
+                />
+                <button
+                  type="button"
+                  onClick={() => elegirFila(fila)}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
+                >
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate font-medium text-text">
+                      {fila.producto.nombre}
+                      {fila.producto.marca && <span className="ml-1 text-text-dim">· {fila.producto.marca.nombre}</span>}
+                    </span>
+                    <span className="truncate text-xs text-text-dim">
+                      {[
+                        contenidoVisible(rubro, fila.producto.contenido, fila.producto.unidadContenido),
+                        fila.producto.controlaStock === false ? null : `Stock: ${fila.producto.stockActual}`,
+                        fila.producto.codigoBarras,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
                   </span>
-                  <span className="truncate text-xs text-text-dim">
-                    {[
-                      contenidoVisible(rubro, fila.producto.contenido, fila.producto.unidadContenido),
-                      fila.producto.controlaStock === false ? null : `Stock: ${fila.producto.stockActual}`,
-                      fila.producto.codigoBarras,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
+                  <span className="shrink-0 text-sm font-semibold text-text">
+                    {fila.producto.precioAbierto
+                      ? "Precio abierto"
+                      : formatCurrency(toArs(fila.producto.precioVenta, fila.producto.monedaPrecio, cotizacionUSD), "ARS")}
                   </span>
-                </span>
-                <span className="shrink-0 text-sm font-semibold text-text">
-                  {fila.producto.precioAbierto
-                    ? "Precio abierto"
-                    : formatCurrency(toArs(fila.producto.precioVenta, fila.producto.monedaPrecio, cotizacionUSD), "ARS")}
-                </span>
-              </button>
+                </button>
+              </div>
             ) : (
-              <button
+              <div
                 key={`m-${fila.modeloId}`}
-                type="button"
-                onClick={() => elegirFila(fila)}
                 onMouseEnter={() => setActiveIndex(i)}
-                className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm ${i === activeIndex ? "bg-surface-hover" : ""}`}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-sm ${i === activeIndex ? "bg-surface-hover" : ""}`}
               >
-                <span className="flex min-w-0 items-center gap-2">
-                  <Shirt size={15} className="shrink-0 text-primary" />
+                {/* Ropa: la foto de la primera combinación que tenga; si ninguna, el ícono de remera. */}
+                <MiniaturaProducto
+                  fotoUrl={fila.variantes.find((v) => v.fotoUrl)?.fotoUrl}
+                  nombre={fila.nombre}
+                  onAmpliar={setFotoAmpliada}
+                  icono={<Shirt size={16} className="text-primary" />}
+                  tabIndex={-1}
+                />
+                <button
+                  type="button"
+                  onClick={() => elegirFila(fila)}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
+                >
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate font-medium text-text">
                       {fila.nombre}
@@ -212,16 +236,16 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
                       Elegir talle y color · Stock: {fila.stock}
                     </span>
                   </span>
-                </span>
-                <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-text">
-                  {(() => {
-                    const precios = fila.variantes.map((v) => toArs(v.precioVenta, v.monedaPrecio, cotizacionUSD));
-                    const min = Math.min(...precios);
-                    return `${Math.max(...precios) > min ? "desde " : ""}${formatCurrency(min, "ARS")}`;
-                  })()}
-                  <ChevronRight size={14} className="text-text-dim" />
-                </span>
-              </button>
+                  <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-text">
+                    {(() => {
+                      const precios = fila.variantes.map((v) => toArs(v.precioVenta, v.monedaPrecio, cotizacionUSD));
+                      const min = Math.min(...precios);
+                      return `${Math.max(...precios) > min ? "desde " : ""}${formatCurrency(min, "ARS")}`;
+                    })()}
+                    <ChevronRight size={14} className="text-text-dim" />
+                  </span>
+                </button>
+              </div>
             )
           )}
         </div>
