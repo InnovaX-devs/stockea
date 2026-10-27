@@ -123,6 +123,7 @@ export default function ClientesTable({
                   <DeudaCell
                     cliente={{ id: c.id, nombre: nombreCompleto(c) }}
                     deuda={c.deuda}
+                    limite={c.limite}
                     umbralAlDia={umbralAlDia}
                     cuentas={cuentas}
                   />
@@ -165,6 +166,7 @@ export default function ClientesTable({
               <DeudaCell
                 cliente={{ id: c.id, nombre: nombreCompleto(c) }}
                 deuda={c.deuda}
+                limite={c.limite}
                 umbralAlDia={umbralAlDia}
                 cuentas={cuentas}
               />
@@ -177,6 +179,8 @@ export default function ClientesTable({
       {clienteHistorial && (
         <HistorialDeudaModal
           cliente={{ id: clienteHistorial.id, nombre: nombreCompleto(clienteHistorial) }}
+          deuda={clienteHistorial.deuda}
+          limite={clienteHistorial.limite}
           onClose={() => setClienteHistorial(null)}
         />
       )}

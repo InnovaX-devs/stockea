@@ -4,6 +4,7 @@ import { filtroCuentasDeSucursal } from "@/lib/cuenta-sucursal";
 import type { Prisma } from "@prisma/client";
 import { montoARSDePago } from "@/lib/currency";
 import { obtenerEmpresaIdActual, obtenerUsuarioActual } from "@/lib/empresa";
+import { limiteEfectivo } from "@/lib/limite-cuenta-corriente";
 
 export type ClienteConDeuda = {
   id: number;
@@ -18,6 +19,10 @@ export type ClienteConDeuda = {
   numeroDocumento: string | null;
   condicionIva: "CONSUMIDOR_FINAL" | "MONOTRIBUTO" | "RESPONSABLE_INSCRIPTO" | "EXENTO" | null;
   deuda: number;
+  /** Límite propio del cliente (null = usa el general). */
+  limiteCuentaCorriente: number | null;
+  /** Límite que le aplica: el propio o el general. null = sin límite. */
+  limite: number | null;
 };
 
 export type OrdenClientes = "nombre-asc" | "nombre-desc" | "deuda-desc" | "deuda-asc";
@@ -52,6 +57,7 @@ const SELECT_BASE = {
   tipoDocumento: true,
   numeroDocumento: true,
   condicionIva: true,
+  limiteCuentaCorriente: true,
 } satisfies Prisma.ClienteSelect;
 
 const ORDEN_NOMBRE_MAP: Record<string, Prisma.ClienteOrderByWithRelationInput> = {
@@ -66,7 +72,11 @@ export async function getClientesData(filtros: ClientesFiltros = {}) {
 
   // 1) Deuda agregada por cliente: UNA fila por cliente con ventas A_CUENTA,
   //    en vez de traer cada venta pendiente individual con `include`.
-  const deudaPorCliente = await getDeudaPorCliente(empresaId);
+  const [deudaPorCliente, configuracion] = await Promise.all([
+    getDeudaPorCliente(empresaId),
+    prisma.configuracion.findUnique({ where: { empresaId }, select: { limiteCuentaCorriente: true } }),
+  ]);
+  const limiteGeneral = configuracion?.limiteCuentaCorriente ?? null;
 
   // 2) Resumen global (independiente de los filtros aplicados).
   const [totalClientes, totalMayoristas] = await Promise.all([
@@ -117,6 +127,7 @@ export async function getClientesData(filtros: ClientesFiltros = {}) {
     clientesPagina = clientes.map((c) => ({
       ...c,
       deuda: deudaPorCliente.get(c.id) ?? 0,
+      limite: limiteEfectivo(c.limiteCuentaCorriente, limiteGeneral),
     }));
   } else {
     // Filtrar/ordenar por deuda no se puede resolver con where/orderBy de Prisma
@@ -130,6 +141,7 @@ export async function getClientesData(filtros: ClientesFiltros = {}) {
     let conDeuda: ClienteConDeuda[] = candidatos.map((c) => ({
       ...c,
       deuda: deudaPorCliente.get(c.id) ?? 0,
+      limite: limiteEfectivo(c.limiteCuentaCorriente, limiteGeneral),
     }));
 
     if (filtros.deuda === "con-deuda") {
@@ -164,7 +176,7 @@ export async function getClientesData(filtros: ClientesFiltros = {}) {
 
   const paginacion: Paginacion = { pagina, totalPaginas, totalItems, pageSize: PAGE_SIZE };
 
-  return { clientes: clientesPagina, resumen, umbralAlDia: UMBRAL_AL_DIA, paginacion };
+  return { clientes: clientesPagina, resumen, umbralAlDia: UMBRAL_AL_DIA, paginacion, limiteGeneral };
 }
 
 async function getDeudaPorCliente(empresaId: number): Promise<Map<number, number>> {
@@ -183,12 +195,28 @@ async function getDeudaPorCliente(empresaId: number): Promise<Map<number, number
   const mapa = new Map<number, number>();
   for (const v of ventasPendientes) {
     if (v.clienteId == null) continue;
-    // Pesos enteros: el totalARS puede tener decimales (conversión USD,
-    // descuentos) que nunca se cobran.
-    const deudaVenta = Math.max(0, Math.round(v.totalARS) - v.montoPagado);
-    mapa.set(v.clienteId, redondear((mapa.get(v.clienteId) ?? 0) + deudaVenta));
+    mapa.set(v.clienteId, redondear((mapa.get(v.clienteId) ?? 0) + deudaDeVenta(v)));
   }
   return mapa;
+}
+
+// Pesos enteros: el totalARS puede tener decimales (conversión USD,
+// descuentos) que nunca se cobran.
+function deudaDeVenta(v: { totalARS: number; montoPagado: number }) {
+  return Math.max(0, Math.round(v.totalARS) - v.montoPagado);
+}
+
+/**
+ * Deuda actual de UN cliente, con el mismo criterio que getDeudaPorCliente
+ * (se clampea por venta antes de sumar). La usa el control del límite de
+ * cuenta corriente al registrar una venta.
+ */
+export async function getDeudaDeCliente(empresaId: number, clienteId: number): Promise<number> {
+  const ventas = await prisma.venta.findMany({
+    where: { empresaId, clienteId, estadoPago: "A_CUENTA" },
+    select: { totalARS: true, montoPagado: true },
+  });
+  return redondear(ventas.reduce((acc, v) => acc + deudaDeVenta(v), 0));
 }
 
 function redondear(n: number) {

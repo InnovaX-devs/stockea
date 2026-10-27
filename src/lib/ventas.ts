@@ -3,7 +3,9 @@ import type { EstadoPago, TipoPrecioVenta } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { obtenerConfiguracion } from "@/lib/configuracion";
-import { obtenerEmpresaIdActual } from "@/lib/empresa";
+import { obtenerEmpresaIdActual, obtenerUsuarioActual } from "@/lib/empresa";
+import { getDeudaDeCliente } from "@/lib/clientes";
+import { evaluarLimite, limiteEfectivo, mensajeLimiteExcedido } from "@/lib/limite-cuenta-corriente";
 import { redondearARS, montoEnCuentaUSD } from "@/lib/currency";
 import { mensajeSiCajaCerrada } from "@/lib/caja";
 import { siguienteNumero } from "@/lib/numeracion";
@@ -48,6 +50,11 @@ export type VentaInput = {
    * ventas, stock ni cobros.
    */
   idCliente?: string | null;
+  /**
+   * El administrador ya vio el aviso de límite de cuenta corriente y autoriza
+   * la venta igual. Se ignora si quien vende es empleado.
+   */
+  autorizarExcesoLimite?: boolean;
 };
 
 /** Solo para ventas que llegan de la cola sin conexión. */
@@ -60,6 +67,18 @@ export type OpcionesVenta = {
   permitirStockNegativo?: boolean;
   /** La venta ya pasó en el mostrador: no se rechaza porque la caja esté cerrada ahora. */
   omitirControlCaja?: boolean;
+  /** La venta ya pasó en el mostrador: no se rechaza por el límite de cuenta corriente. */
+  omitirLimiteCuentaCorriente?: boolean;
+};
+
+/** Datos para el aviso cuando la venta supera el límite de cuenta corriente. */
+export type LimiteExcedido = {
+  limite: number;
+  deudaActual: number;
+  disponible: number;
+  deudaResultante: number;
+  /** Quien vende es administrador: puede reintentar con autorizarExcesoLimite. */
+  puedeAutorizar: boolean;
 };
 
 export type ResultadoVenta =
@@ -75,7 +94,7 @@ export type ResultadoVenta =
       /** Nombres de los productos que quedaron en negativo. */
       productosStockNegativo?: string[];
     }
-  | { success: false; error: string };
+  | { success: false; error: string; limiteExcedido?: LimiteExcedido };
 
 async function ventaExistente(empresaId: number, idCliente: string): Promise<ResultadoVenta | null> {
   const existente = await prisma.venta.findUnique({
@@ -89,6 +108,47 @@ async function ventaExistente(empresaId: number, idCliente: string): Promise<Res
     numero: existente.numero,
     duplicada: true,
     stockNegativo: existente.stockNegativo,
+  };
+}
+
+/**
+ * Devuelve el rechazo si la venta deja al cliente por encima de su límite y
+ * nadie con permiso la autorizó; null si se puede seguir.
+ * Ver las reglas en src/lib/limite-cuenta-corriente.ts.
+ */
+async function controlarLimiteCuentaCorriente(
+  empresaId: number,
+  clienteId: number,
+  saldoNuevo: number,
+  autorizada: boolean
+): Promise<Extract<ResultadoVenta, { success: false }> | null> {
+  const [cliente, configuracion] = await Promise.all([
+    prisma.cliente.findFirst({ where: { id: clienteId, empresaId }, select: { limiteCuentaCorriente: true } }),
+    prisma.configuracion.findUnique({ where: { empresaId }, select: { limiteCuentaCorriente: true } }),
+  ]);
+  // Cliente inexistente o de otra empresa: lo rechaza la validación de más abajo.
+  if (!cliente) return null;
+
+  const limite = limiteEfectivo(cliente.limiteCuentaCorriente, configuracion?.limiteCuentaCorriente);
+  if (limite == null) return null;
+
+  const evaluacion = evaluarLimite(await getDeudaDeCliente(empresaId, clienteId), saldoNuevo, limite);
+  if (!evaluacion.aplica || !evaluacion.excede) return null;
+
+  const { rol } = await obtenerUsuarioActual();
+  const puedeAutorizar = rol === "ADMIN";
+  if (puedeAutorizar && autorizada) return null;
+
+  return {
+    success: false,
+    error: mensajeLimiteExcedido(evaluacion, puedeAutorizar),
+    limiteExcedido: {
+      limite: evaluacion.limite,
+      deudaActual: evaluacion.deudaActual,
+      disponible: evaluacion.disponible,
+      deudaResultante: evaluacion.deudaResultante,
+      puedeAutorizar,
+    },
   };
 }
 
@@ -152,6 +212,18 @@ export async function crearVentaInterna(
       };
     }
     estadoPago = "A_CUENTA";
+  }
+
+  // Límite de cuenta corriente: solo importa lo que queda debiendo. Las
+  // ventas pagadas completas no llegan acá (estadoPago PAGADA).
+  if (estadoPago === "A_CUENTA" && input.clienteId != null && !opciones.omitirLimiteCuentaCorriente) {
+    const exceso = await controlarLimiteCuentaCorriente(
+      empresaId,
+      input.clienteId,
+      totalARS - montoPagado,
+      input.autorizarExcesoLimite === true
+    );
+    if (exceso) return exceso;
   }
 
   // Blindaje: la cotización que se guarda en la venta la decide el server,

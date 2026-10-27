@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getHistorialDeuda } from "@/lib/clientes";
-import { obtenerEmpresaIdActual, requerirAdmin } from "@/lib/empresa";
+import { obtenerEmpresaIdActual, obtenerUsuarioActual, requerirAdmin } from "@/lib/empresa";
 import { obtenerConfiguracion } from "@/lib/configuracion";
 import { mensajeSiCajaCerrada } from "@/lib/caja";
 import { obtenerSucursalIdActual, requerirSucursalId } from "@/lib/sucursal";
@@ -68,7 +68,24 @@ export type ClienteInput = {
   tipoDocumento?: "CUIT" | "CUIL" | "DNI" | null;
   numeroDocumento?: string | null;
   condicionIva?: "CONSUMIDOR_FINAL" | "MONOTRIBUTO" | "RESPONSABLE_INSCRIPTO" | "EXENTO" | null;
+  /**
+   * Límite de cuenta corriente propio, en ARS. null = usa el límite general.
+   * undefined = no tocarlo (pantallas que no lo muestran). Solo lo cambia un admin.
+   */
+  limiteCuentaCorriente?: number | null;
 };
+
+/**
+ * Límite para guardar, o {} si no corresponde tocarlo: no vino en el
+ * formulario, o quien guarda no es admin (el empleado edita clientes pero no
+ * decide cuánto se les fía).
+ */
+async function limiteParaGuardar(data: ClienteInput): Promise<{ limiteCuentaCorriente?: number | null }> {
+  if (data.limiteCuentaCorriente === undefined) return {};
+  const { rol } = await obtenerUsuarioActual();
+  if (rol !== "ADMIN") return {};
+  return { limiteCuentaCorriente: data.limiteCuentaCorriente == null ? null : Math.round(data.limiteCuentaCorriente) };
+}
 
 /**
  * Documento para facturar: CUIT/CUIL con dígito verificador válido, DNI de
@@ -103,7 +120,28 @@ function validarCliente(data: ClienteInput) {
   }
   const doc = documentoParaGuardar(data);
   if (!doc.ok) return doc.error;
+  const limite = data.limiteCuentaCorriente;
+  if (limite != null && (!Number.isFinite(limite) || limite < 0)) {
+    return "El límite de cuenta corriente tiene que ser un monto de cero o más.";
+  }
   return null;
+}
+
+/**
+ * Límite de cuenta corriente para todos los clientes (los que no tienen uno
+ * propio). null = sin límite. Solo admin.
+ */
+export async function guardarLimiteGeneral(limite: number | null) {
+  const { empresaId } = await requerirAdmin();
+  if (limite != null && (!Number.isFinite(limite) || limite < 0)) {
+    return { success: false as const, error: "El límite tiene que ser un monto de cero o más." };
+  }
+  await prisma.configuracion.update({
+    where: { empresaId },
+    data: { limiteCuentaCorriente: limite == null ? null : Math.round(limite) },
+  });
+  revalidatePath("/clientes");
+  return { success: true as const };
 }
 
 export async function crearCliente(data: ClienteInput) {
@@ -125,6 +163,7 @@ export async function crearCliente(data: ClienteInput) {
         localidad: data.localidad?.trim() || null,
         esMayorista: data.esMayorista,
         ...(documentoParaGuardar(data) as { ok: true; campos: object }).campos,
+        ...(await limiteParaGuardar(data)),
       },
       select: { id: true, nombre: true, apellido: true, esMayorista: true },
     });
@@ -159,6 +198,7 @@ export async function actualizarCliente(id: number, data: ClienteInput) { // ant
         localidad: data.localidad?.trim() || null,
         esMayorista: data.esMayorista,
         ...(documentoParaGuardar(data) as { ok: true; campos: object }).campos,
+        ...(await limiteParaGuardar(data)),
       },
       select: { id: true, nombre: true, apellido: true, esMayorista: true },
     });
