@@ -167,13 +167,11 @@ export async function POST(request: NextRequest) {
       !body.nombre.trim() ||
       body.stockActual === undefined ||
       body.stockActual === "" ||
-      body.precioCosto === undefined ||
-      body.precioCosto === "" ||
       body.precioVenta === undefined ||
       body.precioVenta === ""
     ) {
       return NextResponse.json(
-        { error: "Nombre, stock actual, precio de costo y precio de venta son obligatorios" },
+        { error: "Nombre, stock actual y precio de venta son obligatorios" },
         { status: 400 }
       );
     }
@@ -215,7 +213,11 @@ export async function POST(request: NextRequest) {
 
     const stockActual = Number(body.stockActual);
     const stockMinimo = body.stockMinimo !== undefined && body.stockMinimo !== "" ? Number(body.stockMinimo) : 0;
-    const precioCosto = Number(body.precioCosto);
+    // El costo es opcional: sin costo se guarda 0.
+    const precioCosto = body.precioCosto === undefined || body.precioCosto === null || body.precioCosto === "" ? 0 : Number(body.precioCosto);
+    if (!Number.isFinite(precioCosto) || precioCosto < 0) {
+      return NextResponse.json({ error: "El costo tiene que ser un número válido" }, { status: 400 });
+    }
     const precioVenta = Number(body.precioVenta);
 
     const precioMayorista = body.precioMayorista !== undefined && body.precioMayorista !== "" && body.precioMayorista !== null
