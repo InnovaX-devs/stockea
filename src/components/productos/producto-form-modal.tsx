@@ -142,6 +142,22 @@ export function ProductoFormModal({
       ? formData.unidadContenido
       : (unidadesContenido[0] ?? "ML");
   const [porcentajeVenta, setPorcentajeVenta] = useState<number | "">("");
+  // Generar código de barras interno (#106).
+  const [generandoCodigo, setGenerandoCodigo] = useState(false);
+  async function generarCodigoBarras() {
+    setGenerandoCodigo(true);
+    try {
+      const res = await fetch("/api/productos/codigo-barras", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.codigo) throw new Error(data?.error ?? "No se pudo generar el código.");
+      setFormData((prev) => (prev.codigoBarras?.trim() ? prev : { ...prev, codigoBarras: data.codigo }));
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "No se pudo generar el código.");
+    } finally {
+      setGenerandoCodigo(false);
+    }
+  }
+
   // Costo de compra (sin impuestos). Solo se usa si hay impuestos sobre el costo.
   const [costoCompra, setCostoCompra] = useState<number | "">("");
   const [porcentajeMayorista, setPorcentajeMayorista] = useState<number | "">("");
@@ -665,14 +681,28 @@ export function ProductoFormModal({
               <label className="block text-xs font-medium text-text-dim">
                 Código de Barras
               </label>
-              <BarcodeInput
-                value={formData.codigoBarras}
-                onChange={(value) =>
-                  setFormData({ ...formData, codigoBarras: value })
-                }
-                placeholder="Escaneá o tipeá el código..."
-                className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
-              />
+              <div className="mt-1 flex gap-2">
+                <BarcodeInput
+                  value={formData.codigoBarras}
+                  onChange={(value) =>
+                    setFormData({ ...formData, codigoBarras: value })
+                  }
+                  placeholder="Escaneá o tipeá el código..."
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+                />
+                {/* Sin código: genera uno interno (EAN-13 que empieza con 29). Nunca pisa uno cargado. */}
+                {!formData.codigoBarras?.trim() && (
+                  <button
+                    type="button"
+                    onClick={generarCodigoBarras}
+                    disabled={generandoCodigo}
+                    title="Generar un código de barras interno para este producto"
+                    className="shrink-0 rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover disabled:opacity-50"
+                  >
+                    {generandoCodigo ? "…" : "Generar"}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
