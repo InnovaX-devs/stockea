@@ -8,6 +8,7 @@ import ClientesFilters from "./ClientesFilters";
 import type { ClienteConDeuda, Paginacion } from "@/lib/clientes";
 import type { ClienteBasico } from "@/components/clientes/ClienteForm";
 import ClientesTable from "./ClientesTable";
+import LimiteGeneral from "./LimiteGeneral";
 import type { CuentaOption } from "./CobrarDeudaModal";
 import { useEsAdmin } from "@/components/layout/rol-context";
 
@@ -75,6 +76,7 @@ export default function ClientesContent({
       </div>
 
       <ResumenCards resumen={resumen} />
+      <LimiteGeneral limite={limiteGeneral} />
       <ClientesFilters />
       <ClientesTable
         clientes={clientes}

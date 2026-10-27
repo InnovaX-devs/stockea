@@ -127,6 +127,23 @@ function validarCliente(data: ClienteInput) {
   return null;
 }
 
+/**
+ * Límite de cuenta corriente para todos los clientes (los que no tienen uno
+ * propio). null = sin límite. Solo admin.
+ */
+export async function guardarLimiteGeneral(limite: number | null) {
+  const { empresaId } = await requerirAdmin();
+  if (limite != null && (!Number.isFinite(limite) || limite < 0)) {
+    return { success: false as const, error: "El límite tiene que ser un monto de cero o más." };
+  }
+  await prisma.configuracion.update({
+    where: { empresaId },
+    data: { limiteCuentaCorriente: limite == null ? null : Math.round(limite) },
+  });
+  revalidatePath("/clientes");
+  return { success: true as const };
+}
+
 export async function crearCliente(data: ClienteInput) {
   const errorValidacion = validarCliente(data);
   if (errorValidacion) {

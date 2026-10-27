@@ -60,18 +60,6 @@ export async function guardarConfiguracion(formData: FormData) {
 
   const cajaTurnoContinuo = formData.get("cajaTurnoContinuo") === "on";
 
-  // Límite de cuenta corriente para todos los clientes. Vacío o "sin límite" = null.
-  const sinLimite = formData.get("sinLimiteCuentaCorriente") === "on";
-  const limiteRaw = (formData.get("limiteCuentaCorriente") as string | null)?.trim() ?? "";
-  let limiteCuentaCorriente: number | null = null;
-  if (!sinLimite && limiteRaw !== "") {
-    limiteCuentaCorriente = Number(limiteRaw);
-    if (!Number.isFinite(limiteCuentaCorriente) || limiteCuentaCorriente < 0) {
-      throw new Error("El límite de cuenta corriente tiene que ser un monto de cero o más");
-    }
-    limiteCuentaCorriente = Math.round(limiteCuentaCorriente);
-  }
-
   const horaAperturaCaja = (formData.get("horaAperturaCaja") as string | null)?.trim() || "07:00";
   if (!esHoraValida(horaAperturaCaja)) {
     throw new Error("Hora de apertura de caja inválida");
@@ -102,7 +90,6 @@ export async function guardarConfiguracion(formData: FormData) {
     costoPromedioPonderado,
     horaAperturaCaja,
     cajaTurnoContinuo,
-    limiteCuentaCorriente,
     ...(tallesSugeridos !== undefined ? { tallesSugeridos } : {}),
     ...(coloresSugeridos !== undefined ? { coloresSugeridos } : {}),
     ...(usaCotizacionUSD !== undefined ? { usaCotizacionUSD } : {}),

@@ -22,7 +22,6 @@ interface ConfiguracionFormProps {
     costoPromedioPonderado: boolean;
     horaAperturaCaja: string;
     cajaTurnoContinuo: boolean;
-    limiteCuentaCorriente: number | null;
     colorPrimario: string | null;
     colorSecundario: string | null;
     licencia: "BASICO" | "PREMIUM";
@@ -45,7 +44,6 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [usaCotizacionUSD, setUsaCotizacionUSD] = useState(configuracion.usaCotizacionUSD);
   const esPremium = configuracion.licencia === "PREMIUM";
-  const [sinLimite, setSinLimite] = useState(configuracion.limiteCuentaCorriente == null);
 
   function handleSeleccionarArchivo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -449,44 +447,6 @@ export function ConfiguracionForm({ configuracion }: ConfiguracionFormProps) {
           <input type="hidden" name="horaAperturaCaja" value={configuracion.horaAperturaCaja} />
           {configuracion.cajaTurnoContinuo && <input type="hidden" name="cajaTurnoContinuo" value="on" />}
         </>)}
-      </div>
-
-      {/* Cuenta corriente de clientes */}
-      <div className="rounded-2xl border border-border bg-white p-6">
-        <h2 className="mb-1 text-base font-semibold text-text">Cuenta corriente de clientes</h2>
-        <p className="mb-4 text-xs text-text-dim">
-          Lo máximo que un cliente puede deber. Cada cliente puede tener su propio límite (se cambia al editarlo);
-          los que no tienen uno propio usan este. Si una venta lo supera, el empleado no puede registrarla y el
-          administrador puede autorizarla.
-        </p>
-        <label className="flex items-start justify-between gap-4">
-          <span>
-            <span className="text-sm font-medium text-text">Límite de cuenta corriente para todos los clientes</span>
-            <p className="text-xs text-text-dim">En pesos. Con $0 no se le puede dejar nada a cuenta a nadie.</p>
-          </span>
-          <input
-            type="number"
-            name="limiteCuentaCorriente"
-            inputMode="numeric"
-            min={0}
-            step="1"
-            defaultValue={configuracion.limiteCuentaCorriente ?? ""}
-            disabled={sinLimite}
-            placeholder="Ej. 100000"
-            aria-label="Límite general de cuenta corriente"
-            className="w-40 shrink-0 rounded-lg border border-border px-3 py-2 text-sm text-text focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
-          />
-        </label>
-        <label className="mt-3 flex items-center gap-2 text-sm text-text">
-          <input
-            type="checkbox"
-            name="sinLimiteCuentaCorriente"
-            checked={sinLimite}
-            onChange={(e) => setSinLimite(e.target.checked)}
-            className="h-4 w-4"
-          />
-          Sin límite
-        </label>
       </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}
