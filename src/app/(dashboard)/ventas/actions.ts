@@ -8,7 +8,7 @@ import type { EstadoPago } from "@prisma/client";
 import { redondearARS, montoEnCuentaUSD, montoARSDePago } from "@/lib/currency";
 import { mensajeSiCajaCerrada } from "@/lib/caja";
 import { notaCreditoTrasAnular } from "@/lib/arca/factura";
-import { costoEstimadoDeLinea } from "@/lib/reportes";
+import { costoUnitarioLineaARS, SELECT_PRODUCTO_COSTO } from "@/lib/reportes";
 import { descontarStock, sumarStock, sucursalDeVenta, stockEnSucursal } from "@/lib/stock";
 import { crearVentaInterna, type PagoInput, type VentaInput, type ResultadoVenta } from "@/lib/ventas";
 import { getDeudaDeCliente } from "@/lib/clientes";
@@ -168,7 +168,7 @@ export async function listarVentas(filtros: FiltrosVentas): Promise<ResultadoLis
         sucursal: { select: { nombre: true } },
         items: {
           include: {
-            producto: { select: { precioCosto: true, monedaPrecio: true, precioAbierto: true, costoEstimadoPct: true } },
+            producto: { select: SELECT_PRODUCTO_COSTO },
           },
         },
         comprobantes: {
@@ -181,20 +181,11 @@ export async function listarVentas(filtros: FiltrosVentas): Promise<ResultadoLis
   ]);
 
   const ventasFormateadas: VentaListItem[] = ventas.map((venta) => {
+    // Precio abierto: % estimado; promo (#114): suma de sus componentes; el resto, su costo.
     const costoTotalARS = venta.items.reduce((acc, item) => {
       if (!item.producto) return acc;
-
-      // Precio abierto: costo estimado como % de lo que se cobró por la línea.
-      if (item.producto.precioAbierto) {
-        return acc + costoEstimadoDeLinea(item.precioUnitarioUSD * venta.cotizacionUsada, item.producto.costoEstimadoPct) * item.cantidad;
-      }
-
-      const costoProductoARS =
-        item.producto.monedaPrecio === "USD"
-          ? item.producto.precioCosto * venta.cotizacionUsada
-          : item.producto.precioCosto;
-
-      return acc + costoProductoARS * item.cantidad;
+      const costoUnitario = costoUnitarioLineaARS(item.producto, item.precioUnitarioUSD * venta.cotizacionUsada, venta.cotizacionUsada);
+      return acc + costoUnitario * item.cantidad;
     }, 0);
 
     const gananciaARS = venta.totalARS - costoTotalARS;
@@ -237,6 +228,38 @@ export type StockDisponibilidad = {
   alcanza: boolean;
 };
 
+/**
+ * Unidades de cada producto reservadas en pedidos sin armar (armado=false)
+ * que siguen activos (ni cancelados ni anulados), de la sucursal. Cuenta
+ * también lo que incluyen las promos de esos pedidos (#114).
+ */
+async function reservadoEnPedidos(empresaId: number, sucursalId: number | null, productoIds: number[]): Promise<Map<number, number>> {
+  const reservado = new Map<number, number>();
+  if (productoIds.length === 0) return reservado;
+  const filtroVenta = {
+    empresaId,
+    ...(sucursalId != null ? { sucursalId } : {}),
+    armado: false,
+    estadoPago: { notIn: ["CANCELADA" as const, "ANULADA" as const] },
+  };
+  const [sueltos, enPromos] = await Promise.all([
+    prisma.itemVenta.findMany({
+      where: { productoId: { in: productoIds }, venta: filtroVenta },
+      select: { productoId: true, cantidad: true },
+    }),
+    prisma.itemVenta.findMany({
+      where: { venta: filtroVenta, producto: { esPromocion: true, componentes: { some: { productoId: { in: productoIds } } } } },
+      select: { cantidad: true, producto: { select: { componentes: { select: { productoId: true, cantidad: true } } } } },
+    }),
+  ]);
+  const sumar = (id: number, n: number) => reservado.set(id, (reservado.get(id) ?? 0) + n);
+  for (const it of sueltos) if (it.productoId != null) sumar(it.productoId, it.cantidad);
+  for (const it of enPromos) {
+    for (const c of it.producto?.componentes ?? []) if (productoIds.includes(c.productoId)) sumar(c.productoId, c.cantidad * it.cantidad);
+  }
+  return reservado;
+}
+
 export async function verificarStockDisponible(
   productoId: number,
   unidadesRequeridas: number
@@ -259,23 +282,7 @@ export async function verificarStockDisponible(
       ? producto.stockActual
       : await stockEnSucursal(prisma, productoId, sucursalId);
 
-  // Reservado = suma de unidades comprometidas en pedidos sin armar (armado=false)
-  // que siguen activos (ni cancelados ni anulados), de esta sucursal.
-  const itemsPendientes = await prisma.itemVenta.findMany({
-    where: {
-      productoId,
-      venta: {
-        empresaId,
-        ...(sucursalId != null ? { sucursalId } : {}),
-        armado: false,
-        estadoPago: { notIn: ["CANCELADA", "ANULADA"] },
-      },
-    },
-    select: { cantidad: true },
-  });
-
-  const reservado = itemsPendientes.reduce((acc, item) => acc + item.cantidad, 0);
-
+  const reservado = (await reservadoEnPedidos(empresaId, sucursalId, [productoId])).get(productoId) ?? 0;
   const disponible = stockFisico - reservado;
 
   return {
@@ -284,6 +291,40 @@ export async function verificarStockDisponible(
     disponible,
     alcanza: unidadesRequeridas <= disponible,
   };
+}
+
+/**
+ * Promociones (#114): ¿alcanza el stock de cada producto incluido?
+ * `necesarias` = unidades de cada componente que pide el carrito con la promo
+ * nueva (lo de las promos más los mismos productos sueltos). Devuelve el
+ * primer componente que no alcanza (para el mismo aviso de stock de siempre),
+ * o null si alcanza todo.
+ */
+export async function verificarStockPromocion(
+  necesarias: { productoId: number; cantidad: number }[]
+): Promise<{ productoId: number; nombre: string; stock: StockDisponibilidad; necesarias: number } | null> {
+  const empresaId = await obtenerEmpresaIdActual();
+  const sucursalId = await obtenerSucursalIdActual();
+  const ids = [...new Set(necesarias.map((n) => n.productoId).filter((id) => Number.isInteger(id) && id > 0))];
+  if (ids.length === 0) return null;
+
+  const productos = await prisma.producto.findMany({
+    where: { id: { in: ids }, empresaId, controlaStock: true },
+    select: { id: true, nombre: true, stockActual: true, stocks: sucursalId != null ? { where: { sucursalId }, select: { cantidad: true } } : false },
+    orderBy: { nombre: "asc" },
+  });
+  const reservado = await reservadoEnPedidos(empresaId, sucursalId, productos.map((p) => p.id));
+
+  for (const p of productos) {
+    const pedido = necesarias.filter((n) => n.productoId === p.id).reduce((a, n) => a + n.cantidad, 0);
+    const stockFisico = sucursalId == null ? p.stockActual : (p.stocks?.[0]?.cantidad ?? 0);
+    const enPedidos = reservado.get(p.id) ?? 0;
+    const disponible = stockFisico - enPedidos;
+    if (pedido > disponible) {
+      return { productoId: p.id, nombre: p.nombre, necesarias: pedido, stock: { stockFisico, reservado: enPedidos, disponible, alcanza: false } };
+    }
+  }
+  return null;
 }
 
 export async function listarPedidos(filtros: FiltrosPedidos): Promise<ResultadoListadoPedidos> {
@@ -437,7 +478,7 @@ export async function obtenerDetallePedido(ventaId: number): Promise<ResultadoDe
         items: {
           include: {
             producto: {
-              select: { nombre: true, precioCosto: true, monedaPrecio: true, precioAbierto: true, costoEstimadoPct: true },
+              select: { ...SELECT_PRODUCTO_COSTO, nombre: true },
             },
           },
         },
@@ -453,20 +494,11 @@ export async function obtenerDetallePedido(ventaId: number): Promise<ResultadoDe
       return { success: false, error: "El pedido no existe" };
     }
 
+    // Precio abierto: % estimado; promo (#114): suma de sus componentes; el resto, su costo.
     const costoTotalARS = venta.items.reduce((acc, item) => {
       if (!item.producto) return acc;
-
-      // Precio abierto: costo estimado como % de lo que se cobró por la línea.
-      if (item.producto.precioAbierto) {
-        return acc + costoEstimadoDeLinea(item.precioUnitarioUSD * venta.cotizacionUsada, item.producto.costoEstimadoPct) * item.cantidad;
-      }
-
-      const costoProductoARS =
-        item.producto.monedaPrecio === "USD"
-          ? item.producto.precioCosto * venta.cotizacionUsada
-          : item.producto.precioCosto;
-
-      return acc + costoProductoARS * item.cantidad;
+      const costoUnitario = costoUnitarioLineaARS(item.producto, item.precioUnitarioUSD * venta.cotizacionUsada, venta.cotizacionUsada);
+      return acc + costoUnitario * item.cantidad;
     }, 0);
 
     const gananciaARS = venta.totalARS - costoTotalARS;

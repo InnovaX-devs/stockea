@@ -72,7 +72,8 @@ export async function enviarTransferencia(
   const items = normalizarItems(datos.items);
 
   const productos = await tx.producto.findMany({
-    where: { id: { in: items.map((i) => i.productoId) }, empresaId },
+    // Las promociones no tienen stock propio: no se transfieren (#114).
+    where: { id: { in: items.map((i) => i.productoId) }, empresaId, esPromocion: false },
     select: { id: true },
   });
   if (productos.length !== items.length) {

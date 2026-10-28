@@ -17,6 +17,7 @@ import {
   ClipboardCheck,
   Store,
   ArrowRightLeft,
+  Gift,
 } from "lucide-react";
 
 export type NavLeaf = {
@@ -47,6 +48,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: FlaskConical,
     children: [
       { label: "Productos", href: "/productos", icon: FlaskConical },
+      { label: "Promociones", href: "/promociones", icon: Gift, premium: true },
       { label: "Marcas y Categorías", href: "/marcas-categorias", icon: Tag },
       { label: "Historial de precios", href: "/historial-precios", icon: History },
       { label: "Transferencias de stock", href: "/transferencias", icon: ArrowRightLeft, premium: true, multisucursal: true },

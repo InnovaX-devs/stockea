@@ -46,6 +46,7 @@ model Empresa {
   categoriasGasto  CategoriaGasto[]
   gastos           Gasto[]
   transferencias   Transferencia[]
+  componentesPromocion ComponentePromocion[]
 }
 
 // ADMIN ve todo. EMPLEADO (solo licencia PREMIUM, máximo uno por empresa)
@@ -229,6 +230,17 @@ model Producto {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Promociones (#114): "Promo Fernet + 2 Coca". Es un Producto especial, sin
+  // stock propio (controlaStock = false), con la lista de lo que incluye en
+  // ComponentePromocion. Al venderla, src/lib/stock.ts descuenta los
+  // componentes (no la promo). No aparece en Productos: tiene su sección.
+  // La vigencia es opcional (null = sin fecha de inicio / de fin).
+  esPromocion   Boolean   @default(false)
+  vigenciaDesde DateTime?
+  vigenciaHasta DateTime?
+  componentes   ComponentePromocion[] @relation("PromocionComponentes")
+  enPromociones ComponentePromocion[] @relation("ComponenteDePromocion")
+
   empresa   Empresa @relation(fields: [empresaId], references: [id])
   empresaId Int
 
@@ -247,6 +259,25 @@ model Producto {
   @@index([empresaId])
   @@index([empresaId, updatedAt])
   @@index([modeloId])
+  @@index([empresaId, esPromocion])
+}
+
+/// Lo que incluye una promoción (#114): `cantidad` unidades de `producto` por
+/// cada promo vendida. Una promo no incluye otra promo, ni productos de precio
+/// abierto, ni a sí misma (lo valida src/lib/promociones.ts).
+model ComponentePromocion {
+  id          Int      @id @default(autoincrement())
+  cantidad    Int
+  empresa     Empresa  @relation(fields: [empresaId], references: [id])
+  empresaId   Int
+  promocion   Producto @relation("PromocionComponentes", fields: [promocionId], references: [id], onDelete: Cascade)
+  promocionId Int
+  producto    Producto @relation("ComponenteDePromocion", fields: [productoId], references: [id])
+  productoId  Int
+
+  @@unique([promocionId, productoId])
+  @@index([empresaId])
+  @@index([productoId])
 }
 
 // El "modelo" que agrupa las variantes de un producto de ropa (ej. "Remera

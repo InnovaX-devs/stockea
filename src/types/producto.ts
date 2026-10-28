@@ -49,4 +49,13 @@ export type ProductoBusquedaDTO = {
   color?: string | null;
   /** Foto del producto (Vercel Blob), para mostrar una miniatura al vender. Ausente/null = sin foto. */
   fotoUrl?: string | null;
+  /**
+   * Promoción (#114): lo que incluye. En las promos, `stockActual` es cuántas
+   * se pueden armar con el stock de los componentes.
+   */
+  esPromocion?: boolean;
+  componentes?: ComponentePromocionDTO[];
 };
+
+/** Un producto incluido en una promoción, con su nombre para el carrito y el ticket. */
+export type ComponentePromocionDTO = { productoId: number; cantidad: number; nombre: string };

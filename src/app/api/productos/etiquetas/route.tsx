@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     empresaId,
     activo: true,
     precioAbierto: false, // no tienen precio fijo para imprimir
+    esPromocion: false, // las promociones no van en las etiquetas de góndola (#114)
     ...(tipoPrecio === "MAYORISTA" ? { precioMayorista: { not: null } } : {}),
     ...(ids.length > 0 ? { id: { in: ids } } : {}),
     ...(categoriaId ? { categoriaId } : {}),

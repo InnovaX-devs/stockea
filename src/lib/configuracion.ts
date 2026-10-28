@@ -50,6 +50,8 @@ function conFlagsDeLicencia<T extends Pick<Configuracion, "licencia" | "usaCotiz
     habilitarImpuestosCosto: esPremium,
     /** Importar productos desde Excel (carga inicial del inventario). */
     habilitarImportacion: esPremium,
+    /** Promociones / combos que descuentan el stock de cada producto incluido (#114). */
+    habilitarPromociones: esPremium,
   };
 }
 

@@ -103,6 +103,65 @@ export function costoEstimadoDeLinea(precioUnitarioARS: number, costoEstimadoPct
   return (precioUnitarioARS * costoEstimadoPct) / 100;
 }
 
+type ProductoConCosto = {
+  id: number;
+  precioCosto: number;
+  monedaPrecio: "ARS" | "USD";
+};
+
+/** Lo que hace falta de un producto para calcular el costo de una línea vendida. */
+export type ProductoParaCosto = ProductoConCosto & {
+  precioAbierto?: boolean | null;
+  costoEstimadoPct?: number | null;
+  esPromocion?: boolean | null;
+  componentes?: { cantidad: number; producto: ProductoConCosto }[];
+};
+
+/** Select de Prisma con todo lo que usa costoUnitarioLineaARS (incluidos los componentes de las promos). */
+export const SELECT_PRODUCTO_COSTO = {
+  id: true,
+  precioCosto: true,
+  monedaPrecio: true,
+  precioAbierto: true,
+  costoEstimadoPct: true,
+  esPromocion: true,
+  componentes: { select: { cantidad: true, producto: { select: { id: true, precioCosto: true, monedaPrecio: true } } } },
+} as const;
+
+/**
+ * Costo unitario en ARS de una línea vendida:
+ * - Precio abierto: % estimado del precio al que se vendió.
+ * - Promoción (#114): suma del costo de cada componente × su cantidad (la
+ *   promo no tiene costo propio). Se usa la composición actual de la promo.
+ * - El resto: su costo.
+ * `costoBase` permite usar el costo histórico (reportes); por defecto, el actual.
+ * Los costos en USD se pasan a pesos con la cotización de la venta.
+ */
+export function costoUnitarioLineaARS(
+  producto: ProductoParaCosto,
+  precioUnitarioARS: number,
+  cotizacionVenta: number,
+  costoBase: (p: ProductoConCosto) => number = (p) => p.precioCosto
+): number {
+  const enARS = (p: ProductoConCosto) => (p.monedaPrecio === "USD" ? costoBase(p) * cotizacionVenta : costoBase(p));
+  if (producto.precioAbierto) return costoEstimadoDeLinea(precioUnitarioARS, producto.costoEstimadoPct);
+  if (producto.esPromocion && producto.componentes && producto.componentes.length > 0) {
+    return producto.componentes.reduce((acc, c) => acc + enARS(c.producto) * c.cantidad, 0);
+  }
+  return enARS(producto);
+}
+
+/** Ids de productos (y de los componentes de las promos) para traer su historial de costos. */
+export function idsParaHistorialDeCosto(productos: (ProductoParaCosto | null | undefined)[]): number[] {
+  const ids = new Set<number>();
+  for (const p of productos) {
+    if (!p) continue;
+    ids.add(p.id);
+    for (const c of p.componentes ?? []) ids.add(c.producto.id);
+  }
+  return [...ids];
+}
+
 /**
  * Calcula proporcionCobrada y factorDescuento una sola vez por venta.
  * Llamar UNA vez en queries.ts y pasar el resultado a calcularReporte,

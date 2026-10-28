@@ -4,7 +4,28 @@ import { useState } from "react";
 import { Minus, Plus, Pencil, Trash2, Check } from "lucide-react";
 import type { ItemCarrito, TipoPrecioLinea } from "@/types/item-carrito";
 import { formatCurrency } from "@/lib/currency";
+import { detallePromocion } from "@/lib/promociones-comun";
 import { MiniaturaProducto, VisorFoto, type FotoAmpliada } from "@/components/ventas/miniatura-producto";
+
+/** Nombre de la línea; las promociones (#114) llevan la etiqueta "Promo" y lo que incluyen. */
+function NombreLinea({ item }: { item: ItemCarrito }) {
+  const { producto } = item;
+  return (
+    <span className="min-w-0">
+      <span className="font-medium text-text">{producto.nombre}</span>
+      {producto.esPromocion && (
+        <>
+          <span className="ml-1.5 rounded bg-primary/10 px-1.5 py-0.5 align-middle text-[10px] font-semibold uppercase text-primary">
+            Promo
+          </span>
+          {producto.componentes && producto.componentes.length > 0 && (
+            <span className="block text-xs text-text-dim">{detallePromocion(producto.componentes)}</span>
+          )}
+        </>
+      )}
+    </span>
+  );
+}
 
 interface Props {
   items: ItemCarrito[];
@@ -131,10 +152,10 @@ function FilaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTipoPr
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <MiniaturaProducto fotoUrl={item.producto.fotoUrl} nombre={item.producto.nombre} onAmpliar={onAmpliar} />
-          {!item.producto.precioAbierto && <TogglePrecioLinea item={item} onCambiarTipoPrecio={onCambiarTipoPrecio} />}
-          <span className="font-medium text-text">
-            {item.producto.nombre}
-          </span>
+          {!item.producto.precioAbierto && !item.producto.esPromocion && (
+            <TogglePrecioLinea item={item} onCambiarTipoPrecio={onCambiarTipoPrecio} />
+          )}
+          <NombreLinea item={item} />
         </div>
       </td>
 
@@ -155,7 +176,7 @@ function FilaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTipoPr
           <button
             type="button"
             onClick={() => onCambiarCantidad(item.id, item.cantidad + 1)}
-            disabled={item.producto.controlaStock !== false && item.cantidad >= item.producto.stockActual}
+            disabled={(item.producto.controlaStock !== false || item.producto.esPromocion) && item.cantidad >= item.producto.stockActual}
             className="rounded-md border border-border p-1 text-text-dim hover:bg-surface-hover hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
           >
             <Plus size={14} />
@@ -218,9 +239,7 @@ function TarjetaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTip
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-2">
           <MiniaturaProducto fotoUrl={item.producto.fotoUrl} nombre={item.producto.nombre} onAmpliar={onAmpliar} />
-          <span className="font-medium text-text">
-            {item.producto.nombre}
-          </span>
+          <NombreLinea item={item} />
         </div>
         <button
           type="button"
@@ -232,7 +251,7 @@ function TarjetaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTip
         </button>
       </div>
 
-      {!item.producto.precioAbierto && (
+      {!item.producto.precioAbierto && !item.producto.esPromocion && (
         <div className="mt-2">
           <TogglePrecioLinea item={item} onCambiarTipoPrecio={onCambiarTipoPrecio} />
         </div>
@@ -254,7 +273,7 @@ function TarjetaCarrito({ item, onCambiarCantidad, onCambiarPrecio, onCambiarTip
           <button
             type="button"
             onClick={() => onCambiarCantidad(item.id, item.cantidad + 1)}
-            disabled={item.producto.controlaStock !== false && item.cantidad >= item.producto.stockActual}
+            disabled={(item.producto.controlaStock !== false || item.producto.esPromocion) && item.cantidad >= item.producto.stockActual}
             className="rounded-md border border-border p-1.5 text-text-dim hover:bg-surface-hover hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
           >
             <Plus size={14} />

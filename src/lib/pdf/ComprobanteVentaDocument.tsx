@@ -14,6 +14,8 @@ function formatCurrencyConCentavos(value: number) {
 
 export type ComprobanteItem = {
   nombre: string;
+  /** Promoción (#114): lo que incluye, en letra chica debajo del nombre. */
+  detalle?: string | null;
   tipoPrecio: "MINORISTA" | "MAYORISTA";
   cantidad: number;
   precioUnitarioARS: number;
@@ -240,6 +242,7 @@ export function ComprobanteVentaDocument({
                   <Text style={s.nombreProducto}>{item.nombre}</Text>
                   <Text style={s.pill}>{item.tipoPrecio === "MAYORISTA" ? "MAY" : "MIN"}</Text>
                 </View>
+                {item.detalle ? <Text style={{ fontSize: 7, color: "#64748b", marginTop: 1 }}>{item.detalle}</Text> : null}
               </View>
               <Text style={[s.colCant, s.nombreProducto]}>{item.cantidad}</Text>
               <Text style={[s.colUnit, s.nombreProducto]}>{formatCurrencyConCentavos(item.precioUnitarioARS)}</Text>

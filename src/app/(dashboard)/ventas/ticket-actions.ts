@@ -7,6 +7,7 @@ import { montoARSDePago } from "@/lib/currency";
 import { contenidoVisible } from "@/lib/rubro";
 import { NOMBRE_TIPO, numeroFormateado } from "@/lib/arca/factura";
 import type { DatosTicket, NegocioTicket } from "@/lib/ticket";
+import { detallePromocion } from "@/lib/promociones-comun";
 
 /**
  * Datos para el ticket de la comandera (issue #86). El ticket se arma e
@@ -47,7 +48,20 @@ export async function datosTicketVenta(
         cliente: { select: { nombre: true, apellido: true } },
         items: {
           orderBy: { id: "asc" },
-          include: { producto: { select: { nombre: true, contenido: true, unidadContenido: true } } },
+          include: {
+            producto: {
+              select: {
+                nombre: true,
+                contenido: true,
+                unidadContenido: true,
+                esPromocion: true,
+                componentes: {
+                  orderBy: { id: "asc" },
+                  select: { cantidad: true, producto: { select: { nombre: true, contenido: true, unidadContenido: true } } },
+                },
+              },
+            },
+          },
         },
         pagos: { orderBy: { fecha: "asc" }, include: { cuenta: { select: { nombre: true, tipo: true } } } },
         comprobantes: { where: { estado: "AUTORIZADO", tipo: { in: [1, 6, 11] } }, orderBy: { id: "desc" }, take: 1 },
@@ -68,6 +82,17 @@ export async function datosTicketVenta(
         : (it.descripcionLibre ?? "Producto"),
       precioUnitario,
       importe: Math.round(precioUnitario * it.cantidad),
+      // Promoción (#114): lo que incluye.
+      detalle: it.producto?.esPromocion
+        ? detallePromocion(
+            it.producto.componentes.map((c) => ({
+              cantidad: c.cantidad,
+              nombre: [c.producto.nombre, contenidoVisible(configuracion.rubro, c.producto.contenido, c.producto.unidadContenido)]
+                .filter(Boolean)
+                .join(" "),
+            }))
+          )
+        : null,
     };
   });
   const subtotal = venta.items.reduce((a, it) => a + it.precioUnitarioUSD * venta.cotizacionUsada * it.cantidad, 0);

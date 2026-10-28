@@ -33,7 +33,7 @@ export async function obtenerInventario(diasSinMovimiento = 60): Promise<Inventa
   // Inventario de la sucursal actual; en "Todas", el de toda la empresa.
   const sucursalId = await sucursalParaMostrarStock();
   const productosBase = await prisma.producto.findMany({
-    where: { empresaId, activo: true },
+    where: { empresaId, activo: true, esPromocion: false },
     select: {
       id: true,
       nombre: true,

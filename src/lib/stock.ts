@@ -21,6 +21,12 @@ import { Prisma } from "@prisma/client";
  * NO descuentan ni suman: las tres funciones que mueven stock los ignoran
  * (soloConControl), así que quien las llama no tiene que filtrarlos.
  *
+ * Promociones (#114): una promo no tiene stock propio. Todas estas funciones
+ * la reemplazan por lo que incluye (1 "Promo Fernet + 2 Coca" = 1 Fernet y 2
+ * Coca) antes de mover stock (expandirPromociones), así vender, anular,
+ * cancelar, armar un pedido o sincronizar una venta sin conexión descuentan o
+ * devuelven los componentes sin que quien llama tenga que saber de promos.
+ *
  * Se usan dentro de transacciones (`tx`). El sucursalId tiene que venir de
  * requerirSucursalId() o de la venta guardada, nunca del navegador.
  */
@@ -39,6 +45,33 @@ function agrupar(items: Item[]) {
 }
 
 /**
+ * Reemplaza cada promoción por sus componentes (cantidad × cantidad del
+ * componente). Una consulta mínima: solo busca componentes de los ids del
+ * movimiento, y si ninguno es promo devuelve los ítems tal cual. Se usa la
+ * composición actual de la promo (al anular una venta vieja de una promo que
+ * después se editó, vuelve lo que incluye hoy).
+ */
+export async function expandirPromociones(tx: Db, empresaId: number, items: Item[]): Promise<Item[]> {
+  const ids = [...new Set(items.map((i) => i.productoId).filter((id): id is number => id != null))];
+  if (ids.length === 0) return items;
+  const componentes = await tx.componentePromocion.findMany({
+    where: { empresaId, promocionId: { in: ids } },
+    select: { promocionId: true, productoId: true, cantidad: true },
+  });
+  if (componentes.length === 0) return items;
+  const porPromo = new Map<number, { productoId: number; cantidad: number }[]>();
+  for (const c of componentes) {
+    const lista = porPromo.get(c.promocionId) ?? [];
+    lista.push({ productoId: c.productoId, cantidad: c.cantidad });
+    porPromo.set(c.promocionId, lista);
+  }
+  return items.flatMap((item) => {
+    const comps = item.productoId != null ? porPromo.get(item.productoId) : undefined;
+    return comps ? comps.map((c) => ({ productoId: c.productoId, cantidad: c.cantidad * item.cantidad })) : [item];
+  });
+}
+
+/**
  * Saca los productos que NO controlan stock (controlaStock = false: verdura,
  * fiambre…). Esos no descuentan ni suman en ninguna operación, así que el resto
  * de las funciones trabaja solo con lo que queda. Una consulta mínima (solo
@@ -46,7 +79,9 @@ function agrupar(items: Item[]) {
  * Un id que no es de la empresa NO se saca acá: sigue de largo y las funciones
  * de abajo lo rechazan como "no válido", igual que siempre.
  */
-async function soloConControl(tx: Db, empresaId: number, items: Item[]): Promise<Item[]> {
+async function soloConControl(tx: Db, empresaId: number, itemsOriginales: Item[]): Promise<Item[]> {
+  // Primero las promos por sus componentes (la promo misma no controla stock).
+  const items = await expandirPromociones(tx, empresaId, itemsOriginales);
   const ids = [...new Set(items.map((i) => i.productoId).filter((id): id is number => id != null))];
   if (ids.length === 0) return items;
   const sinControl = await tx.producto.findMany({

@@ -27,6 +27,7 @@ import {
   registrarPedido,
   descontarStockSinVenta,
   verificarStockDisponible,
+  verificarStockPromocion,
   consultarCreditoCliente,
   type StockDisponibilidad,
   type CreditoCliente,
@@ -42,6 +43,7 @@ import { contenidoVisible } from "@/lib/rubro";
 import { Tag, Gift } from "lucide-react";
 import { avisar, confirmar, pedirTexto } from "@/components/ui/dialogos";
 import type { ResultadoVenta } from "@/lib/ventas";
+import { detallePromocion, unidadesNecesarias } from "@/lib/promociones-comun";
 import { useAtajosVenta, enfocarBuscadorProducto, ATAJO, elementoAtajo } from "@/lib/hooks/use-atajos-venta";
 import { BotonAtajos, Tecla } from "@/components/ventas/atajos-teclado";
 
@@ -117,6 +119,8 @@ function NuevaVentaContenido() {
     precioUnitarioArs: number;
     stock: StockDisponibilidad;
     unidadesQueriaVender: number;
+    /** Promos (#114): el producto incluido que no alcanza ("Coca-Cola · en Promo Fernet"). */
+    nombre?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -194,6 +198,8 @@ function NuevaVentaContenido() {
           .join(" "),
         precioUnitario: it.precioUnitarioArs,
         importe: Math.round(it.cantidad * it.precioUnitarioArs),
+        // Promo (#114): lo que incluye, en letra chica debajo.
+        detalle: it.producto.esPromocion && it.producto.componentes?.length ? detallePromocion(it.producto.componentes) : null,
       })),
       subtotal,
       descuento: descuento ? { monto: montoDescuento, porcentaje: descuento.tipo === "PORCENTAJE" ? descuento.valor : null } : null,
@@ -219,18 +225,62 @@ function NuevaVentaContenido() {
   // Línea que se tocó por última vez al agregar: la que mueven "+", "-" y Supr (#110).
   const ultimaLineaId = useRef<string | null>(null);
 
+  /** Unidades de cada producto que pide el carrito si se agrega 1 de `producto` (sueltos + incluidos en promos). */
+  function necesariasConUnoMas(producto: ProductoBusquedaDTO) {
+    return unidadesNecesarias([
+      ...carrito.map((it) => ({ productoId: it.producto.id, cantidad: it.cantidad, componentes: it.producto.componentes })),
+      { productoId: producto.id, cantidad: 1, componentes: producto.componentes },
+    ]);
+  }
+
+  /** Promoción (#114): tiene que alcanzar el stock de cada producto que incluye. */
+  async function intentarAgregarPromo(producto: ProductoBusquedaDTO, precioUnitarioArs: number) {
+    const todas = necesariasConUnoMas(producto);
+    const necesarias = (producto.componentes ?? []).map((c) => ({ productoId: c.productoId, cantidad: todas.get(c.productoId) ?? 0 }));
+    let faltante: Awaited<ReturnType<typeof verificarStockPromocion>> | undefined;
+    if (navigator.onLine) {
+      try {
+        faltante = await verificarStockPromocion(necesarias);
+      } catch {
+        faltante = undefined; // se cortó la red: se usa la copia local
+      }
+    }
+    if (faltante === undefined) {
+      // Sin conexión: cuántas promos se pueden armar según la copia local.
+      const promosEnCarrito = carrito.filter((it) => it.producto.id === producto.id).reduce((a, it) => a + it.cantidad, 0);
+      if (producto.stockActual >= promosEnCarrito + 1) faltante = null;
+      else
+        faltante = {
+          productoId: producto.id,
+          nombre: producto.nombre,
+          necesarias: promosEnCarrito + 1,
+          stock: { stockFisico: producto.stockActual, reservado: 0, disponible: producto.stockActual, alcanza: false },
+        };
+    }
+    if (!faltante) {
+      agregarAlCarrito(producto, precioUnitarioArs);
+      return;
+    }
+    setAdvertenciaStock({
+      producto,
+      precioUnitarioArs,
+      stock: faltante.stock,
+      unidadesQueriaVender: faltante.necesarias,
+      nombre: faltante.productoId === producto.id ? producto.nombre : `${faltante.nombre} · incluido en ${producto.nombre}`,
+    });
+  }
+
   async function intentarAgregar(producto: ProductoBusquedaDTO, precioUnitarioArs: number) {
+    if (producto.esPromocion) return intentarAgregarPromo(producto, precioUnitarioArs);
+
     // Sin control de stock (verdura, fiambre…): nada que verificar.
     if (producto.controlaStock === false) {
       agregarAlCarrito(producto, precioUnitarioArs);
       return;
     }
 
-    const yaEnCarrito = carrito
-      .filter((it) => it.producto.id === producto.id)
-      .reduce((acc, it) => acc + it.cantidad, 0);
-
-    const necesarias = yaEnCarrito + 1;
+    // Lo que ya hay en el carrito de este producto, suelto o dentro de promos (#114).
+    const necesarias = necesariasConUnoMas(producto).get(producto.id) ?? 1;
 
     let stock: StockDisponibilidad | null = null;
     if (navigator.onLine) {
@@ -253,7 +303,7 @@ function NuevaVentaContenido() {
     if (stock.alcanza) {
       agregarAlCarrito(producto, precioUnitarioArs);
     } else {
-      setAdvertenciaStock({ producto, precioUnitarioArs, stock, unidadesQueriaVender: yaEnCarrito + 1 });
+      setAdvertenciaStock({ producto, precioUnitarioArs, stock, unidadesQueriaVender: necesarias });
     }
   }
 
@@ -331,7 +381,13 @@ function NuevaVentaContenido() {
     setCarrito((prev) =>
       prev.map((it) => {
         if (it.id !== id) return it;
-        if (it.producto.controlaStock !== false && cantidad > it.producto.stockActual) {
+        if (it.producto.esPromocion) {
+          // Promo (#114): stockActual = cuántas se pueden armar con el stock de lo que incluye.
+          if (cantidad > it.producto.stockActual) {
+            toast.warning(`Con el stock actual se pueden armar ${it.producto.stockActual} de "${it.producto.nombre}"`);
+            return it;
+          }
+        } else if (it.producto.controlaStock !== false && cantidad > it.producto.stockActual) {
           toast.warning(`Solo hay ${it.producto.stockActual} unidades de "${it.producto.nombre}" en stock`);
           return it;
         }
@@ -826,7 +882,7 @@ function NuevaVentaContenido() {
       )}
       {advertenciaStock && (
         <ModalStockComprometido
-          nombreProducto={advertenciaStock.producto.nombre}
+          nombreProducto={advertenciaStock.nombre ?? advertenciaStock.producto.nombre}
           stock={advertenciaStock.stock}
           unidadesQueriaVender={advertenciaStock.unidadesQueriaVender}
           onCancelar={() => setAdvertenciaStock(null)}
