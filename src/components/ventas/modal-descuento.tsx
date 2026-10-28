@@ -73,7 +73,10 @@ export function ModalDescuento({ descuentoActual, onAplicar, onClose }: Props) {
             min="0"
             value={valor}
             onChange={(e) => setValor(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && aplicar()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") aplicar();
+              else if (e.key === "Escape") onClose();
+            }}
             placeholder={tipo === "PORCENTAJE" ? "Ej: 10" : "Ej: 5000"}
             className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
           />

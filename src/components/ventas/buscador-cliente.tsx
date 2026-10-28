@@ -123,6 +123,7 @@ export function BuscadorCliente() {
             }}
             onFocus={() => setAbierto(true)}
             onKeyDown={handleKeyDown}
+            data-atajo="buscar-cliente"
             placeholder="Buscar cliente..."
             className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none"
           />

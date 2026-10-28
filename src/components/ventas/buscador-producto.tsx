@@ -163,6 +163,7 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
             onChange={handleChange}
             onFocus={() => setAbierto(true)}
             onKeyDown={handleKeyDown}
+            data-atajo="buscar-producto"
             placeholder={textos.buscarProductoVenta}
             className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-9 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none"
           />
