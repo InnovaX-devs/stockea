@@ -21,7 +21,7 @@ Start el botón no aparece y las acciones del servidor rechazan el pedido.
 - Las plantillas (Excel y CSV) traen filas de ejemplo: hay que borrarlas antes de cargar los productos propios.
 - Marcas y categorías que no existen se crean solas (sin distinguir mayúsculas).
 - **Lo que ya existe no se toca**: mismo código de barras, mismo nombre o misma combinación de un
-  modelo se omiten. (Actualizar stock y precios de lo existente queda para una etapa posterior.)
+  modelo se omiten. (Para actualizar precios y otros datos de lo existente, ver [Actualizar productos desde CSV](ACTUALIZAR-PRODUCTOS-CSV.md); el stock se mueve con compras o ajustes.)
 - El stock se carga en la **sucursal actual**. En "Todas" solo se puede importar sin stock.
 - CSV: separado por coma, punto y coma o tabulación (se detecta solo); acepta UTF-8 y el CSV de Excel en español (Windows-1252). La plantilla se puede descargar en Excel o en CSV (`?formato=csv`).
 - Hasta 5.000 filas y 4 MB por archivo.

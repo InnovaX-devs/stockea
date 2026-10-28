@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { avisar } from "@/components/ui/dialogos";
+import { calcularNuevoPrecio, leerValorAjuste } from "@/lib/calculos/ajuste-precios";
 
 interface Producto {
   id: number;
@@ -15,7 +16,21 @@ interface Producto {
   precioVenta: number;
   precioMayorista?: number | null;
   precioOferta?: number | null;
+  monedaPrecio?: "ARS" | "USD";
 }
+
+type TipoPrecio = "costo" | "minorista" | "mayorista" | "oferta";
+
+/** Qué campo del producto es cada tipo de precio y cómo se llama en pantalla. */
+const TIPOS_PRECIO: { id: TipoPrecio; label: string; corto: string; campo: "precioCosto" | "precioVenta" | "precioMayorista" | "precioOferta" }[] = [
+  { id: "minorista", label: "Precio Venta (Minorista)", corto: "Venta", campo: "precioVenta" },
+  { id: "costo", label: "Precio Costo", corto: "Costo", campo: "precioCosto" },
+  { id: "mayorista", label: "Precio Mayorista", corto: "Mayorista", campo: "precioMayorista" },
+  { id: "oferta", label: "Precio Oferta", corto: "Oferta", campo: "precioOferta" },
+];
+
+const dinero = (n: number, moneda: "ARS" | "USD" = "ARS") =>
+  new Intl.NumberFormat("es-AR", { style: "currency", currency: moneda, minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 }).format(n);
 
 interface ItemFiltro {
   id: number;
@@ -43,9 +58,14 @@ export default function ActualizarPreciosPage() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   // Parámetros de Ajuste del Paso 2
+  // Mismo ajuste para todos, o uno distinto por producto.
+  const [modo, setModo] = useState<"TODOS" | "INDIVIDUAL">("TODOS");
   const [tipoAjuste, setTipoAjuste] = useState<"PORCENTAJE" | "VALOR_FIJO">("PORCENTAJE");
   const [valorAjuste, setValorAjuste] = useState<string>("");
-  const [tiposPrecio, setTiposPrecio] = useState<("costo" | "minorista" | "mayorista" | "oferta")[]>([
+  // Ajuste de cada producto (modo INDIVIDUAL), tal cual se escribió. Vacío = no se toca.
+  const [valores, setValores] = useState<Record<number, string>>({});
+  const [valorRapido, setValorRapido] = useState("");
+  const [tiposPrecio, setTiposPrecio] = useState<TipoPrecio[]>([
     "minorista",
   ]);
 
@@ -151,25 +171,59 @@ export default function ActualizarPreciosPage() {
     );
   };
 
-  const handleToggleTipoPrecio = (tipo: "costo" | "minorista" | "mayorista" | "oferta") => {
+  const handleToggleTipoPrecio = (tipo: TipoPrecio) => {
     setTiposPrecio((prev) =>
       prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]
     );
   };
 
+  // Productos elegidos en el paso 1, en el orden de la lista.
+  const productosSeleccionados = useMemo(
+    () => productos.filter((p) => selectedIds.includes(p.id)),
+    [productos, selectedIds]
+  );
+
+  // Modo INDIVIDUAL: cuántos tienen un ajuste cargado (los vacíos no se tocan).
+  const cantidadConAjuste = useMemo(
+    () => productosSeleccionados.filter((p) => typeof leerValorAjuste(valores[p.id] ?? "") === "number").length,
+    [productosSeleccionados, valores]
+  );
+
   // Enviar los cambios
   const handleConfirmarAjuste = async () => {
     setErrorMsg("");
-    const valorNum = parseFloat(valorAjuste);
-
-    if (isNaN(valorNum) || valorNum === 0) {
-      setErrorMsg("Ingresa un valor numérico válido y distinto de 0.");
-      return;
-    }
 
     if (tiposPrecio.length === 0) {
       setErrorMsg("Selecciona al menos un tipo de precio para aplicar.");
       return;
+    }
+
+    let cuerpo: Record<string, unknown>;
+    if (modo === "INDIVIDUAL") {
+      const ajustes: { productoId: number; valor: number }[] = [];
+      const invalidos: string[] = [];
+      for (const p of productosSeleccionados) {
+        const v = leerValorAjuste(valores[p.id] ?? "");
+        if (v === undefined) invalidos.push(p.nombre);
+        else if (v !== null) ajustes.push({ productoId: p.id, valor: v });
+      }
+      if (invalidos.length > 0) {
+        const lista = invalidos.slice(0, 3).join(", ") + (invalidos.length > 3 ? ` y ${invalidos.length - 3} más` : "");
+        setErrorMsg(`Revisá el ajuste de: ${lista}. Tiene que ser un número distinto de 0 (o dejalo vacío para no tocar ese producto).`);
+        return;
+      }
+      if (ajustes.length === 0) {
+        setErrorMsg("Ingresá el ajuste de al menos un producto.");
+        return;
+      }
+      cuerpo = { ajustes, tipoAjuste, tiposPrecio };
+    } else {
+      const valorNum = parseFloat(valorAjuste);
+      if (isNaN(valorNum) || valorNum === 0) {
+        setErrorMsg("Ingresa un valor numérico válido y distinto de 0.");
+        return;
+      }
+      cuerpo = { productoIds: selectedIds, tipoAjuste, valor: valorNum, tiposPrecio };
     }
 
     setIsSubmitting(true);
@@ -179,12 +233,7 @@ export default function ActualizarPreciosPage() {
       const res = await fetch("/api/productos/actualizar-precios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productoIds: selectedIds,
-          tipoAjuste,
-          valor: valorNum,
-          tiposPrecio,
-        }),
+        body: JSON.stringify(cuerpo),
       });
 
       const contentType = res.headers.get("content-type");
@@ -396,6 +445,35 @@ export default function ActualizarPreciosPage() {
           )}
 
           <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">¿Cómo querés ajustar?</label>
+            <div className="flex flex-col sm:flex-row gap-3">
+              {[
+                { id: "TODOS", titulo: "El mismo ajuste para todos", detalle: "Un solo porcentaje o monto para los productos elegidos." },
+                { id: "INDIVIDUAL", titulo: "Un ajuste distinto por producto", detalle: "Cargás el aumento de cada producto en una lista." },
+              ].map((o) => (
+                <label
+                  key={o.id}
+                  className={`flex flex-1 items-start gap-2 border p-3 rounded-lg cursor-pointer hover:bg-slate-50 ${
+                    modo === o.id ? "border-primary bg-primary/5" : ""
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="modoAjuste"
+                    checked={modo === o.id}
+                    onChange={() => setModo(o.id as "TODOS" | "INDIVIDUAL")}
+                    className="mt-1 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-slate-800">{o.titulo}</span>
+                    <span className="block text-xs text-slate-500">{o.detalle}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Tipo de Ajuste</label>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 border p-3 rounded-lg cursor-pointer hover:bg-slate-50">
@@ -424,6 +502,7 @@ export default function ActualizarPreciosPage() {
             </div>
           </div>
 
+          {modo === "TODOS" && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Valor del Ajuste {tipoAjuste === "PORCENTAJE" ? "(%)" : "($)"}
@@ -440,18 +519,14 @@ export default function ActualizarPreciosPage() {
               className="w-full sm:w-64 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Selecciona qué Precios se Modificarán:
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { id: "minorista", label: "Precio Venta (Minorista)" },
-                { id: "costo", label: "Precio Costo" },
-                { id: "mayorista", label: "Precio Mayorista" },
-                { id: "oferta", label: "Precio Oferta" },
-              ].map((item) => (
+              {TIPOS_PRECIO.map((item) => (
                 <label
                   key={item.id}
                   className="flex items-center gap-2 border p-3 rounded-lg cursor-pointer hover:bg-slate-50"
@@ -467,6 +542,107 @@ export default function ActualizarPreciosPage() {
               ))}
             </div>
           </div>
+
+          {modo === "INDIVIDUAL" && (
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Ajuste de cada producto</label>
+                  <p className="text-xs text-slate-500">
+                    Escribí el {tipoAjuste === "PORCENTAJE" ? "porcentaje (ej: 15, -10 o 7,5)" : "monto (ej: 500 o -200)"} de cada uno. Los que dejes vacíos no se modifican.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder={tipoAjuste === "PORCENTAJE" ? "Ej: 10" : "Ej: 500"}
+                    value={valorRapido}
+                    onChange={(e) => setValorRapido(e.target.value)}
+                    aria-label="Mismo valor para todos"
+                    className="w-24 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setValores(Object.fromEntries(productosSeleccionados.map((p) => [p.id, valorRapido])))}
+                    className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap"
+                  >
+                    Poner a todos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValores({});
+                      setValorRapido("");
+                    }}
+                    className="px-3 py-2 text-sm text-slate-500 hover:text-slate-700"
+                  >
+                    Limpiar
+                  </button>
+                </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <div className="overflow-auto max-h-[420px]">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-600 font-semibold z-10">
+                      <tr>
+                        <th className="py-2 px-4">Producto</th>
+                        <th className="py-2 px-4">Precio actual → nuevo</th>
+                        <th className="py-2 px-4 w-36">Ajuste {tipoAjuste === "PORCENTAJE" ? "(%)" : "($)"}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {productosSeleccionados.map((p) => {
+                        const texto = valores[p.id] ?? "";
+                        const v = leerValorAjuste(texto);
+                        return (
+                          <tr key={p.id} className="align-top">
+                            <td className="py-2 px-4 font-medium text-slate-800">{p.nombre}</td>
+                            <td className="py-2 px-4">
+                              <ul className="space-y-0.5 text-xs">
+                                {TIPOS_PRECIO.filter((t) => tiposPrecio.includes(t.id) && p[t.campo] != null).map((t) => {
+                                  const actual = p[t.campo] as number;
+                                  const nuevo = typeof v === "number" ? calcularNuevoPrecio(actual, tipoAjuste, v) : null;
+                                  return (
+                                    <li key={t.id} className="text-slate-500">
+                                      {t.corto}: {dinero(actual, p.monedaPrecio)}
+                                      {nuevo != null && (
+                                        <>
+                                          {" → "}
+                                          <span className="font-semibold text-slate-900">{dinero(nuevo, p.monedaPrecio)}</span>
+                                        </>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </td>
+                            <td className="py-2 px-4">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={texto}
+                                onChange={(e) => setValores((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                                aria-label={`Ajuste de ${p.nombre}`}
+                                aria-invalid={v === undefined}
+                                className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                                  v === undefined ? "border-rose-400 bg-rose-50" : "border-slate-300"
+                                }`}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">
+                {cantidadConAjuste} de {productosSeleccionados.length} producto(s) con ajuste.
+              </p>
+            </div>
+          )}
 
           <div className="flex justify-between items-center pt-4 border-t border-slate-200">
             <button
@@ -486,7 +662,7 @@ export default function ActualizarPreciosPage() {
             >
               {isSubmitting
                 ? "Actualizando..."
-                : `Aplicar Ajuste a ${selectedIds.length} Producto(s)`}
+                : `Aplicar Ajuste a ${modo === "INDIVIDUAL" ? cantidadConAjuste : selectedIds.length} Producto(s)`}
             </button>
           </div>
         </div>

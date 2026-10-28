@@ -9,9 +9,11 @@ import { ProductoFormModal, type ProductoFormData } from "@/components/productos
 import { PdfGeneratorModal } from "@/components/productos/pdf-generator-modal";
 import { EtiquetasModal } from "@/components/productos/etiquetas-modal";
 import { ImportarProductosModal } from "@/components/productos/importar-productos-modal";
+import { ActualizarCsvModal } from "@/components/productos/actualizar-csv-modal";
+import { MenuImportar } from "@/components/productos/menu-importar";
 import { useEsPremium } from "@/components/layout/plan-context";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Barcode, FileSpreadsheet, FileText, Search, SlidersHorizontal, Tag } from "lucide-react";
+import { Barcode, FileText, Search, SlidersHorizontal, Tag } from "lucide-react";
 import { CodigosBarrasModal } from "@/components/productos/codigos-barras-modal";
 import Link from "next/link";
 import { Pencil, ImageIcon, Ban, CheckCircle, X, ChevronRight, LayoutGrid, Shirt } from "lucide-react";
@@ -127,6 +129,7 @@ export default function ProductosAdmin() {
   const [isEtiquetasOpen, setIsEtiquetasOpen] = useState(false);
   const [isCodigosOpen, setIsCodigosOpen] = useState(false); // #106
   const [isImportarOpen, setIsImportarOpen] = useState(false);
+  const [isActualizarCsvOpen, setIsActualizarCsvOpen] = useState(false);
   const premium = useEsPremium(); // etiquetas de góndola: solo plan Premium
   const [imagenPreview, setImagenPreview] = useState<string | null>(null);
   const [desactivandoId, setDesactivandoId] = useState<string | null>(null);
@@ -943,16 +946,7 @@ export default function ProductosAdmin() {
             <FileText className="h-4 w-4 shrink-0" />
             <span className="truncate">Generar PDF</span>
           </button>
-          {premium && (
-          <button
-            type="button"
-            onClick={() => setIsImportarOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-white px-4 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover cursor-pointer"
-          >
-            <FileSpreadsheet className="h-4 w-4 shrink-0" />
-            <span className="truncate">Importar productos</span>
-          </button>
-          )}
+          {premium && <MenuImportar onImportar={() => setIsImportarOpen(true)} onActualizar={() => setIsActualizarCsvOpen(true)} />}
           {premium && (
           <button
             type="button"
@@ -1376,6 +1370,7 @@ export default function ProductosAdmin() {
         onCodigosGenerados={cargarProductos}
       />
       {premium && <ImportarProductosModal abierto={isImportarOpen} onCerrar={() => setIsImportarOpen(false)} onImportado={cargarProductos} permiteUSD={configProducto.usaCotizacionUSD} />}
+      {premium && <ActualizarCsvModal abierto={isActualizarCsvOpen} onCerrar={() => setIsActualizarCsvOpen(false)} onActualizado={cargarProductos} />}
 
       <ConfirmDialog
         isOpen={!!productoADesactivar}
