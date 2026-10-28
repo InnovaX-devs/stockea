@@ -52,7 +52,7 @@ export class ErrorArchivo extends Error {}
 // Lectura del archivo
 // ---------------------------------------------------------------------------
 
-type Celda = string | number | null;
+export type Celda = string | number | null;
 type FilaCruda = { fila: number; celdas: Map<CampoImportacion, Celda> };
 
 /** Valor simple de una celda (texto enriquecido, fórmulas, hipervínculos, fechas…). */
@@ -71,7 +71,7 @@ function valorCelda(v: ExcelJS.CellValue): Celda {
   return null;
 }
 
-function textoDe(c: Celda): string | null {
+export function textoDe(c: Celda): string | null {
   if (c == null) return null;
   // Un código de barras numérico (7791234567890) no debe terminar en notación científica.
   const t = typeof c === "number" ? (Number.isInteger(c) ? c.toFixed(0) : String(c)) : c;
@@ -120,7 +120,7 @@ async function grillasDeExcel(buffer: Buffer): Promise<Grilla[]> {
 }
 
 /** Texto del CSV: UTF-8 (con o sin BOM) o, si no lo es, Windows-1252 (el "CSV" de Excel en Argentina). */
-function decodificarCsv(buffer: Buffer): string {
+export function decodificarCsv(buffer: Buffer): string {
   if (buffer.includes(0)) throw new ErrorArchivo("El archivo no es un CSV ni un Excel .xlsx válido.");
   let texto: string;
   try {
