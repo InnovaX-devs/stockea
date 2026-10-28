@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
 
     const where: Prisma.ProductoWhereInput = {
       empresaId,
+      esPromocion: false, // las promociones tienen su sección (#114)
       ...(q ? { nombre: { contains: q, mode: "insensitive" } } : {}),
     };
 

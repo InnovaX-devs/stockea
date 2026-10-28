@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { detallePromocion } from "@/lib/promociones-comun";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { prisma } from "@/lib/prisma";
 import { obtenerConfiguracion } from "@/lib/configuracion";
@@ -73,7 +74,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         comprobantes: { where: { estado: "AUTORIZADO", tipo: { in: [1, 6, 11] } }, orderBy: { id: "desc" }, take: 1 },
         items: {
           include: {
-            producto: { select: { nombre: true, contenido: true, unidadContenido: true } },
+            producto: {
+              select: {
+                nombre: true,
+                contenido: true,
+                unidadContenido: true,
+                esPromocion: true,
+                componentes: {
+                  orderBy: { id: "asc" },
+                  select: { cantidad: true, producto: { select: { nombre: true, contenido: true, unidadContenido: true } } },
+                },
+              },
+            },
           },
         },
         pagos: {
@@ -104,6 +116,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             .filter(Boolean)
             .join(" ")
         : (item.descripcionLibre ?? "Producto"),
+      // Promoción (#114): lo que incluye.
+      detalle: item.producto?.esPromocion
+        ? detallePromocion(
+            item.producto.componentes.map((c) => ({
+              cantidad: c.cantidad,
+              nombre: [c.producto.nombre, contenidoVisible(configuracion.rubro, c.producto.contenido, c.producto.unidadContenido)]
+                .filter(Boolean)
+                .join(" "),
+            }))
+          )
+        : null,
       tipoPrecio: item.tipoPrecio,
       cantidad: item.cantidad,
       precioUnitarioARS: item.precioUnitarioUSD * venta.cotizacionUsada,

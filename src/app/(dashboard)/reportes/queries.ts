@@ -6,8 +6,10 @@ import {
   calcularTopProductos,
   calcularTopClientes,
   claveFecha,
-  costoEstimadoDeLinea,
   costoHistoricoDelProducto,
+  costoUnitarioLineaARS,
+  idsParaHistorialDeCosto,
+  SELECT_PRODUCTO_COSTO,
   enriquecerVentas,
   type VentaParaReporte,
 } from "@/lib/reportes";
@@ -48,7 +50,7 @@ export async function obtenerReporte(rango: RangoFechas): Promise<ReporteData> {
             precioUnitarioUSD: true,
             tipoPrecio: true,
             producto: {
-              select: { id: true, nombre: true, fotoUrl: true, precioCosto: true, monedaPrecio: true, precioAbierto: true, costoEstimadoPct: true },
+              select: { ...SELECT_PRODUCTO_COSTO, nombre: true, fotoUrl: true },
             },
           },
         },
@@ -62,9 +64,8 @@ export async function obtenerReporte(rango: RangoFechas): Promise<ReporteData> {
 
   const cotizacionActual = config?.cotizacionUSD ?? 1000;
 
-  const productoIds = Array.from(
-    new Set(ventasRaw.flatMap((v) => v.items.map((i) => i.productoId).filter((id): id is number => id != null)))
-  );
+  // Incluye los componentes de las promos (#114): su costo es la suma de esos costos.
+  const productoIds = idsParaHistorialDeCosto(ventasRaw.flatMap((v) => v.items.map((i) => i.producto)));
 
   // historial y movimientosEgreso son independientes entre sí -> en paralelo.
   const [historial, movimientosEgreso] = await Promise.all([
@@ -98,20 +99,12 @@ export async function obtenerReporte(rango: RangoFechas): Promise<ReporteData> {
     clienteId: v.cliente?.id ?? null,
     clienteNombre: v.cliente ? `${v.cliente.nombre} ${v.cliente.apellido ?? ""}`.trim() : null,
     items: v.items.map((item) => {
-      let costoUnitarioARS = 0;
-
-      if (item.producto?.precioAbierto) {
-        // Precio abierto: no hay un costo fijo, se estima como % del precio vendido.
-        costoUnitarioARS = costoEstimadoDeLinea(item.precioUnitarioUSD * v.cotizacionUsada, item.producto.costoEstimadoPct);
-      } else if (item.producto) {
-        const costoBase = costoHistoricoDelProducto(
-          historialPorProducto.get(item.producto.id),
-          item.producto.precioCosto,
-          v.fecha
-        );
-        costoUnitarioARS =
-          item.producto.monedaPrecio === "USD" ? costoBase * v.cotizacionUsada : costoBase;
-      }
+      // Precio abierto: % estimado; promo: suma de sus componentes; el resto, su costo (histórico).
+      const costoUnitarioARS = item.producto
+        ? costoUnitarioLineaARS(item.producto, item.precioUnitarioUSD * v.cotizacionUsada, v.cotizacionUsada, (p) =>
+            costoHistoricoDelProducto(historialPorProducto.get(p.id), p.precioCosto, v.fecha)
+          )
+        : 0;
 
       return {
         productoId: item.productoId,
@@ -192,7 +185,7 @@ export async function obtenerKpisDelDia(rango: RangoFechas): Promise<{ gananciaN
             precioUnitarioUSD: true,
             tipoPrecio: true,
             producto: {
-              select: { id: true, precioCosto: true, monedaPrecio: true, precioAbierto: true, costoEstimadoPct: true },
+              select: SELECT_PRODUCTO_COSTO,
             },
           },
         },
@@ -206,9 +199,8 @@ export async function obtenerKpisDelDia(rango: RangoFechas): Promise<{ gananciaN
 
   const cotizacionActual = config?.cotizacionUSD ?? 1000;
 
-  const productoIds = Array.from(
-    new Set(ventasRaw.flatMap((v) => v.items.map((i) => i.productoId).filter((id): id is number => id != null)))
-  );
+  // Incluye los componentes de las promos (#114): su costo es la suma de esos costos.
+  const productoIds = idsParaHistorialDeCosto(ventasRaw.flatMap((v) => v.items.map((i) => i.producto)));
 
   const [historial, movimientosEgreso] = await Promise.all([
     productoIds.length
@@ -241,18 +233,12 @@ export async function obtenerKpisDelDia(rango: RangoFechas): Promise<{ gananciaN
     clienteId: null,
     clienteNombre: null,
     items: v.items.map((item) => {
-      let costoUnitarioARS = 0;
-      if (item.producto?.precioAbierto) {
-        costoUnitarioARS = costoEstimadoDeLinea(item.precioUnitarioUSD * v.cotizacionUsada, item.producto.costoEstimadoPct);
-      } else if (item.producto) {
-        const costoBase = costoHistoricoDelProducto(
-          historialPorProducto.get(item.producto.id),
-          item.producto.precioCosto,
-          v.fecha
-        );
-        costoUnitarioARS =
-          item.producto.monedaPrecio === "USD" ? costoBase * v.cotizacionUsada : costoBase;
-      }
+      // Precio abierto: % estimado; promo: suma de sus componentes; el resto, su costo (histórico).
+      const costoUnitarioARS = item.producto
+        ? costoUnitarioLineaARS(item.producto, item.precioUnitarioUSD * v.cotizacionUsada, v.cotizacionUsada, (p) =>
+            costoHistoricoDelProducto(historialPorProducto.get(p.id), p.precioCosto, v.fecha)
+          )
+        : 0;
       return {
         productoId: item.productoId,
         cantidad: item.cantidad,

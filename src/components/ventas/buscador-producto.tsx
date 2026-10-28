@@ -10,6 +10,7 @@ import { useVenta } from "@/components/ventas/venta-context";
 import { buscarProductos } from "@/lib/offline/buscar";
 import { useRubro } from "@/components/layout/rubro-context";
 import { contenidoVisible } from "@/lib/rubro";
+import { detallePromocion } from "@/lib/promociones-comun";
 import { agruparResultados, type FilaBusqueda } from "@/lib/agrupar-variantes";
 import { SelectorVariante } from "@/components/ventas/selector-variante";
 import { MiniaturaProducto, VisorFoto, type FotoAmpliada } from "@/components/ventas/miniatura-producto";
@@ -227,17 +228,25 @@ export function BuscadorProducto({ onSeleccionar }: Props) {
                 >
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate font-medium text-text">
+                      {fila.producto.esPromocion && (
+                        <span className="mr-1.5 rounded bg-primary/10 px-1.5 py-0.5 align-middle text-[10px] font-semibold uppercase text-primary">
+                          Promo
+                        </span>
+                      )}
                       {fila.producto.nombre}
                       {fila.producto.marca && <span className="ml-1 text-text-dim">· {fila.producto.marca.nombre}</span>}
                     </span>
                     <span className="truncate text-xs text-text-dim">
-                      {[
-                        contenidoVisible(rubro, fila.producto.contenido, fila.producto.unidadContenido),
-                        fila.producto.controlaStock === false ? null : `Stock: ${fila.producto.stockActual}`,
-                        fila.producto.codigoBarras,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
+                      {fila.producto.esPromocion
+                        ? // Promo (#114): lo que incluye y cuántas se pueden armar.
+                          [detallePromocion(fila.producto.componentes ?? []), `Se pueden armar: ${fila.producto.stockActual}`].join(" · ")
+                        : [
+                            contenidoVisible(rubro, fila.producto.contenido, fila.producto.unidadContenido),
+                            fila.producto.controlaStock === false ? null : `Stock: ${fila.producto.stockActual}`,
+                            fila.producto.codigoBarras,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
                     </span>
                   </span>
                   <span className="shrink-0 text-sm font-semibold text-text">

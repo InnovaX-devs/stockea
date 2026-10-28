@@ -26,6 +26,11 @@ export type ProductoLocal = {
   modeloNombre: string | null;
   talle: string | null;
   color: string | null;
+  /** Promoción (#114): lo que incluye y su vigencia (ms; null = sin fecha). Ausente = producto común. */
+  esPromocion?: boolean;
+  componentes?: { productoId: number; cantidad: number; nombre: string }[];
+  vigenciaDesde?: number | null;
+  vigenciaHasta?: number | null;
   /** nombre + marca + código, en minúsculas y sin acentos, para buscar. */
   busqueda: string;
 };
@@ -168,10 +173,41 @@ class StockeaDB extends Dexie {
         outbox: "++id, &idCliente, estado, empresaId",
       })
       .upgrade((tx) => tx.table("meta").delete("ultimaCompleta"));
+    // v7 (#114): promociones con sus componentes y vigencia (no son índices).
+    // Se fuerza una sincronización completa para traerlas.
+    this.version(7)
+      .stores({
+        productos: "id, codigoBarras, modeloId",
+        clientes: "id, telefono",
+        cuentas: "id",
+        meta: "clave",
+        outbox: "++id, &idCliente, estado, empresaId",
+      })
+      .upgrade((tx) => tx.table("meta").delete("ultimaCompleta"));
   }
 }
 
 export const db = new StockeaDB();
+
+/**
+ * Promociones (#114): cada promo se reemplaza por lo que incluye (según la
+ * copia local), igual que hace el servidor en src/lib/stock.ts.
+ */
+export async function expandirPromocionesLocal<T extends { productoId: number; cantidad: number }>(
+  items: T[]
+): Promise<{ productoId: number; cantidad: number }[]> {
+  const ids = [...new Set(items.map((i) => i.productoId))];
+  const promos = new Map(
+    (await db.productos.bulkGet(ids))
+      .filter((p): p is ProductoLocal => !!p && p.esPromocion === true && (p.componentes?.length ?? 0) > 0)
+      .map((p) => [p.id, p.componentes!])
+  );
+  if (promos.size === 0) return items;
+  return items.flatMap((i) => {
+    const comps = promos.get(i.productoId);
+    return comps ? comps.map((c) => ({ productoId: c.productoId, cantidad: c.cantidad * i.cantidad })) : [i];
+  });
+}
 
 export async function leerMeta<T>(clave: string): Promise<T | undefined> {
   return (await db.meta.get(clave))?.valor as T | undefined;

@@ -7,6 +7,7 @@ import { filtroCuentasDeSucursal } from "@/lib/cuenta-sucursal";
 import { conStockDeSucursal } from "@/lib/stock-sucursal";
 import { esFotoPermitida } from "@/lib/fotos";
 import { obtenerConfiguracion } from "@/lib/configuracion";
+import { contenidoVisible } from "@/lib/rubro";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,8 @@ export async function GET(request: NextRequest) {
   // La copia del catálogo para vender sin conexión es del plan Premium.
   // (La subida de ventas que ya quedaron en cola, /api/sync/ventas, no se
   // bloquea: si una empresa baja de plan, esas ventas no se pierden.)
-  if (!(await obtenerConfiguracion()).habilitarSinConexion) {
+  const configuracion = await obtenerConfiguracion();
+  if (!configuracion.habilitarSinConexion) {
     return NextResponse.json({ error: "Vender sin conexión está disponible en el plan Pro." }, { status: 403 });
   }
   const { actual } = await obtenerContextoSucursal();
@@ -47,6 +49,8 @@ export async function GET(request: NextRequest) {
 
   const whereProductos: Prisma.ProductoWhereInput = {
     empresaId,
+    // Promociones (#114): solo si el plan las incluye.
+    ...(configuracion.habilitarPromociones ? {} : { esPromocion: false }),
     ...(cambios
       ? {
           OR: [
@@ -79,6 +83,13 @@ export async function GET(request: NextRequest) {
         talle: true,
         color: true,
         modelo: { select: { nombre: true } },
+        esPromocion: true,
+        vigenciaDesde: true,
+        vigenciaHasta: true,
+        componentes: {
+          orderBy: { id: "asc" },
+          select: { cantidad: true, producto: { select: { id: true, nombre: true, contenido: true, unidadContenido: true } } },
+        },
       },
     }),
     prisma.cliente.findMany({
@@ -97,8 +108,22 @@ export async function GET(request: NextRequest) {
   ]);
 
   // Stock de la sucursal actual (o total si es "Todas" / sucursal única).
-  const productos = (await conStockDeSucursal(productosDb)).map(({ marca, modelo, ...p }) => ({
+  const productos = (await conStockDeSucursal(productosDb)).map(({ marca, modelo, componentes, vigenciaDesde, vigenciaHasta, ...p }) => ({
     ...p,
+    // Promoción (#114): lo que incluye y la vigencia, para venderla sin conexión.
+    ...(p.esPromocion
+      ? {
+          componentes: componentes.map((c) => ({
+            productoId: c.producto.id,
+            cantidad: c.cantidad,
+            nombre: [c.producto.nombre, contenidoVisible(configuracion.rubro, c.producto.contenido, c.producto.unidadContenido)]
+              .filter(Boolean)
+              .join(" "),
+          })),
+          vigenciaDesde: vigenciaDesde?.getTime() ?? null,
+          vigenciaHasta: vigenciaHasta?.getTime() ?? null,
+        }
+      : {}),
     // Solo la URL (no la imagen) va a la copia local; solo hosts de Vercel Blob.
     fotoUrl: esFotoPermitida(p.fotoUrl) ? p.fotoUrl : null,
     marcaNombre: marca?.nombre ?? null,

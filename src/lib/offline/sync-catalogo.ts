@@ -1,4 +1,4 @@
-import { db, leerMeta, normalizar, type CuentaLocal, type ProductoLocal } from "./db";
+import { db, expandirPromocionesLocal, leerMeta, normalizar, type CuentaLocal, type ProductoLocal } from "./db";
 
 /** Cada cuánto se baja una copia completa (limpia clientes borrados, marcas renombradas, etc.). */
 const COMPLETA_CADA_MS = 24 * 60 * 60 * 1000;
@@ -65,6 +65,10 @@ async function ejecutar() {
           modeloNombre: p.modeloNombre ?? null,
           talle: p.talle ?? null,
           color: p.color ?? null,
+          esPromocion: p.esPromocion ?? false,
+          componentes: p.componentes ?? [],
+          vigenciaDesde: p.vigenciaDesde ?? null,
+          vigenciaHasta: p.vigenciaHasta ?? null,
           busqueda: normalizar(`${p.nombre} ${p.marcaNombre ?? ""} ${p.codigoBarras ?? ""}`),
         };
       })
@@ -90,7 +94,8 @@ async function ejecutar() {
     const descontar = new Map<number, number>();
     for (const v of sinSubir) {
       if (v.empresaId !== alcanceActual) continue;
-      for (const i of v.venta.items) {
+      // Promos (#114): se descuentan los productos que incluyen.
+      for (const i of await expandirPromocionesLocal(v.venta.items)) {
         if (pisados && !pisados.has(i.productoId)) continue;
         descontar.set(i.productoId, (descontar.get(i.productoId) ?? 0) + i.cantidad);
       }

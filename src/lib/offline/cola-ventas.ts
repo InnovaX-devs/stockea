@@ -1,6 +1,6 @@
 import { liveQuery } from "dexie";
 import { toast } from "sonner";
-import { db, leerAlcance, pedirAlmacenamientoPersistente, type PayloadVentaLocal, type VentaLocal } from "./db";
+import { db, expandirPromocionesLocal, leerAlcance, pedirAlmacenamientoPersistente, type PayloadVentaLocal, type VentaLocal } from "./db";
 import { fijarVentasConError, fijarVentasPendientes } from "./estado-conexion";
 import { sincronizarCatalogo } from "./sync-catalogo";
 
@@ -73,8 +73,9 @@ export async function encolarVenta(datos: DatosVentaLocal): Promise<VentaLocal> 
   return entrada;
 }
 
-/** Suma (+1) o resta (-1) a la copia local del stock; puede quedar negativo. */
-async function ajustarStockLocal(items: PayloadVentaLocal["items"], signo: 1 | -1) {
+/** Suma (+1) o resta (-1) a la copia local del stock; puede quedar negativo. Las promos (#114) mueven lo que incluyen. */
+async function ajustarStockLocal(itemsVenta: PayloadVentaLocal["items"], signo: 1 | -1) {
+  const items = await expandirPromocionesLocal(itemsVenta);
   const porProducto = new Map<number, number>();
   for (const i of items) porProducto.set(i.productoId, (porProducto.get(i.productoId) ?? 0) + i.cantidad);
   for (const [id, cantidad] of porProducto) {

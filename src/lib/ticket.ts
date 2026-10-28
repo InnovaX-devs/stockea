@@ -32,7 +32,14 @@ export type NegocioTicket = {
   cuit: string | null;
 };
 
-export type ItemTicket = { cantidad: number; nombre: string; precioUnitario: number; importe: number };
+export type ItemTicket = {
+  cantidad: number;
+  nombre: string;
+  precioUnitario: number;
+  importe: number;
+  /** Promoción (#114): lo que incluye ("1 × Fernet · 2 × Coca"), en letra chica debajo. */
+  detalle?: string | null;
+};
 
 export type DatosTicket = {
   negocio: NegocioTicket;
@@ -177,6 +184,7 @@ export function armarTicket(t: DatosTicket, config: Pick<ConfigTicket, "ancho" |
       partes.push(`<div class="stk-item">${cantidadTexto(it.cantidad)} x ${escapar(it.nombre)}</div>`);
       partes.push(fila(`<span class="stk-chico">&nbsp;&nbsp;${pesosTicket(it.precioUnitario)} c/u</span>`, pesosTicket(it.importe)));
     }
+    if (it.detalle) partes.push(`<div class="stk-chico">&nbsp;&nbsp;${escapar(it.detalle)}</div>`);
   }
   partes.push(`<div class="stk-sep"></div>`);
 

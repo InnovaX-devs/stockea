@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     // Obtener los productos actuales a actualizar (solo de esta empresa —
     // si algún id de productoIds pertenece a otra empresa, queda afuera).
     const productos = await prisma.producto.findMany({
-      where: { id: { in: productoIds }, empresaId },
+      where: { id: { in: productoIds }, empresaId, esPromocion: false },
     });
 
     if (productos.length === 0) {

@@ -12,6 +12,7 @@ import { siguienteNumero } from "@/lib/numeracion";
 import { descontarStock, descontarStockPermitiendoNegativo } from "@/lib/stock";
 import { requerirSucursalId } from "@/lib/sucursal";
 import { validarCuentaParaSucursal } from "@/lib/cuenta-sucursal";
+import { promocionVendible } from "@/lib/promociones-comun";
 
 /**
  * Alta de una venta o pedido. Vive acá (y no en la server action) para que la
@@ -270,10 +271,23 @@ export async function crearVentaInterna(
       if (productoIdsDelCarrito.length > 0) {
         const productosDelCarrito = await tx.producto.findMany({
           where: { id: { in: productoIdsDelCarrito }, empresaId },
-          select: { id: true, nombre: true, precioAbierto: true },
+          select: { id: true, nombre: true, precioAbierto: true, esPromocion: true, activo: true, vigenciaDesde: true, vigenciaHasta: true },
         });
         if (productosDelCarrito.length !== productoIdsDelCarrito.length) {
           throw new Error("Uno o más productos del carrito no son válidos.");
+        }
+
+        // 0.55 Promociones (#114): del plan Pro, y solo las activas y vigentes.
+        //      Una venta hecha sin conexión (ya pasó en el mostrador) se acepta
+        //      aunque la promo se haya pausado o vencido mientras tanto.
+        const promos = productosDelCarrito.filter((p) => p.esPromocion);
+        const yaPasoEnElMostrador = opciones.omitirControlCaja === true;
+        if (promos.length > 0 && !yaPasoEnElMostrador) {
+          if (!configuracionActual.habilitarPromociones) {
+            throw new Error("Las promociones están disponibles en el plan Pro.");
+          }
+          const noVendible = promos.find((p) => !promocionVendible(p));
+          if (noVendible) throw new Error(`La promoción "${noVendible.nombre}" está pausada o fuera de su vigencia.`);
         }
 
         // 0.6 Productos de precio abierto (verdura, fiambre…): el precio no sale

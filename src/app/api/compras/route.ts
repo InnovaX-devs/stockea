@@ -183,7 +183,8 @@ export async function POST(request: NextRequest) {
 
     const productoIds = [...new Set(items.map((it) => it.productoId))];
     const productosValidos = await prisma.producto.count({
-      where: { id: { in: productoIds }, empresaId },
+      // Una promoción no se compra: se compran los productos sueltos (#114).
+      where: { id: { in: productoIds }, empresaId, esPromocion: false },
     });
     if (productosValidos !== productoIds.length) {
       return NextResponse.json({ error: "Uno o más productos no son válidos" }, { status: 400 });

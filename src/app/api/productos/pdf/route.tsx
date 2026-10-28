@@ -129,6 +129,8 @@ export async function GET(request: NextRequest) {
     activo: true,
     // Los de precio abierto (verdura, fiambre…) no tienen precio para listar.
     precioAbierto: false,
+    // Las promociones no van en el catálogo / lista de precios (#114).
+    esPromocion: false,
     ...filtroCategoria,
     ...(tipoPrecio === "MAYORISTA" ? { precioMayorista: { not: null } } : {}),
   };

@@ -2,6 +2,7 @@ import type { ProductoBusquedaDTO } from "@/types/producto";
 import type { CuentaDTO } from "@/types/cuenta";
 import { buscarClientesRapido, type ClienteBusquedaResult } from "@/lib/clientes-busqueda";
 import { db, leerMeta, normalizar, type ProductoLocal } from "./db";
+import { cuantasSePuedenArmar, promocionVendible } from "@/lib/promociones-comun";
 
 const MAX_RESULTADOS = 10;
 /** Productos: se traen más porque las combinaciones de un modelo se agrupan en una fila (ver agrupar-variantes.ts). */
@@ -27,7 +28,31 @@ function aDTO(p: ProductoLocal): ProductoBusquedaDTO {
     modeloNombre: p.modeloNombre ?? null,
     talle: p.talle ?? null,
     color: p.color ?? null,
+    ...(p.esPromocion ? { esPromocion: true, componentes: p.componentes ?? [] } : {}),
   };
+}
+
+/**
+ * Promociones (#114) en la copia local: solo las vigentes, y su "stock" es
+ * cuántas se pueden armar con el stock local de lo que incluyen.
+ */
+async function conPromosLocales(lista: ProductoLocal[]): Promise<ProductoBusquedaDTO[]> {
+  const ahora = new Date();
+  const visibles = lista.filter(
+    (p) => !p.esPromocion || promocionVendible({ activo: true, vigenciaDesde: p.vigenciaDesde, vigenciaHasta: p.vigenciaHasta }, ahora)
+  );
+  const idsComponentes = [...new Set(visibles.flatMap((p) => (p.esPromocion ? (p.componentes ?? []).map((c) => c.productoId) : [])))];
+  const stock = new Map(
+    (await db.productos.bulkGet(idsComponentes)).filter((p): p is ProductoLocal => !!p).map((p) => [p.id, p.stockActual])
+  );
+  return visibles.map((p) => {
+    const dto = aDTO(p);
+    if (!p.esPromocion) return dto;
+    return {
+      ...dto,
+      stockActual: cuantasSePuedenArmar((p.componentes ?? []).map((c) => ({ cantidad: c.cantidad, stock: stock.get(c.productoId) ?? 0 }))),
+    };
+  });
 }
 
 export async function buscarProductosLocal(q: string): Promise<ProductoBusquedaDTO[]> {
@@ -39,7 +64,7 @@ export async function buscarProductosLocal(q: string): Promise<ProductoBusquedaD
     db.productos.filter((p) => p.busqueda.includes(n)).sortBy("nombre"),
   ]);
   const lista = exacto ? [exacto, ...coincidencias.filter((p) => p.id !== exacto.id)] : coincidencias;
-  return lista.slice(0, MAX_PRODUCTOS).map(aDTO);
+  return conPromosLocales(lista.slice(0, MAX_PRODUCTOS));
 }
 
 /** Todas las combinaciones (talle × color) de un modelo en la copia local. */
@@ -74,7 +99,8 @@ export async function buscarClientesLocal(q: string): Promise<ClienteBusquedaRes
 export async function buscarProductos(q: string, signal?: AbortSignal) {
   if (navigator.onLine) {
     try {
-      const res = await fetch(`/api/productos/buscar?q=${encodeURIComponent(q)}&agrupar=1`, { signal });
+      // promos=1: el buscador de Nueva venta también muestra las promociones vigentes (#114).
+      const res = await fetch(`/api/productos/buscar?q=${encodeURIComponent(q)}&agrupar=1&promos=1`, { signal });
       if (res.ok) return { items: ((await res.json()).items ?? []) as ProductoBusquedaDTO[], local: false };
     } catch (err) {
       if ((err as Error).name === "AbortError") throw err;
