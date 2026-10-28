@@ -42,6 +42,8 @@ import { contenidoVisible } from "@/lib/rubro";
 import { Tag, Gift } from "lucide-react";
 import { avisar, confirmar, pedirTexto } from "@/components/ui/dialogos";
 import type { ResultadoVenta } from "@/lib/ventas";
+import { useAtajosVenta, enfocarBuscadorProducto, ATAJO, elementoAtajo } from "@/lib/hooks/use-atajos-venta";
+import { BotonAtajos, Tecla } from "@/components/ventas/atajos-teclado";
 
 
 export default function NuevaVentaPage() {
@@ -214,6 +216,9 @@ function NuevaVentaContenido() {
   }
   const accionTicket = (ticket: DatosTicket) => ({ label: "Ticket", onClick: () => void imprimirTicket(ticket) });
 
+  // Línea que se tocó por última vez al agregar: la que mueven "+", "-" y Supr (#110).
+  const ultimaLineaId = useRef<string | null>(null);
+
   async function intentarAgregar(producto: ProductoBusquedaDTO, precioUnitarioArs: number) {
     // Sin control de stock (verdura, fiambre…): nada que verificar.
     if (producto.controlaStock === false) {
@@ -275,6 +280,7 @@ function NuevaVentaContenido() {
     };
     setCarrito((prev) => {
       const existente = prev.find((it) => mismaLinea(it, producto, precioUnitarioArs));
+      ultimaLineaId.current = existente?.id ?? nuevoItem.id;
       return existente
         ? prev.map((it) => (it.id === existente.id ? { ...it, cantidad: it.cantidad + 1 } : it))
         : [...prev, nuevoItem];
@@ -298,6 +304,7 @@ function NuevaVentaContenido() {
       precioUnitarioArs: montoArs,
     };
     setCarrito((prev) => [...prev, nuevoItem]);
+    ultimaLineaId.current = nuevoItem.id;
     setProductoMonto(null);
     toast.success(`${producto.nombre} agregado (${formatCurrency(montoArs, "ARS")})`);
   }
@@ -387,6 +394,9 @@ function NuevaVentaContenido() {
     setModoCobro("UNICA");
     setCliente(null);
     setPresupuestoIdOrigen(null);
+    ultimaLineaId.current = null;
+    // Lista para la próxima venta: el cursor vuelve al buscador de productos.
+    setTimeout(enfocarBuscadorProducto, 0);
   }
 
   async function handleDescontarStock() {
@@ -628,6 +638,48 @@ function NuevaVentaContenido() {
     if (facturacion?.disponible && emitirFactura) await facturarLaVenta(resultado.ventaId);
   }
 
+  // --- Atajos de teclado (#110) ---
+  function ultimaLinea(): ItemCarrito | null {
+    return carrito.find((it) => it.id === ultimaLineaId.current) ?? carrito[carrito.length - 1] ?? null;
+  }
+  function conCarrito(accion: () => void) {
+    return () => (carrito.length === 0 ? toast.info("Primero agregá productos a la venta.") : accion());
+  }
+  useAtajosVenta({
+    buscarProducto: () => elementoAtajo<HTMLInputElement>(ATAJO.buscarProducto)?.focus(),
+    buscarCliente: () => {
+      const input = elementoAtajo<HTMLInputElement>(ATAJO.buscarCliente);
+      if (input) input.focus();
+      else toast.info("Ya hay un cliente elegido. Quitalo para buscar otro.");
+    },
+    consultarPrecio: () => setModalPrecioAbierto(true),
+    descuento: conCarrito(() => setModalDescuentoAbierto(true)),
+    medioDePago: conCarrito(() => {
+      // La primera fila sin cuenta elegida; si ya están todas, la primera.
+      const botones = Array.from(document.querySelectorAll<HTMLButtonElement>(`[data-atajo="${ATAJO.medioDePago}"]`));
+      (botones.find((b) => b.dataset.sinCuenta === "true") ?? botones[0])?.click();
+    }),
+    confirmar: () => {
+      if (!procesando) void handleConfirmarVenta();
+    },
+    sumarUltimo: () => {
+      const it = ultimaLinea();
+      if (it) cambiarCantidad(it.id, it.cantidad + 1);
+    },
+    restarUltimo: () => {
+      const it = ultimaLinea();
+      if (it && it.cantidad - 1 >= 1) cambiarCantidad(it.id, it.cantidad - 1);
+      else if (it) toast.info("Para sacarlo de la venta, apretá Supr.");
+    },
+    quitarUltimo: () => {
+      const it = ultimaLinea();
+      if (!it) return;
+      eliminarItem(it.id);
+      ultimaLineaId.current = null;
+      toast.info(`${it.producto.nombre} quitado de la venta`);
+    },
+  });
+
   return (
     <div className="space-y-4 p-4">
       <AvisoCajaCerrada />
@@ -637,7 +689,10 @@ function NuevaVentaContenido() {
           <h1 className="text-xl font-semibold text-text sm:text-2xl">Nueva Venta</h1>
           <p className="text-sm text-text-dim">Buscá cliente y productos, y confirmá el cobro</p>
         </div>
-        {premium && <BarraTicket ultimoTicket={ultimoTicket} />}
+        <div className="flex items-center gap-2">
+          <BotonAtajos />
+          {premium && <BarraTicket ultimoTicket={ultimoTicket} />}
+        </div>
       </div>
 
       {presupuestoIdOrigen != null && (
@@ -666,7 +721,7 @@ function NuevaVentaContenido() {
             onClick={() => setModalPrecioAbierto(true)}
             className="flex items-center gap-1.5 whitespace-nowrap cursor-pointer rounded-lg border border-border bg-white px-3 py-2 text-sm font-medium text-text-dim hover:bg-surface-hover"
           >
-            <Tag size={14} /> <span className="hidden sm:inline">Consultar precio</span>
+            <Tag size={14} /> <span className="hidden sm:inline">Consultar precio</span> <Tecla>F4</Tecla>
             <span className="sm:hidden">Precio</span>
           </button>
         </div>
@@ -730,6 +785,7 @@ function NuevaVentaContenido() {
                 className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
               >
                 {procesando ? "Procesando..." : "Confirmar venta"}
+                {!procesando && <Tecla className="ml-2">F9</Tecla>}
               </button>
               <button
                 type="button"

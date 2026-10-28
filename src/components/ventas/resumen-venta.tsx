@@ -3,6 +3,7 @@
 import { Tag } from "lucide-react";
 import { formatCurrency } from "@/lib/currency";
 import type { Descuento } from "./modal-descuento";
+import { Tecla } from "./atajos-teclado";
 
 interface Props {
   subtotal: number;
@@ -39,6 +40,7 @@ export function ResumenVenta({ subtotal, descuento, onAbrirDescuento }: Props) {
                 ? `Descuento ${descuento.valor}%`
                 : `Descuento ${formatCurrency(descuento.valor, "ARS")}`
               : "Descuento"}
+            <Tecla>F6</Tecla>
           </button>
         </div>
 

@@ -21,6 +21,7 @@ export function SelectorCuentaModal({ onSeleccionar, onClose }: Props) {
   const [cuentas, setCuentas] = useState<CuentaOption[]>([]);
   const [query, setQuery] = useState("");
   const [cargando, setCargando] = useState(true);
+  const [activa, setActiva] = useState(0);
 
   useEffect(() => {
     // Red primero (ya filtra activa: true); sin red, copia local de Dexie.
@@ -31,6 +32,24 @@ export function SelectorCuentaModal({ onSeleccionar, onClose }: Props) {
   }, []);
 
   const filtradas = cuentas.filter((c) => c.nombre.toLowerCase().includes(query.toLowerCase()));
+
+  // Con teclado (#110): flechas para moverse, Enter elige, Esc cierra.
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onClose();
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiva((i) => Math.min(i + 1, filtradas.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiva((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const cuenta = filtradas[Math.min(activa, filtradas.length - 1)];
+      if (cuenta) onSeleccionar(cuenta);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/60 p-4 pt-8 sm:pt-20 backdrop-blur-sm">
@@ -48,7 +67,11 @@ export function SelectorCuentaModal({ onSeleccionar, onClose }: Props) {
             <input
               autoFocus
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setActiva(0);
+              }}
+              onKeyDown={handleKeyDown}
               placeholder="Buscar cuenta..."
               className="w-full rounded-lg border border-border bg-bg py-2 pl-9 pr-3 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none"
             />
@@ -60,12 +83,15 @@ export function SelectorCuentaModal({ onSeleccionar, onClose }: Props) {
           {!cargando && filtradas.length === 0 && (
             <div className="py-6 text-center text-sm text-text-dim">Sin resultados</div>
           )}
-          {filtradas.map((c) => (
+          {filtradas.map((c, i) => (
             <button
               key={c.id}
               type="button"
               onClick={() => onSeleccionar(c)}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-surface-hover"
+              onMouseEnter={() => setActiva(i)}
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-surface-hover ${
+                i === activa ? "bg-surface-hover" : ""
+              }`}
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 {c.tipo.startsWith("EFECTIVO") ? <Wallet size={16} /> : <Landmark size={16} />}
